@@ -1,4 +1,4 @@
-const Transmitter = require('..');
+const Transmitter = require('xdrip-js');
 
 const id = process.argv[2];
 const transmitter = new Transmitter(id);
@@ -35,7 +35,7 @@ transmitter.on('glucose', glucose => {
         console.log(err);
         }
     process.exit();
-    }); 
+    });
 });
 
 transmitter.on('disconnect', process.exit);
