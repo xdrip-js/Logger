@@ -9,7 +9,7 @@ Update node version. Please see wiki page for instructions https://github.com/th
 ## Installation
 ```
 cd ~/src
-git clone https://github.com/thebookins/xdrip-js-logger.git
+git clone https://github.com/efidoman/xdrip-js-logger.git
 cd xdrip-js-logger
 sudo npm install
 ```
