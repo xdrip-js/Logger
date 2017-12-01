@@ -5,7 +5,7 @@
 #   xdrip-js
 #
 
-cd /root/src/xdrip-js
+cd /root/src/xdrip-js-logger
 
 echo "Starting xdrip-get-entries.sh"
 date
