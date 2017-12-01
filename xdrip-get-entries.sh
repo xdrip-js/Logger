@@ -74,9 +74,13 @@ else
 
   curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
 
+  meterbgunits=$(cat $METERBG_NS_RAW | jq -M '.[0] | .units')
   meterbg=$(cat $METERBG_NS_RAW | jq -M '.[0] | .glucose')
   meterbg="${meterbg%\"}"
   meterbg="${meterbg#\"}"
+  if [ "$meterbgunits" == "mmol" ]; then
+    meterbg=$(echo $meterbg "*18" | bc)
+  fi
 
   if [ "$meterbg" == "null" ]; then
     :
