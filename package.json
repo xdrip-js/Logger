@@ -6,6 +6,6 @@
   "author": "Paul Dickens",
   "license": "MIT",
   "dependencies": {
-    "xdrip-js": "thebookins/xdrip-js#wip/one-shot"
+    "xdrip-js": "thebookins/xdrip-js#latest"
   }
 }
