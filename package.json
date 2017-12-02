@@ -5,6 +5,10 @@
   "main": "logger/index.js",
   "author": "Paul Dickens",
   "license": "MIT",
+  "scripts": {
+    "test": "make test",
+    "global-install": "npm install && sudo npm install -g && sudo npm link && sudo npm link logger"
+  },
   "dependencies": {
     "xdrip-js": "thebookins/xdrip-js#latest"
   },
