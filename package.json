@@ -8,10 +8,11 @@
   "dependencies": {
     "xdrip-js": "thebookins/xdrip-js#latest"
   }
-}
-
-"bin": {
+  "bin": {
     "xdrip-get-entries": "./xdrip-get-entries.sh",
     "post-xdripAPS": "./post-xdripAPS.sh",
     "post-ns": "./post-ns.sh"
+  }
 }
+
+
