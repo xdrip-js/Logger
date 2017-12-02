@@ -7,7 +7,7 @@ ns_secret="${API_SECRET}"
 # -1 ==> $1 file doesn't exist
 # 0 ==> success
 # other ==> curl_status
-
+ 
 curl_status=-1
 
 if [ -e $1 ]; then
