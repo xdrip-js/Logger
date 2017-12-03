@@ -10,7 +10,7 @@
     "global-install": "npm install && sudo npm install -g && sudo npm link && sudo npm link logger"
   },
   "dependencies": {
-    "xdrip-js": "thebookins/xdrip-js#latest"
+    "xdrip-js": "thebookins/xdrip-js#v1.1.0"
   },
   "bin": {
     "xdrip-get-entries": "./xdrip-get-entries.sh",
