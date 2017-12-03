@@ -5,7 +5,7 @@
 #   xdrip-js
 #
 
-cd /root/src/xdrip-js
+cd /root/src/xdrip-js-logger
 
 echo "Starting xdrip-get-entries.sh"
 date
@@ -74,30 +74,25 @@ else
 
   curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
 
+  meterbgunits=$(cat $METERBG_NS_RAW | jq -M '.[0] | .units')
   meterbg=$(cat $METERBG_NS_RAW | jq -M '.[0] | .glucose')
   meterbg="${meterbg%\"}"
   meterbg="${meterbg#\"}"
+  if [ "$meterbgunits" == "mmol" ]; then
+    meterbg=$(echo $meterbg "*18" | bc)
+  fi
 
   if [ "$meterbg" == "null" ]; then
     :
   else
     if [ $meterbg -lt 400 -a $meterbg -gt 40 ]; then
-      # valid calibration bg from NS, use average of current and last bg for calibration
-      #if [ $lastGlucose -gt 35 ]; then # safety in case $lastGlucose is NULL or 0
-      #  averagebg=`expr $unfiltered + $lastUnfiltered`
-      #  averagebg=`expr $averagebg / 2`
-      #else
-      #  averagebg=$glucose
-      #fi
-
       calibration=`expr $meterbg - $glucose`
       echo "calibration=$calibration, meterbg=$meterbg, glucose=$glucose"
-      if [ $calibration -lt 30 -a $calibration -gt -40 ]; then
+      if [ $calibration -lt 30 -a $calibration -gt -50 ]; then
         # another safety check, but this is a good calibration
         echo "[{\"calibration\":${calibration}}]" > $CALIBRATION_STORAGE
         cp $METERBG_NS_RAW meterbg-ns-backup.json
       fi
-
     fi
   fi
 
@@ -150,9 +145,6 @@ else
 
   echo "Posting glucose record to xdripAPS"
   ./post-xdripAPS.sh ./entry-xdrip.json
-  #ls -al ./entry-xdrip.json
-  #cat ./entry-xdrip.json
-
 
   if [ -e "./entry-backfill.json" ] ; then
     # In this case backfill records not yet sent to Nightscout
@@ -167,17 +159,6 @@ else
 
   echo "Posting blood glucose record(s) to NightScout"
   ./post-ns.sh ./entry-ns.json && (echo; echo "Upload to NightScout of xdrip entry worked ... removing ./entry-backfill.json"; rm ./entry-backfill.json) || (echo; echo "Upload to NS of xdrip entry did not work ... saving for upload when network is restored"; cp ./entry-ns.json ./entry-backfill.json)
-#  if [ 0 -eq $? ] ; then
-#    # success
-#    echo "Upload to NightScout of xdrip entry worked."
-#    echo "Removing ./entry-backfill.json"
-#    rm ./entry-backfill.json
-#  else
-#    echo
-#    echo "Upload to NightScout of xdrip entry did not work."
-#    echo "                saving for upload for when network is restored"
-#    cp ./entry-ns.json ./entry-backfill.json
-#  fi
   echo
 fi
 
@@ -185,3 +166,4 @@ bt-device -r $id
 echo "Finished xdrip-get-entries.sh"
 date
 echo
+

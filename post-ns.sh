@@ -2,12 +2,12 @@
 
 ns_url="${NIGHTSCOUT_HOST}"
 ns_secret="${API_SECRET}"
-
+    
 # exit codes
 # -1 ==> $1 file doesn't exist
 # 0 ==> success
 # other ==> curl_status
-
+ 
 curl_status=-1
 
 if [ -e $1 ]; then
@@ -19,6 +19,3 @@ if [ -e $1 ]; then
 fi
 
 exit $curl_status
-
-
-
