@@ -88,7 +88,7 @@ else
     if [ $meterbg -lt 400 -a $meterbg -gt 40 ]; then
       calibration=`expr $meterbg - $glucose`
       echo "calibration=$calibration, meterbg=$meterbg, glucose=$glucose"
-      if [ $calibration -lt 30 -a $calibration -gt -40 ]; then
+      if [ $calibration -lt 30 -a $calibration -gt -50 ]; then
         # another safety check, but this is a good calibration
         echo "[{\"calibration\":${calibration}}]" > $CALIBRATION_STORAGE
         cp $METERBG_NS_RAW meterbg-ns-backup.json
