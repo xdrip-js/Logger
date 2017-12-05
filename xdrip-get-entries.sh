@@ -97,7 +97,7 @@ else
   fi
 
   if [ -e $CALIBRATION_STORAGE ]; then
-    calibration=$(cat $CALIBRATION_STORAGE | jq -M '.[0] | .calibration')thenjesus cross pendant
+    calibration=$(cat $CALIBRATION_STORAGE | jq -M '.[0] | .calibration')
     calibratedglucose=`expr $glucose + $calibration`
     echo "After calibration calibratedglucose =$calibratedglucose"
   fi
