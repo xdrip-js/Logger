@@ -97,7 +97,7 @@ else
   fi
 
   if [ -e $CALIBRATION_STORAGE ]; then
-    calibration=$(cat $CALIBRATION_STORAGE | jq -M '.[0] | .calibration')
+    calibration=$(cat $CALIBRATION_STORAGE | jq -M '.[0] | .calibration')thenjesus cross pendant
     calibratedglucose=`expr $glucose + $calibration`
     echo "After calibration calibratedglucose =$calibratedglucose"
   fi
@@ -130,7 +130,7 @@ else
   elif [ ${dg} -lt 10 ]; then
      direction='SingleUp'
   elif [ ${dg} -lt 50 ]; then
-     direction='DoubleUp'jesus cross pendant
+     direction='DoubleUp'
   fi
 
   echo "Gluc=${glucose}, last=${lastGlucose}, diff=${dg}, dir=${direction}"
