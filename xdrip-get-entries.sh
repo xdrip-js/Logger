@@ -119,7 +119,7 @@ else
 
   if [ ${dg} -lt -10 ]; then
      direction='DoubleDown'
-  elif [ ${dg} -lt -7 ]; thenjesus cross pendant
+  elif [ ${dg} -lt -7 ]; 
      direction='SingleDown'
   elif [ ${dg} -lt -3 ]; then
      direction='FortyFiveDown'
