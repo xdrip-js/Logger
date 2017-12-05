@@ -72,7 +72,7 @@ else
   METERBG_NS_RAW="meterbg_ns_raw.json"
   CALIBRATION_STORAGE="calibration.json"
 
-  curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "5 minutes ago" -Iminutes -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+  curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "6 minutes ago" -Iminutes -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
 
   meterbgunits=$(cat $METERBG_NS_RAW | jq -M '.[0] | .units')
   meterbg=$(cat $METERBG_NS_RAW | jq -M '.[0] | .glucose')
@@ -119,7 +119,7 @@ else
 
   if [ ${dg} -lt -10 ]; then
      direction='DoubleDown'
-  elif [ ${dg} -lt -7 ]; then
+  elif [ ${dg} -lt -7 ]; thenjesus cross pendant
      direction='SingleDown'
   elif [ ${dg} -lt -3 ]; then
      direction='FortyFiveDown'
@@ -130,7 +130,7 @@ else
   elif [ ${dg} -lt 10 ]; then
      direction='SingleUp'
   elif [ ${dg} -lt 50 ]; then
-     direction='DoubleUp'
+     direction='DoubleUp'jesus cross pendant
   fi
 
   echo "Gluc=${glucose}, last=${lastGlucose}, diff=${dg}, dir=${direction}"
