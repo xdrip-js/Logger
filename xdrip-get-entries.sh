@@ -14,6 +14,10 @@ date
 if [ -e "./entry.json" ] ; then
   lastGlucose=$(cat ./entry.json | jq -M '.[0].unfiltered')
   lastUnfiltered=$(cat ./entry.json | jq -M '.[0].unfiltered')
+  lastAfter=$(date -u -d "5 minutes ago" -Iminutes)
+  lastPostStr="'.[0] | select(.dateString > \"$lastAfter\") | .glucose'"
+  lastPostCal=$(cat ./entry.json | bash -c "jq -M $lastPostStr")
+  #echo lastAfter=$lastAfter, lastPostStr=$lastPostStr, lastPostCal=$lastPostCal
   mv ./entry.json ./last-entry.json
 fi
 
@@ -25,7 +29,7 @@ echo "Removing existing Dexcom bluetooth connection = ${id}"
 bt-device -r $id
 
 echo "Calling xdrip-js ... node logger $transmitter"
-timeout 360s node logger $transmitter
+DEBUG=smp,transmitter,bluetooth-manager timeout 360s node logger $transmitter
 #DEBUG=transmitter,bluetooth-manager node logger 410BFE
 echo "after xdrip-js bg record below ..."
 
@@ -72,23 +76,55 @@ else
   METERBG_NS_RAW="meterbg_ns_raw.json"
   CALIBRATION_STORAGE="calibration.json"
 
-  curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+  # remove old calibration storage when sensor change occurs
+  # calibrate after 15 minutes of sensor change time entered in NS
+  curl -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -u -d "15 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
+  if [ $? == 0 ]; then
+    rm $CALIBRATION_STORAGE
+  fi
 
-  meterbgunits=$(cat $METERBG_NS_RAW | jq -M '.[0] | .units')
-  meterbg=$(cat $METERBG_NS_RAW | jq -M '.[0] | .glucose')
-  meterbg="${meterbg%\"}"
-  meterbg="${meterbg#\"}"
-  if [ "$meterbgunits" == "mmol" ]; then
-    meterbg=$(echo $meterbg "*18" | bc)
+  # look for a bg check from pumphistory (direct from meter->openaps):
+  meterbgafter=$(date -d "7 minutes ago" -Iminutes)
+  meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\") | .amount'"
+  meterbg=$(bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json")
+  # TBD: meter BG from pumphistory doesn't support mmol yet - has no units...
+  echo "meterbg from pumphistory: $meterbg" 
+
+  if [ "$meterbg" == "" ]; then
+    # look for a bg check from NS (& test NS record for local time or UTC)
+    curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -u -d "7 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null >> $METERBG_NS_RAW
+    isUTC=$(jq ".[0].created_at[-1:]" $METERBG_NS_RAW)
+    if [ "$isUTC" != '"Z"' ]; then
+      curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+      isUTC=$(jq ".[0].created_at[-1:]" $METERBG_NS_RAW)
+      if [ "$isUTC" == '"Z"' ]; then
+        echo > $METERBG_NS_RAW
+      fi
+    fi
+
+    meterbgunits=$(cat $METERBG_NS_RAW | jq -M '.[0] | .units')
+    meterbg=$(cat $METERBG_NS_RAW | jq -M '.[0] | .glucose')
+    meterbg="${meterbg%\"}"
+    meterbg="${meterbg#\"}"
+    if [ "$meterbgunits" == "mmol" ]; then
+      meterbg=$(echo $meterbg "*18" | bc)
+    fi
+    echo "meterbg from nightscout: $meterbg" 
   fi
 
   if [ "$meterbg" == "null" ]; then
     :
   else
     if [ $meterbg -lt 400 -a $meterbg -gt 40 ]; then
-      calibration=`expr $meterbg - $glucose`
-      echo "calibration=$calibration, meterbg=$meterbg, glucose=$glucose"
-      if [ $calibration -lt 30 -a $calibration -gt -50 ]; then
+      calibrationBg=$meterbg
+      if [ "$lastPostCal" != "" ]; then
+        if [ $lastPostCal -lt 400 -a $lastPostCal -gt 40 ]; then
+          calibrationBg=$((($meterbg + $lastPostCal) / 2))
+        fi
+      fi
+      calibration=`expr $calibrationBg - $glucose`
+      echo "calibration=$calibration, meterbg=$meterbg, lastPostCal=$lastPostCal, calibrationBg=$calibrationBg, glucose=$glucose"
+      if [ $calibration -lt 60 -a $calibration -gt -80 ]; then
         # another safety check, but this is a good calibration
         echo "[{\"calibration\":${calibration}}]" > $CALIBRATION_STORAGE
         cp $METERBG_NS_RAW meterbg-ns-backup.json
@@ -100,6 +136,10 @@ else
     calibration=$(cat $CALIBRATION_STORAGE | jq -M '.[0] | .calibration')
     calibratedglucose=`expr $glucose + $calibration`
     echo "After calibration calibratedglucose =$calibratedglucose"
+  else
+    echo "No valid calibration yet - exiting"
+    bt-device -r $id
+    exit
   fi
 
    cp entry.json entry-before-calibration.json
@@ -166,4 +206,3 @@ bt-device -r $id
 echo "Finished xdrip-get-entries.sh"
 date
 echo
-
