@@ -22,7 +22,7 @@ transmitter=$1
 
 id2=$(echo "${transmitter: -2}")
 id="Dexcom${id2}"
-echo "Removing existing Dexcom bluetooth connection = ${id}"'.[0].unfiltered'
+echo "Removing existing Dexcom bluetooth connection = ${id}"
 bt-device -r $id
 
 echo "Calling xdrip-js ... node logger $transmitter"
