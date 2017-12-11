@@ -1,9 +1,6 @@
 #!/bin/bash
-# requirements
-#   bt-device --> bluez-tools
-#      sudo apt-get install bluez-tools
-#   xdrip-js
-#
+
+glucoseType='.[0].unfiltered'
 
 cd /root/src/xdrip-js-logger
 
@@ -12,7 +9,7 @@ date
 
 
 if [ -e "./entry.json" ] ; then
-  lastGlucose=$(cat ./entry.json | jq -M '.[0].unfiltered')
+  lastGlucose=$(cat ./entry.json | jq -M $glucoseType)
   lastUnfiltered=$(cat ./entry.json | jq -M '.[0].unfiltered')
   lastAfter=$(date -u -d "5 minutes ago" -Iminutes)
   lastPostStr="'.[0] | select(.dateString > \"$lastAfter\") | .glucose'"
@@ -25,17 +22,15 @@ transmitter=$1
 
 id2=$(echo "${transmitter: -2}")
 id="Dexcom${id2}"
-echo "Removing existing Dexcom bluetooth connection = ${id}"
+echo "Removing existing Dexcom bluetooth connection = ${id}"'.[0].unfiltered'
 bt-device -r $id
 
 echo "Calling xdrip-js ... node logger $transmitter"
 DEBUG=smp,transmitter,bluetooth-manager timeout 360s node logger $transmitter
-#DEBUG=transmitter,bluetooth-manager node logger 410BFE
 echo "after xdrip-js bg record below ..."
-
 cat ./entry.json
 
-glucose=$(cat ./entry.json | jq -M '.[0].unfiltered')
+glucose=$(cat ./entry.json | jq -M $glucoseType)
 echo
 
 if [ "${glucose}" == "" ] ; then
@@ -65,9 +60,7 @@ else
   unfiltered=$(cat ./entry.json | jq -M '.[0].unfiltered')
   filtered=$(cat ./entry.json | jq -M '.[0].filtered')
   glucoseg5=$(cat ./entry.json | jq -M '.[0].glucose')
-#  logdate=$(cat ./entry.json | jq -M '.[0].dateString')
   datetime=$(date +"%Y-%m-%d %H:%M")
-
   # end log to csv file logic for g5 outputs
 
   # begin calibration logic - look for calibration from NS, use existing calibration or none
@@ -76,17 +69,10 @@ else
   METERBG_NS_RAW="meterbg_ns_raw.json"
   CALIBRATION_STORAGE="calibration.json"
 
-
   # remove old calibration storage when sensor change occurs
   # calibrate after 15 minutes of sensor change time entered in NS
   curl -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -u -d "15 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
-  if [ $? == 0 ]; thenEric,
-
-I got sick over the weekend. Thought it may be better by this morning but it got worse overnight. 
-Sorry I’m going to miss SLT and the mentee dinner.
-
-Thanks,
-
+  if [ $? == 0 ]; 
     rm $CALIBRATION_STORAGE
   fi
 
