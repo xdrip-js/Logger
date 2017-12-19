@@ -80,13 +80,7 @@ else
   # remove old calibration storage when sensor change occurs
   # calibrate after 15 minutes of sensor change time entered in NS
   curl -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -u -d "15 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
-  if [ $? == 0 ]; thenEric,
-
-I got sick over the weekend. Thought it may be better by this morning but it got worse overnight. 
-Sorry I’m going to miss SLT and the mentee dinner.
-
-Thanks,
-
+  if [ $? == 0 ]; then
     rm $CALIBRATION_STORAGE
   fi
 
