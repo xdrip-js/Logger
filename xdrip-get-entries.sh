@@ -40,7 +40,11 @@ if [ "${glucose}" == "" ] ; then
   rm ./entry.json
 else
 
-  dg=`expr $glucose - $lastGlucose`
+  if [ "${lastGlucose}" == "" ] ; then
+    dg=0
+  else
+    dg=`expr $glucose - $lastGlucose`
+  fi
 
   # begin try out averaging last two entries ...
   da=${dg}
@@ -81,7 +85,7 @@ else
   meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\") | .amount'"
   meterbg=$(bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json")
   # TBD: meter BG from pumphistory doesn't support mmol yet - has no units...
-  echo "meterbg from pumphistory: $meterbg" 
+  echo "meterbg from pumphistory: $meterbg"
 
   if [ "$meterbg" == "" ]; then
     # look for a bg check from NS (& test NS record for local time or UTC)
@@ -102,7 +106,7 @@ else
     if [ "$meterbgunits" == "mmol" ]; then
       meterbg=$(echo $meterbg "*18" | bc)
     fi
-    echo "meterbg from nightscout: $meterbg" 
+    echo "meterbg from nightscout: $meterbg"
   fi
 
   if [ "$meterbg" == "null" ]; then
@@ -135,6 +139,18 @@ else
     exit
   fi
 
+  if [ $calibratedglucose -gt 400 -o $calibratedglucose -lt 40 ]; then
+    echo "Glucose $calibratedglucose out of range [40,400] - exiting"
+    bt-device -r $id
+    exit
+  fi
+
+  if [ $dg -gt 50 -o $dg -lt -50 ]; then
+    echo "Change $dg out of range [-50,50] - exiting"
+    bt-device -r $id
+    exit
+  fi
+
    cp entry.json entry-before-calibration.json
 
    tmp=$(mktemp)
@@ -152,7 +168,7 @@ else
 
   if [ ${dg} -lt -10 ]; then
      direction='DoubleDown'
-  elif [ ${dg} -lt -7 ]; then 
+  elif [ ${dg} -lt -7 ]; then
      direction='SingleDown'
   elif [ ${dg} -lt -3 ]; then
      direction='FortyFiveDown'
@@ -199,3 +215,4 @@ bt-device -r $id
 echo "Finished xdrip-get-entries.sh"
 date
 echo
+
