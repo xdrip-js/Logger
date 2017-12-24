@@ -166,3 +166,4 @@ bt-device -r $id
 echo "Finished xdrip-get-entries.sh"
 date
 echo
+
