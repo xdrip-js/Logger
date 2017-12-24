@@ -1,9 +1,6 @@
 #!/bin/bash
-# requirements
-#   bt-device --> bluez-tools
-#      sudo apt-get install bluez-tools
-#   xdrip-js
-#
+
+glucoseType='.[0].unfiltered'
 
 cd /root/src/xdrip-js-logger
 
@@ -12,8 +9,12 @@ date
 
 
 if [ -e "./entry.json" ] ; then
-  lastGlucose=$(cat ./entry.json | jq -M '.[0].unfiltered')
+  lastGlucose=$(cat ./entry.json | jq -M $glucoseType)
   lastUnfiltered=$(cat ./entry.json | jq -M '.[0].unfiltered')
+  lastAfter=$(date -u -d "5 minutes ago" -Iminutes)
+  lastPostStr="'.[0] | select(.dateString > \"$lastAfter\") | .glucose'"
+  lastPostCal=$(cat ./entry.json | bash -c "jq -M $lastPostStr")
+  #echo lastAfter=$lastAfter, lastPostStr=$lastPostStr, lastPostCal=$lastPostCal
   mv ./entry.json ./last-entry.json
 fi
 
@@ -25,13 +26,11 @@ echo "Removing existing Dexcom bluetooth connection = ${id}"
 bt-device -r $id
 
 echo "Calling xdrip-js ... node logger $transmitter"
-timeout 360s node logger $transmitter
-#DEBUG=transmitter,bluetooth-manager node logger 410BFE
+DEBUG=smp,transmitter,bluetooth-manager timeout 360s node logger $transmitter
 echo "after xdrip-js bg record below ..."
-
 cat ./entry.json
 
-glucose=$(cat ./entry.json | jq -M '.[0].unfiltered')
+glucose=$(cat ./entry.json | jq -M $glucoseType)
 echo
 
 if [ "${glucose}" == "" ] ; then
@@ -41,7 +40,11 @@ if [ "${glucose}" == "" ] ; then
   rm ./entry.json
 else
 
-  dg=`expr $glucose - $lastGlucose`
+  if [ "${lastGlucose}" == "" ] ; then
+    dg=0
+  else
+    dg=`expr $glucose - $lastGlucose`
+  fi
 
   # begin try out averaging last two entries ...
   da=${dg}
@@ -61,9 +64,7 @@ else
   unfiltered=$(cat ./entry.json | jq -M '.[0].unfiltered')
   filtered=$(cat ./entry.json | jq -M '.[0].filtered')
   glucoseg5=$(cat ./entry.json | jq -M '.[0].glucose')
-#  logdate=$(cat ./entry.json | jq -M '.[0].dateString')
   datetime=$(date +"%Y-%m-%d %H:%M")
-
   # end log to csv file logic for g5 outputs
 
   # begin calibration logic - look for calibration from NS, use existing calibration or none
@@ -72,23 +73,55 @@ else
   METERBG_NS_RAW="meterbg_ns_raw.json"
   CALIBRATION_STORAGE="calibration.json"
 
-  curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "6 minutes ago" -Iminutes -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+  # remove old calibration storage when sensor change occurs
+  # calibrate after 15 minutes of sensor change time entered in NS
+  curl -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -u -d "15 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
+  if [ $? == 0 ]; then
+    rm $CALIBRATION_STORAGE
+  fi
 
-  meterbgunits=$(cat $METERBG_NS_RAW | jq -M '.[0] | .units')
-  meterbg=$(cat $METERBG_NS_RAW | jq -M '.[0] | .glucose')
-  meterbg="${meterbg%\"}"
-  meterbg="${meterbg#\"}"
-  if [ "$meterbgunits" == "mmol" ]; then
-    meterbg=$(echo $meterbg "*18" | bc)
+  # look for a bg check from pumphistory (direct from meter->openaps):
+  meterbgafter=$(date -d "7 minutes ago" -Iminutes)
+  meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\") | .amount'"
+  meterbg=$(bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json")
+  # TBD: meter BG from pumphistory doesn't support mmol yet - has no units...
+  echo "meterbg from pumphistory: $meterbg"
+
+  if [ "$meterbg" == "" ]; then
+    # look for a bg check from NS (& test NS record for local time or UTC)
+    curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -u -d "7 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null >> $METERBG_NS_RAW
+    isUTC=$(jq ".[0].created_at[-1:]" $METERBG_NS_RAW)
+    if [ "$isUTC" != '"Z"' ]; then
+      curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+      isUTC=$(jq ".[0].created_at[-1:]" $METERBG_NS_RAW)
+      if [ "$isUTC" == '"Z"' ]; then
+        echo > $METERBG_NS_RAW
+      fi
+    fi
+
+    meterbgunits=$(cat $METERBG_NS_RAW | jq -M '.[0] | .units')
+    meterbg=$(cat $METERBG_NS_RAW | jq -M '.[0] | .glucose')
+    meterbg="${meterbg%\"}"
+    meterbg="${meterbg#\"}"
+    if [ "$meterbgunits" == "mmol" ]; then
+      meterbg=$(echo $meterbg "*18" | bc)
+    fi
+    echo "meterbg from nightscout: $meterbg"
   fi
 
   if [ "$meterbg" == "null" ]; then
     :
   else
     if [ $meterbg -lt 400 -a $meterbg -gt 40 ]; then
-      calibration=`expr $meterbg - $glucose`
-      echo "calibration=$calibration, meterbg=$meterbg, glucose=$glucose"
-      if [ $calibration -lt 30 -a $calibration -gt -50 ]; then
+      calibrationBg=$meterbg
+      if [ "$lastPostCal" != "" ]; then
+        if [ $lastPostCal -lt 400 -a $lastPostCal -gt 40 ]; then
+          calibrationBg=$((($meterbg + $lastPostCal) / 2))
+        fi
+      fi
+      calibration=`expr $calibrationBg - $glucose`
+      echo "calibration=$calibration, meterbg=$meterbg, lastPostCal=$lastPostCal, calibrationBg=$calibrationBg, glucose=$glucose"
+      if [ $calibration -lt 60 -a $calibration -gt -80 ]; then
         # another safety check, but this is a good calibration
         echo "[{\"calibration\":${calibration}}]" > $CALIBRATION_STORAGE
         cp $METERBG_NS_RAW meterbg-ns-backup.json
@@ -100,6 +133,22 @@ else
     calibration=$(cat $CALIBRATION_STORAGE | jq -M '.[0] | .calibration')
     calibratedglucose=`expr $glucose + $calibration`
     echo "After calibration calibratedglucose =$calibratedglucose"
+  else
+    echo "No valid calibration yet - exiting"
+    bt-device -r $id
+    exit
+  fi
+
+  if [ $calibratedglucose -gt 400 -o $calibratedglucose -lt 40 ]; then
+    echo "Glucose $calibratedglucose out of range [40,400] - exiting"
+    bt-device -r $id
+    exit
+  fi
+
+  if [ $dg -gt 50 -o $dg -lt -50 ]; then
+    echo "Change $dg out of range [-50,50] - exiting"
+    bt-device -r $id
+    exit
   fi
 
    cp entry.json entry-before-calibration.json
@@ -119,7 +168,7 @@ else
 
   if [ ${dg} -lt -10 ]; then
      direction='DoubleDown'
-  elif [ ${dg} -lt -7 ]; then 
+  elif [ ${dg} -lt -7 ]; then
      direction='SingleDown'
   elif [ ${dg} -lt -3 ]; then
      direction='FortyFiveDown'
@@ -158,7 +207,7 @@ else
   fi
 
   echo "Posting blood glucose record(s) to NightScout"
-  ./post-ns.sh ./entry-ns.json && (echo; echo "Upload to NightScout of xdrip entry worked ... removing ./entry-backfill.json"; rm ./entry-backfill.json) || (echo; echo "Upload to NS of xdrip entry did not work ... saving for upload when network is restored"; cp ./entry-ns.json ./entry-backfill.json)
+  ./post-ns.sh ./entry-ns.json && (echo; echo "Upload to NightScout of xdrip entry worked ... removing ./entry-backfill.json"; rm -f ./entry-backfill.json) || (echo; echo "Upload to NS of xdrip entry did not work ... saving for upload when network is restored"; cp ./entry-ns.json ./entry-backfill.json)
   echo
 fi
 
@@ -166,4 +215,3 @@ bt-device -r $id
 echo "Finished xdrip-get-entries.sh"
 date
 echo
-
