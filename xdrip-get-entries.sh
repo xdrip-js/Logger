@@ -7,6 +7,15 @@ cd /root/src/xdrip-js-logger
 echo "Starting xdrip-get-entries.sh"
 date
 
+CALIBRATION_STORAGE="calibration.json"
+
+# remove old calibration storage when sensor change occurs
+# calibrate after 15 minutes of sensor change time entered in NS
+curl -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -u -d "15 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
+if [ $? == 0 ]; then
+  echo "sensor change - removing calibration"
+  rm $CALIBRATION_STORAGE
+fi
 
 if [ -e "./entry.json" ] ; then
   lastGlucose=$(cat ./entry.json | jq -M $glucoseType)
@@ -71,14 +80,6 @@ else
   calibration=0
   ns_url="${NIGHTSCOUT_HOST}"
   METERBG_NS_RAW="meterbg_ns_raw.json"
-  CALIBRATION_STORAGE="calibration.json"
-
-  # remove old calibration storage when sensor change occurs
-  # calibrate after 15 minutes of sensor change time entered in NS
-  curl -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -u -d "15 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
-  if [ $? == 0 ]; then
-    rm $CALIBRATION_STORAGE
-  fi
 
   # look for a bg check from pumphistory (direct from meter->openaps):
   meterbgafter=$(date -d "7 minutes ago" -Iminutes)
@@ -215,4 +216,3 @@ bt-device -r $id
 echo "Finished xdrip-get-entries.sh"
 date
 echo
-
