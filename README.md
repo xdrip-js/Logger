@@ -10,7 +10,16 @@ Logger and xdrip-get-entries.sh currently use the raw g5 blood glucose data and 
 
 *Please note this project is neither created nor backed by Dexcom, Inc. This software is not intended for use in therapy.*
 ## Prerequisites
-Update node version. Please see wiki page for instructions https://github.com/thebookins/xdrip-js/wiki
+Update node version. Follow these steps in this order.
+
+The version of Node that ships with jubilinux is old (v0.10.something). Here are the instructions for updating Node:
+```
+sudo apt-get remove nodered -y
+sudo apt-get remove nodejs nodejs-legacy -y
+sudo apt-get remove npm  -y # if you installed npm
+sudo curl -sL https://deb.nodesource.com/setup_6.x | sudo bash -
+sudo apt-get install nodejs -y
+```
 
 ## Installation
 ```
@@ -19,8 +28,6 @@ git clone https://github.com/efidoman/xdrip-js-logger.git
 cd xdrip-js-logger
 sudo npm install
 sudo apt-get install bluez-tools
-cd ~/src/xdrip-js-logger
-chmod 755 xdrip-get-entries.sh post-ns.sh post-xdripAPS.sh
 ```
 
 Add cron job entry (replace "40SNU6" with your g5 transmitter id in both places below) ...
