@@ -28,8 +28,6 @@ git clone https://github.com/efidoman/xdrip-js-logger.git
 cd xdrip-js-logger
 sudo npm install
 sudo apt-get install bluez-tools
-cd ~/src/xdrip-js-logger
-chmod 755 xdrip-get-entries.sh post-ns.sh post-xdripAPS.sh
 ```
 
 Add cron job entry (replace "40SNU6" with your g5 transmitter id in both places below) ...
