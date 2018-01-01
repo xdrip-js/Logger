@@ -11,7 +11,7 @@ CALIBRATION_STORAGE="calibration.json"
 
 # remove old calibration storage when sensor change occurs
 # calibrate after 15 minutes of sensor change time entered in NS
-curl -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -u -d "15 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
+curl -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
 if [ $? == 0 ]; then
   echo "sensor change - removing calibration"
   rm $CALIBRATION_STORAGE
@@ -20,10 +20,10 @@ fi
 if [ -e "./entry.json" ] ; then
   lastGlucose=$(cat ./entry.json | jq -M $glucoseType)
   lastUnfiltered=$(cat ./entry.json | jq -M '.[0].unfiltered')
-  lastAfter=$(date -u -d "5 minutes ago" -Iminutes)
+  lastAfter=$(date -d "5 minutes ago" -Iminutes)
   lastPostStr="'.[0] | select(.dateString > \"$lastAfter\") | .glucose'"
   lastPostCal=$(cat ./entry.json | bash -c "jq -M $lastPostStr")
-  #echo lastAfter=$lastAfter, lastPostStr=$lastPostStr, lastPostCal=$lastPostCal
+  echo lastAfter=$lastAfter, lastPostStr=$lastPostStr, lastPostCal=$lastPostCal
   mv ./entry.json ./last-entry.json
 fi
 
@@ -48,18 +48,19 @@ if [ -z "${glucose}" ] ; then
   cat ./entry.json
   rm ./entry.json
 else
-  dg=$(bc -l <<< "$glucose - $lastGlucose")
+  dg=$(bc <<< "$glucose - $lastGlucose")
 
   # begin try out averaging last two entries ...
   da=${dg}
   if [ -n ${da} -a $(bc <<< "${da} < 0") -eq 1 ]; then
     da=$(bc <<< "0 - $da")
   fi
-  if (( $(bc <<< "(${da} < 45) && (${da} > 6)") )); then
+
+  if [ "$da" -lt "45" -a "$da" -gt "6" ]; then
      echo "Before Average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, glucose=${glucose}"
-     glucose=$(bc -l <<< "($glucose + $lastGlucose)/2")
-     dg=$(bc -l <<< "$glucose - $lastGlucose")
-     echo "After Average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, glucose=${glucose}"
+     glucose=$(bc <<< "($glucose + $lastGlucose)/2")
+     dg=$(bc <<< "$glucose - $lastGlucose")
+     echo "After average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, glucose=${glucose}"
   fi
   # end average last two entries if noise  code
 
@@ -75,7 +76,6 @@ else
   ns_url="${NIGHTSCOUT_HOST}"
   METERBG_NS_RAW="meterbg_ns_raw.json"
 
-
   # look for a bg check from pumphistory (direct from meter->openaps):
   meterbgafter=$(date -d "7 minutes ago" -Iminutes)
   meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\") | .amount'"
@@ -84,38 +84,31 @@ else
   echo "meterbg from pumphistory: $meterbg"
 
   if [ -z $meterbg ]; then
-    # look for a bg check from NS (& test NS record for local time or UTC)
-    curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -u -d "7 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null >> $METERBG_NS_RAW
-    isUTC=$(jq ".[0].created_at[-1:]" $METERBG_NS_RAW)
-    if [ "$isUTC" != '"Z"' ]; then
-      curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
-      isUTC=$(jq ".[0].created_at[-1:]" $METERBG_NS_RAW)
-      if [ "$isUTC" == '"Z"' ]; then
-        echo > $METERBG_NS_RAW
-      fi
-    fi
+    curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
 
-    meterbgunits=$(cat $METERBG_NS_RAW | jq -M '.[0] | .units' | tr -d '"')
-    meterbg=$(cat $METERBG_NS_RAW | jq -M '.[0] | .glucose' | tr -d '"')
+    meterbgunits=$(cat $METERBG_NS_RAW | jq -M '.[0] | .units')
+    meterbg=`jq -M '.[0] .glucose' $METERBG_NS_RAW`
+    #meterbg=$(cat $METERBG_NS_RAW | jq -M '.[0] | .glucose')
+    meterbg="${meterbg%\"}"
+    meterbg="${meterbg#\"}"
     if [ "$meterbgunits" == "mmol" ]; then
-      meterbg=$(bc -l <<< "$meterbg *18")
+      meterbg=$(bc <<< "$meterbg *18")
     fi
     echo "meterbg from nightscout: $meterbg"
-  fi
 
-  if [ -n "$meterbg" ]; then
-    if (( bc -l <<< "($meterbg < 400) && ($meterbg > 40)" )); then
+    if [ "$meterbg" -lt "400" -a "$meterbg" > "40" ]; then
       calibrationBg=$meterbg
-      if [ -n "$lastPostCal" ]; then
-        if (( bc <<< "($lastPostCal < 400) && ($lastPostCal > 40)" )); then
+      if [ -z "$lastPostCal" ]; then
+        if [ "$lastPostCal" -gt "400" -a "$lastPostCal" -lt "40" ]; then
           calibrationBg=$((($meterbg + $lastPostCal) / 2))
         fi
       fi
-      calibration="$(bc -l <<< "$calibrationBg - $glucose")"
+      calibration="$(bc <<< "$calibrationBg - $glucose")"
       echo "calibration=$calibration, meterbg=$meterbg, lastPostCal=$lastPostCal, calibrationBg=$calibrationBg, glucose=$glucose"
-      if (( bc -l <<< "($calibration < 60) && ($calibration > -80)" )); then
+      if [ "$calibration" -lt "60" -a "$calibration" -gt "-80" ]; then
         # another safety check, but this is a good calibration
         echo "[{\"calibration\":${calibration}}]" > $CALIBRATION_STORAGE
+        cat $CALIBRATION_STORAGE
         cp $METERBG_NS_RAW meterbg-ns-backup.json
       fi
     fi
@@ -123,7 +116,7 @@ else
 
   if [ -e $CALIBRATION_STORAGE ]; then
     calibration=$(cat $CALIBRATION_STORAGE | jq -M '.[0] | .calibration')
-    calibratedglucose=$(bc -l <<< "$glucose + $calibration")
+    calibratedglucose=$(bc <<< "$glucose + $calibration")
     echo "After calibration calibratedglucose =$calibratedglucose"
   else
     echo "No valid calibration yet - exiting"
@@ -131,13 +124,13 @@ else
     exit
   fi
 
-  if [ $calibratedglucose -gt 400 -o $calibratedglucose -lt 40 ]; then
+  if [ "$calibratedglucose" -gt "400" -o "$calibratedglucose" -lt "40" ]; then
     echo "Glucose $calibratedglucose out of range [40,400] - exiting"
     bt-device -r $id
     exit
   fi
 
-  if [ $dg -gt 50 -o $dg -lt -50 ]; then
+  if [ "$dg" -gt "50" -o "$dg" -lt "-50" ]; then
     echo "Change $dg out of range [-50,50] - exiting"
     bt-device -r $id
     exit
