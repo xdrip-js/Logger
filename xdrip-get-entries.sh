@@ -51,13 +51,13 @@ else
   dg=$(bc <<< "$glucose - $lastGlucose")
 
   # begin try out averaging last two entries ...
-  da=${dg}
-  if [ -n ${da} -a $(bc <<< "${da} < 0") -eq 1 ]; then
+  da=$dg
+  if [ -n $da -a $(bc <<< "$da < 0") -eq 1 ]; then
     da=$(bc <<< "0 - $da")
   fi
 
   if [ "$da" -lt "45" -a "$da" -gt "6" ]; then
-     echo "Before Average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, glucose=${glucose}"
+     echo "Before Average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, glucose=$glucose"
      glucose=$(bc <<< "($glucose + $lastGlucose)/2")
      dg=$(bc <<< "$glucose - $lastGlucose")
      echo "After average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, glucose=${glucose}"
@@ -151,23 +151,48 @@ else
   direction='NONE'
   echo "Valid response from g5 transmitter"
 
-  if (( $(bc <<< "${dg} < -10") )); then
-     direction='DoubleDown'
-  elif (( $(bc <<< "${dg} < -7") )); then
-     direction='SingleDown'
-  elif (( $(bc <<< "${dg} < -3") )); then
-     direction='FortyFiveDown'
-  elif (( $(bc <<< "${dg} < 3") )); then
-     direction='Flat'
-  elif (( $(bc <<< "${dg} < 7") )); then
-     direction='FortyFiveUp'
-  elif (( $(bc <<< "${dg} < 10") )); then
-     direction='SingleUp'
-  elif (( $(bc <<< "${dg} < 50") )); then
-     direction='DoubleUp'
+  # Begin trend calculation logic based on last 15 minutes glucose delta average
+
+  # come back here
+  if [ -z "$dg" ]; then
+    direction="NONE"
+  else
+    echo $dg > bgdelta-$(date +%Y%m%d-%H%M%S).dat
+
+       # first delete any delta's > 15 minutes
+    find . -name 'bgdelta*.dat' -mmin +15 -delete
+    usedRecords=0
+    totalDelta=0
+    for i in ./bgdelta*.dat; do
+      usedRecords=$(bc <<< "$usedRecords + 1")
+      currentDelta=`cat $i`
+      totalDelta=$(bc <<< "$totalDelta + $currentDelta")
+    done
+
+    if [ "$usedRecords" -gt "0" ]; then
+      perMinuteAverageDelta=$(bc -l <<< "$totalDelta / (5 * $usedRecords)")
+
+      if (( $(bc <<< "$perMinuteAverageDelta > 3") )); then
+        direction='DoubleUp'
+      elif (( $(bc <<< "$perMinuteAverageDelta > 2") )); then
+        direction='SingleUp'
+      elif (( $(bc <<< "$perMinuteAverageDelta > 1") )); then
+        direction='FortyFiveUp'
+      elif (( $(bc <<< "$perMinuteAverageDelta < -3") )); then
+        direction='DoubleDown'
+      elif (( $(bc <<< "$perMinuteAverageDelta < -2") )); then
+        direction='SingleDown'
+      elif (( $(bc <<< "$perMinuteAverageDelta < -1") )); then
+        direction='FortyFiveDown'
+      else
+        direction='Flat'
+      fi
+    fi
   fi
 
+  echo "perMinuteAverageDelta=$perMinuteAverageDelta, totalDelta=$totalDelta, usedRecords=$usedRecords"
   echo "Gluc=${glucose}, last=${lastGlucose}, diff=${dg}, dir=${direction}"
+
 
   cat entry.json | jq ".[0].direction = \"$direction\"" > entry-xdrip.json
 
