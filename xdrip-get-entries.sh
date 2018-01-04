@@ -84,7 +84,19 @@ else
   echo "meterbg from pumphistory: $meterbg"
 
   if [ -z $meterbg ]; then
-    curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+    curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "12 hours ago" -Ihours -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+    createdAt=$(jq ".[0].created_at" $METERBG_NS_RAW)
+    echo createdAt=${createdAt}
+
+    if [[ $createdAt == *"Z"* ]]; then
+      echo "NS is UTC"
+      curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+    else
+      echo "NS is not UTC"
+      curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+    fi
+    
+#curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
 
     meterbgunits=$(cat $METERBG_NS_RAW | jq -M '.[0] | .units')
     meterbg=`jq -M '.[0] .glucose' $METERBG_NS_RAW`
@@ -112,7 +124,43 @@ else
         cp $METERBG_NS_RAW meterbg-ns-backup.json
       fi
     fi
-  fi
+  ficurl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "100 hours ago" -
+Ihours -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+
+
+createdAt=$(jq ".[0].created_at" $METERBG_NS_RAW)
+echo createdAt=${createdAt}
+
+if [[ $createdAt == *"Z"* ]]; then
+  echo "UTC"
+  curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "1 hours ago" -
+Ihours)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+
+else
+  echo "Not UTC"
+  curl -m 30 "${ns_url}/api/v1/treatments.jsoncurl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "100 hours ago" -
+Ihours -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+
+
+createdAt=$(jq ".[0].created_at" $METERBG_NS_RAW)
+echo createdAt=${createdAt}
+
+if [[ $createdAt == *"Z"* ]]; then
+  echo "UTC"
+  curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "1 hours ago" -
+Ihours)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+
+else
+  echo "Not UTC"
+  curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "1 hours ago" -
+Ihours -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+
+fi
+?find\[created_at\]\[\$gte\]=$(date -d "1 hours ago" -
+Ihours -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+
+fi
+
 
   if [ -e $CALIBRATION_STORAGE ]; then
     calibration=$(cat $CALIBRATION_STORAGE | jq -M '.[0] | .calibration')
