@@ -56,7 +56,7 @@ else
     da=$(bc <<< "0 - $da")
   fi
 
-  if [ "$da" -lt "45" -a "$da" -gt "6" ]; then
+  if [ "$da" -lt "45" -a "$da" -gt "15" ]; then
      echo "Before Average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, glucose=$glucose"
      glucose=$(bc <<< "($glucose + $lastGlucose)/2")
      dg=$(bc <<< "$glucose - $lastGlucose")
