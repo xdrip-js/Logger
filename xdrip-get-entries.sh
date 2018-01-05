@@ -51,13 +51,13 @@ else
   dg=$(bc <<< "$glucose - $lastGlucose")
 
   # begin try out averaging last two entries ...
-  da=${dg}
-  if [ -n ${da} -a $(bc <<< "${da} < 0") -eq 1 ]; then
+  da=$dg
+  if [ -n $da -a $(bc <<< "$da < 0") -eq 1 ]; then
     da=$(bc <<< "0 - $da")
   fi
 
-  if [ "$da" -lt "45" -a "$da" -gt "6" ]; then
-     echo "Before Average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, glucose=${glucose}"
+  if [ "$da" -lt "45" -a "$da" -gt "15" ]; then
+     echo "Before Average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, glucose=$glucose"
      glucose=$(bc <<< "($glucose + $lastGlucose)/2")
      dg=$(bc <<< "$glucose - $lastGlucose")
      echo "After average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, glucose=${glucose}"
@@ -84,11 +84,17 @@ else
   echo "meterbg from pumphistory: $meterbg"
 
   if [ -z $meterbg ]; then
-    curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+    curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "12 hours ago" -Ihours -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+    createdAt=$(jq ".[0].created_at" $METERBG_NS_RAW)
 
+    if [[ $createdAt == *"Z"* ]]; then
+      curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+    else
+      curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+    fi
+    
     meterbgunits=$(cat $METERBG_NS_RAW | jq -M '.[0] | .units')
     meterbg=`jq -M '.[0] .glucose' $METERBG_NS_RAW`
-    #meterbg=$(cat $METERBG_NS_RAW | jq -M '.[0] | .glucose')
     meterbg="${meterbg%\"}"
     meterbg="${meterbg#\"}"
     if [ "$meterbgunits" == "mmol" ]; then
@@ -151,23 +157,48 @@ else
   direction='NONE'
   echo "Valid response from g5 transmitter"
 
-  if (( $(bc <<< "${dg} < -10") )); then
-     direction='DoubleDown'
-  elif (( $(bc <<< "${dg} < -7") )); then
-     direction='SingleDown'
-  elif (( $(bc <<< "${dg} < -3") )); then
-     direction='FortyFiveDown'
-  elif (( $(bc <<< "${dg} < 3") )); then
-     direction='Flat'
-  elif (( $(bc <<< "${dg} < 7") )); then
-     direction='FortyFiveUp'
-  elif (( $(bc <<< "${dg} < 10") )); then
-     direction='SingleUp'
-  elif (( $(bc <<< "${dg} < 50") )); then
-     direction='DoubleUp'
+  # Begin trend calculation logic based on last 15 minutes glucose delta average
+
+  # come back here
+  if [ -z "$dg" ]; then
+    direction="NONE"
+  else
+    echo $dg > bgdelta-$(date +%Y%m%d-%H%M%S).dat
+
+       # first delete any delta's > 15 minutes
+    find . -name 'bgdelta*.dat' -mmin +15 -delete
+    usedRecords=0
+    totalDelta=0
+    for i in ./bgdelta*.dat; do
+      usedRecords=$(bc <<< "$usedRecords + 1")
+      currentDelta=`cat $i`
+      totalDelta=$(bc <<< "$totalDelta + $currentDelta")
+    done
+
+    if [ "$usedRecords" -gt "0" ]; then
+      perMinuteAverageDelta=$(bc -l <<< "$totalDelta / (5 * $usedRecords)")
+
+      if (( $(bc <<< "$perMinuteAverageDelta > 3") )); then
+        direction='DoubleUp'
+      elif (( $(bc <<< "$perMinuteAverageDelta > 2") )); then
+        direction='SingleUp'
+      elif (( $(bc <<< "$perMinuteAverageDelta > 1") )); then
+        direction='FortyFiveUp'
+      elif (( $(bc <<< "$perMinuteAverageDelta < -3") )); then
+        direction='DoubleDown'
+      elif (( $(bc <<< "$perMinuteAverageDelta < -2") )); then
+        direction='SingleDown'
+      elif (( $(bc <<< "$perMinuteAverageDelta < -1") )); then
+        direction='FortyFiveDown'
+      else
+        direction='Flat'
+      fi
+    fi
   fi
 
+  echo "perMinuteAverageDelta=$perMinuteAverageDelta, totalDelta=$totalDelta, usedRecords=$usedRecords"
   echo "Gluc=${glucose}, last=${lastGlucose}, diff=${dg}, dir=${direction}"
+
 
   cat entry.json | jq ".[0].direction = \"$direction\"" > entry-xdrip.json
 
