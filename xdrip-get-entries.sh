@@ -75,6 +75,8 @@ else
   calibration=0
   ns_url="${NIGHTSCOUT_HOST}"
   METERBG_NS_RAW="meterbg_ns_raw.json"
+  rm $METERBG_NS_RAW # clear any old meterbg curl responses
+
 
   # look for a bg check from pumphistory (direct from meter->openaps):
   meterbgafter=$(date -d "7 minutes ago" -Iminutes)
