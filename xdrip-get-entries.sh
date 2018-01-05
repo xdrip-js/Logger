@@ -92,7 +92,7 @@ else
     if [[ $createdAt == *"Z"* ]]; then
        echo "meterbg within 7 minutes using UTC time comparison."       
     else   
-      if [ "$createdAt" != "NULL" -a "$createdAt" != "" ]; then
+      if [ "$createdAt" != "null" -a "$createdAt" != "" ]; then
         curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
         echo "meterbg within 7 minutes using non-UTC time comparison."
       fi
