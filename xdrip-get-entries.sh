@@ -89,13 +89,13 @@ else
     curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
     createdAt=$(jq ".[0].created_at" $METERBG_NS_RAW)
 
-    if [[ $createdAt != *"Z"* ]]; then
+    if [[ $createdAt == *"Z"* ]]; then
+       echo "meterbg within 7 minutes using UTC time comparison."       
+    elif   
       if [ "$createdAt" != "NULL" -a "$createdAt" != "" ]; then
         curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
         echo "meterbg within 7 minutes using non-UTC time comparison."
       fi
-    elif [[ $createdAt == *"Z" ]];then
-        echo "meterbg within 7 minutes using UTC time comparison."       
     fi
     
     meterbgunits=$(cat $METERBG_NS_RAW | jq -M '.[0] | .units')
