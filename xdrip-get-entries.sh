@@ -10,6 +10,15 @@ cd /root/src/xdrip-js-logger
 echo "Starting xdrip-get-entries.sh"
 date
 
+CALIBRATION_STORAGE="calibration.json"
+
+# remove old calibration storage when sensor change occurs
+# calibrate after 15 minutes of sensor change time entered in NS
+curl -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -u -d "15 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
+if [ $? == 0 ]; then
+  echo "sensor change - removing calibration"
+  rm $CALIBRATION_STORAGE
+fi
 
 if [ -e "./entry.json" ] ; then
   lastGlucose=$(cat ./entry.json | jq -M '.[0].unfiltered')
@@ -35,6 +44,20 @@ echo "after xdrip-js bg record below ..."
 
 cat ./entry.json
 
+# re-scale unfiltered from /1000 to /$calSlope
+# (NOTE: ideally xdrip-js should be changed to not scale down unfiltered and
+#        filtered by 1000, and we should also cleanup this script to avoid
+#        scaling unfiltered directly, i.e., use a variable, as there values
+#        should be passed to NS unaltered. This will become more important
+#        when we also send it a cal record...)
+calSlope=750
+scaled=$(cat ./entry.json | jq -M '.[0].unfiltered')
+scaled=$(($scaled * 1000 / $calSlope))
+tmp=$(mktemp)
+jq ".[0].unfiltered = $scaled" entry.json > "$tmp" && mv "$tmp" entry.json
+echo "after unfiltered-scale bg record below ..."
+cat ./entry.json
+
 glucose=$(cat ./entry.json | jq -M '.[0].unfiltered')
 echo
 
@@ -45,14 +68,18 @@ if [ "${glucose}" == "" ] ; then
   rm ./entry.json
 else
 
-  dg=`expr $glucose - $lastGlucose`
+  if [ "${lastGlucose}" == "" ] ; then
+    dg=0
+  else
+    dg=`expr $glucose - $lastGlucose`
+  fi
 
   # begin try out averaging last two entries ...
   da=${dg}
   if [ ${da} -lt 0 ]; then
     da=`expr 0 - $da`
   fi
-  if [ ${da} -lt 45 -a ${da} -gt 6 ]; then
+  if [ ${da} -gt 6 ]; then
      echo "Before Average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, glucose=${glucose}"
      glucose=`expr $glucose + $lastGlucose`
      glucose=`expr $glucose / 2`
@@ -74,22 +101,13 @@ else
   calibration=0
   ns_url="${NIGHTSCOUT_HOST}"
   METERBG_NS_RAW="meterbg_ns_raw.json"
-  CALIBRATION_STORAGE="calibration.json"
-
-
-  # remove old calibration storage when sensor change occurs
-  # calibrate after 15 minutes of sensor change time entered in NS
-  curl -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -u -d "15 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
-  if [ $? == 0 ]; then
-    rm $CALIBRATION_STORAGE
-  fi
 
   # look for a bg check from pumphistory (direct from meter->openaps):
   meterbgafter=$(date -d "7 minutes ago" -Iminutes)
   meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\") | .amount'"
   meterbg=$(bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json")
   # TBD: meter BG from pumphistory doesn't support mmol yet - has no units...
-  echo "meterbg from pumphistory: $meterbg" 
+  echo "meterbg from pumphistory: $meterbg"
 
   if [ "$meterbg" == "" ]; then
     # look for a bg check from NS (& test NS record for local time or UTC)
@@ -110,7 +128,7 @@ else
     if [ "$meterbgunits" == "mmol" ]; then
       meterbg=$(echo $meterbg "*18" | bc)
     fi
-    echo "meterbg from nightscout: $meterbg" 
+    echo "meterbg from nightscout: $meterbg"
   fi
 
   if [ "$meterbg" == "null" ]; then
@@ -143,6 +161,18 @@ else
     exit
   fi
 
+  if [ $calibratedglucose -gt 400 -o $calibratedglucose -lt 40 ]; then
+    echo "Glucose $calibratedglucose out of range [40,400] - exiting"
+    bt-device -r $id
+    exit
+  fi
+
+  if [ $dg -gt 50 -o $dg -lt -50 ]; then
+    echo "Change $dg out of range [-50,50] - exiting"
+    bt-device -r $id
+    exit
+  fi
+
    cp entry.json entry-before-calibration.json
 
    tmp=$(mktemp)
@@ -160,7 +190,7 @@ else
 
   if [ ${dg} -lt -10 ]; then
      direction='DoubleDown'
-  elif [ ${dg} -lt -7 ]; then 
+  elif [ ${dg} -lt -7 ]; then
      direction='SingleDown'
   elif [ ${dg} -lt -3 ]; then
      direction='FortyFiveDown'
@@ -179,10 +209,10 @@ else
   cat entry.json | jq ".[0].direction = \"$direction\"" > entry-xdrip.json
 
   if [ ! -f "/var/log/openaps/g5.csv" ]; then
-    echo "datetime,unfiltered,filtered,glucoseg5,glucose,calibratedglucose,direction,calibration" > /var/log/openaps/g5.csv
+    echo "datetime,unfiltered,filtered,glucoseg5,glucose,calibratedglucose,slope,direction,calibration" > /var/log/openaps/g5.csv
   fi
 
-  echo "${datetime},${unfiltered},${filtered},${glucoseg5},${glucose},${calibratedglucose},${direction},${calibration}" >> /var/log/openaps/g5.csv
+  echo "${datetime},${unfiltered},${filtered},${glucoseg5},${glucose},${calibratedglucose},${calSlope},${direction},${calibration}" >> /var/log/openaps/g5.csv
 
   echo "Posting glucose record to xdripAPS"
   ./post-xdripAPS.sh ./entry-xdrip.json
