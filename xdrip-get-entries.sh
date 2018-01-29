@@ -12,12 +12,12 @@ CALIBRATION_STORAGE="calibration.json"
 # remove old calibration storage when sensor change occurs
 # calibrate after 15 minutes of sensor change time entered in NS
 
-curl -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -u -d "15 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
+#curl -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -u -d "15 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
 
-if [ $? == 0 ]; then
-  echo "sensor change - removing calibration"
-  rm $CALIBRATION_STORAGE
-fi
+#if [ $? == 0 ]; then
+#  echo "sensor change - removing calibration"
+#  rm $CALIBRATION_STORAGE
+#fi
 
 if [ -e "./entry.json" ] ; then
   lastGlucose=$(cat ./entry.json | jq -M $glucoseType)
@@ -47,7 +47,7 @@ cat ./entry.json
 #        scaling unfiltered directly, i.e., use a variable, as there values
 #        should be passed to NS unaltered. This will become more important
 #        when we also send it a cal record...)
-calSlope=750
+calSlope=950
 scaled=$(cat ./entry.json | jq -M $glucoseType)
 scaled=$(($scaled * 1000 / $calSlope))
 tmp=$(mktemp)
