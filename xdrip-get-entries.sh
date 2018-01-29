@@ -11,7 +11,9 @@ CALIBRATION_STORAGE="calibration.json"
 
 # remove old calibration storage when sensor change occurs
 # calibrate after 15 minutes of sensor change time entered in NS
-curl -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" -Iminutes -u)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
+
+curl -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -u -d "15 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
+
 if [ $? == 0 ]; then
   echo "sensor change - removing calibration"
   rm $CALIBRATION_STORAGE
@@ -39,7 +41,22 @@ DEBUG=smp,transmitter,bluetooth-manager timeout 360s node logger $transmitter
 echo "after xdrip-js bg record below ..."
 cat ./entry.json
 
+# re-scale unfiltered from /1000 to /$calSlope
+# (NOTE: ideally xdrip-js should be changed to not scale down unfiltered and
+#        filtered by 1000, and we should also cleanup this script to avoid
+#        scaling unfiltered directly, i.e., use a variable, as there values
+#        should be passed to NS unaltered. This will become more important
+#        when we also send it a cal record...)
+calSlope=750
+scaled=$(cat ./entry.json | jq -M $glucoseType)
+scaled=$(($scaled * 1000 / $calSlope))
+tmp=$(mktemp)
+jq "$glucoseType = $scaled" entry.json > "$tmp" && mv "$tmp" entry.json
+echo "after unfiltered-scale bg record below ..."
+cat ./entry.json
+
 glucose=$(cat ./entry.json | jq -M $glucoseType)
+
 echo
 
 if [ -z "${glucose}" ] ; then
@@ -48,14 +65,17 @@ if [ -z "${glucose}" ] ; then
   cat ./entry.json
   rm ./entry.json
 else
-  dg=$(bc <<< "$glucose - $lastGlucose")
+  if [ "${lastGlucose}" == "" ] ; then
+    dg=0
+  else
+    dg=`expr $glucose - $lastGlucose`
+  fi
 
   # begin try out averaging last two entries ...
   da=$dg
   if [ -n $da -a $(bc <<< "$da < 0") -eq 1 ]; then
     da=$(bc <<< "0 - $da")
   fi
-
   if [ "$da" -lt "45" -a "$da" -gt "15" ]; then
      echo "Before Average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, glucose=$glucose"
      glucose=$(bc <<< "($glucose + $lastGlucose)/2")
@@ -75,8 +95,8 @@ else
   calibration=0
   ns_url="${NIGHTSCOUT_HOST}"
   METERBG_NS_RAW="meterbg_ns_raw.json"
-  rm $METERBG_NS_RAW # clear any old meterbg curl responses
 
+  rm $METERBG_NS_RAW # clear any old meterbg curl responses
 
   # look for a bg check from pumphistory (direct from meter->openaps):
   meterbgafter=$(date -d "7 minutes ago" -Iminutes)
@@ -135,6 +155,7 @@ else
     exit
   fi
 
+
   if [ "$calibratedglucose" -gt "400" -o "$calibratedglucose" -lt "40" ]; then
     echo "Glucose $calibratedglucose out of range [40,400] - exiting"
     bt-device -r $id
@@ -163,8 +184,6 @@ else
   echo "Valid response from g5 transmitter"
 
   # Begin trend calculation logic based on last 15 minutes glucose delta average
-
-  # come back here
   if [ -z "$dg" ]; then
     direction="NONE"
   else
@@ -208,10 +227,10 @@ else
   cat entry.json | jq ".[0].direction = \"$direction\"" > entry-xdrip.json
 
   if [ ! -f "/var/log/openaps/g5.csv" ]; then
-    echo "datetime,unfiltered,filtered,glucoseg5,glucose,calibratedglucose,direction,calibration" > /var/log/openaps/g5.csv
+    echo "datetime,unfiltered,filtered,glucoseg5,glucose,calibratedglucose,slope,direction,calibration" > /var/log/openaps/g5.csv
   fi
 
-  echo "${datetime},${unfiltered},${filtered},${glucoseg5},${glucose},${calibratedglucose},${direction},${calibration}" >> /var/log/openaps/g5.csv
+  echo "${datetime},${unfiltered},${filtered},${glucoseg5},${glucose},${calibratedglucose},${calSlope},${direction},${calibration}" >> /var/log/openaps/g5.csv
 
   echo "Posting glucose record to xdripAPS"
   ./post-xdripAPS.sh ./entry-xdrip.json
