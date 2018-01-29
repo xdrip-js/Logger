@@ -42,14 +42,13 @@ echo "after xdrip-js bg record below ..."
 cat ./entry.json
 
 # re-scale unfiltered from /1000 to /$calSlope
-# (NOTE: ideally xdrip-js should be changed to not scale down unfiltered and
-#        filtered by 1000, and we should also cleanup this script to avoid
+# (NOTE: We should also cleanup this script to avoid
 #        scaling unfiltered directly, i.e., use a variable, as there values
 #        should be passed to NS unaltered. This will become more important
 #        when we also send it a cal record...)
 calSlope=950
 scaled=$(cat ./entry.json | jq -M $glucoseType)
-scaled=$(($scaled * 1000 / $calSlope))
+scaled=$(($scaled / $calSlope))
 tmp=$(mktemp)
 jq "$glucoseType = $scaled" entry.json > "$tmp" && mv "$tmp" entry.json
 echo "after unfiltered-scale bg record below ..."
