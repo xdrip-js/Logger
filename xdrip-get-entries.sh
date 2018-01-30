@@ -47,7 +47,7 @@ cat ./entry.json
 #        scaling unfiltered directly, i.e., use a variable, as there values
 #        should be passed to NS unaltered. This will become more important
 #        when we also send it a cal record...)
-calSlope=850
+calSlope=950
 scaled=$(cat ./entry.json | jq -M $glucoseType)
 scaled=$(($scaled / $calSlope))
 tmp=$(mktemp)
