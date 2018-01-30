@@ -47,7 +47,7 @@ cat ./entry.json
 #        scaling unfiltered directly, i.e., use a variable, as there values
 #        should be passed to NS unaltered. This will become more important
 #        when we also send it a cal record...)
-calSlope=950
+calSlope=850
 scaled=$(cat ./entry.json | jq -M $glucoseType)
 scaled=$(($scaled / $calSlope))
 tmp=$(mktemp)
@@ -136,7 +136,7 @@ else
       fi
       calibration="$(bc <<< "$calibrationBg - $glucose")"
       echo "calibration=$calibration, meterbg=$meterbg, lastPostCal=$lastPostCal, calibrationBg=$calibrationBg, glucose=$glucose"
-      if [ "$calibration" -lt "60" -a "$calibration" -gt "-80" ]; then
+      if [ "$calibration" -lt "60" -a "$calibration" -gt "-150" ]; then
         # another safety check, but this is a good calibration
         echo "[{\"calibration\":${calibration}}]" > $CALIBRATION_STORAGE
         cat $CALIBRATION_STORAGE
@@ -162,8 +162,8 @@ else
     exit
   fi
 
-  if [ "$dg" -gt "50" -o "$dg" -lt "-50" ]; then
-    echo "Change $dg out of range [-50,50] - exiting"
+  if [ "$dg" -gt "50" -o "$dg" -lt "-150" ]; then
+    echo "Change $dg out of range [50,-150] - exiting"
     bt-device -r $id
     exit
   fi
