@@ -12,8 +12,9 @@ CALIBRATION_STORAGE="calibration.json"
 # remove old calibration storage when sensor change occurs
 # calibrate after 15 minutes of sensor change time entered in NS
 
-#curl -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -u -d "15 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
-
+# disable this feature for now. It isn't recreating the calibration file after sensor insert and BG check
+#
+#curl -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" -Iminutes -u)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
 #if [ $? == 0 ]; then
 #  echo "sensor change - removing calibration"
 #  rm $CALIBRATION_STORAGE
