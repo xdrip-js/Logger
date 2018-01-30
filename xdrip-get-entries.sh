@@ -19,10 +19,12 @@ CALIBRATION_STORAGE="calibration.json"
 #  echo "sensor change - removing calibration"
 #  rm $CALIBRATION_STORAGE
 #fi
+calSlope=950
 
 if [ -e "./entry.json" ] ; then
   lastGlucose=$(cat ./entry.json | jq -M $glucoseType)
-  lastUnfiltered=$(cat ./entry.json | jq -M '.[0].unfiltered')
+  lastGlucose=$(($lastGlucose / $calSlope))
+  
   lastAfter=$(date -d "5 minutes ago" -Iminutes)
   lastPostStr="'.[0] | select(.dateString > \"$lastAfter\") | .glucose'"
   lastPostCal=$(cat ./entry.json | bash -c "jq -M $lastPostStr")
@@ -39,6 +41,7 @@ bt-device -r $id
 
 echo "Calling xdrip-js ... node logger $transmitter"
 DEBUG=smp,transmitter,bluetooth-manager timeout 360s node logger $transmitter
+echo
 echo "after xdrip-js bg record below ..."
 cat ./entry.json
 
@@ -47,15 +50,16 @@ cat ./entry.json
 #        scaling unfiltered directly, i.e., use a variable, as there values
 #        should be passed to NS unaltered. This will become more important
 #        when we also send it a cal record...)
-calSlope=950
+
 scaled=$(cat ./entry.json | jq -M $glucoseType)
 scaled=$(($scaled / $calSlope))
 tmp=$(mktemp)
-jq "$glucoseType = $scaled" entry.json > "$tmp" && mv "$tmp" entry.json
-echo "after unfiltered-scale bg record below ..."
-cat ./entry.json
+#jq "$glucoseType = $scaled" entry.json > "$tmp" && mv "$tmp" entry.json
+#echo "after unfiltered-scale bg record below ..."
+#cat ./entry.json
 
-glucose=$(cat ./entry.json | jq -M $glucoseType)
+#glucose=$(cat ./entry.json | jq -M $glucoseType)
+glucose=$scaled
 
 echo
 
