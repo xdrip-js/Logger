@@ -26,7 +26,7 @@ sudo apt-get install nodejs -y
 cd ~/src
 git clone https://github.com/efidoman/xdrip-js-logger.git
 cd xdrip-js-logger
-sudo npm global-install
+sudo npm run global-install
 sudo apt-get install bluez-tools
 ```
 
