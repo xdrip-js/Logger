@@ -19,10 +19,12 @@ CALIBRATION_STORAGE="calibration.json"
 #  echo "sensor change - removing calibration"
 #  rm $CALIBRATION_STORAGE
 #fi
+calSlope=950
 
 if [ -e "./entry.json" ] ; then
   lastGlucose=$(cat ./entry.json | jq -M $glucoseType)
-  lastUnfiltered=$(cat ./entry.json | jq -M '.[0].unfiltered')
+  lastGlucose=$(($lastGlucose / $calSlope))
+  
   lastAfter=$(date -d "5 minutes ago" -Iminutes)
   lastPostStr="'.[0] | select(.dateString > \"$lastAfter\") | .glucose'"
   lastPostCal=$(cat ./entry.json | bash -c "jq -M $lastPostStr")
@@ -39,6 +41,7 @@ bt-device -r $id
 
 echo "Calling xdrip-js ... node logger $transmitter"
 DEBUG=smp,transmitter,bluetooth-manager timeout 360s node logger $transmitter
+echo
 echo "after xdrip-js bg record below ..."
 cat ./entry.json
 
@@ -47,15 +50,16 @@ cat ./entry.json
 #        scaling unfiltered directly, i.e., use a variable, as there values
 #        should be passed to NS unaltered. This will become more important
 #        when we also send it a cal record...)
-calSlope=950
+
 scaled=$(cat ./entry.json | jq -M $glucoseType)
 scaled=$(($scaled / $calSlope))
 tmp=$(mktemp)
-jq "$glucoseType = $scaled" entry.json > "$tmp" && mv "$tmp" entry.json
-echo "after unfiltered-scale bg record below ..."
-cat ./entry.json
+#jq "$glucoseType = $scaled" entry.json > "$tmp" && mv "$tmp" entry.json
+#echo "after unfiltered-scale bg record below ..."
+#cat ./entry.json
 
-glucose=$(cat ./entry.json | jq -M $glucoseType)
+#glucose=$(cat ./entry.json | jq -M $glucoseType)
+glucose=$scaled
 
 echo
 
@@ -136,7 +140,7 @@ else
       fi
       calibration="$(bc <<< "$calibrationBg - $glucose")"
       echo "calibration=$calibration, meterbg=$meterbg, lastPostCal=$lastPostCal, calibrationBg=$calibrationBg, glucose=$glucose"
-      if [ "$calibration" -lt "60" -a "$calibration" -gt "-80" ]; then
+      if [ "$calibration" -lt "60" -a "$calibration" -gt "-150" ]; then
         # another safety check, but this is a good calibration
         echo "[{\"calibration\":${calibration}}]" > $CALIBRATION_STORAGE
         cat $CALIBRATION_STORAGE
@@ -162,8 +166,8 @@ else
     exit
   fi
 
-  if [ "$dg" -gt "50" -o "$dg" -lt "-50" ]; then
-    echo "Change $dg out of range [-50,50] - exiting"
+  if [ "$dg" -gt "50" -o "$dg" -lt "-150" ]; then
+    echo "Change $dg out of range [50,-150] - exiting"
     bt-device -r $id
     exit
   fi
