@@ -116,7 +116,7 @@ else
     meterbg="${meterbg%\"}"
     meterbg="${meterbg#\"}"
     if [ "$meterbgunits" == "mmol" ]; then
-      meterbg=$(bc <<< "$meterbg *18")
+      meterbg=$(bc <<< "($meterbg *18)/1")
     fi
     echo "meterbg from nightscout: $meterbg"
 
