@@ -11,7 +11,6 @@ CALIBRATION_STORAGE="calibration.json"
 
 # remove old calibration storage when sensor change occurs
 # calibrate after 15 minutes of sensor change time entered in NS
-
 # disable this feature for now. It isn't recreating the calibration file after sensor insert and BG check
 #
 #curl -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" -Iminutes -u)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
@@ -46,22 +45,12 @@ echo "after xdrip-js bg record below ..."
 cat ./entry.json
 
 # re-scale unfiltered from /1000 to /$calSlope
-# (NOTE: We should also cleanup this script to avoid
-#        scaling unfiltered directly, i.e., use a variable, as there values
-#        should be passed to NS unaltered. This will become more important
-#        when we also send it a cal record...)
 
 scaled=$(cat ./entry.json | jq -M $glucoseType)
 scaled=$(($scaled / $calSlope))
 tmp=$(mktemp)
-#jq "$glucoseType = $scaled" entry.json > "$tmp" && mv "$tmp" entry.json
-#echo "after unfiltered-scale bg record below ..."
-#cat ./entry.json
-
-#glucose=$(cat ./entry.json | jq -M $glucoseType)
 glucose=$scaled
-
-echo
+echo "scaled glucose=$glucose, scale=$calSlope"
 
 if [ -z "${glucose}" ] ; then
   echo "Invalid response from g5 transmitter"
