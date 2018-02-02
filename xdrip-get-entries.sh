@@ -24,10 +24,10 @@ if [ -e "./entry.json" ] ; then
   lastGlucose=$(cat ./entry.json | jq -M $glucoseType)
   lastGlucose=$(($lastGlucose / $calSlope))
   
-  lastAfter=$(date -d "5 minutes ago" -Iminutes)
-  lastPostStr="'.[0] | select(.dateString > \"$lastAfter\") | .glucose'"
-  lastPostCal=$(cat ./entry.json | bash -c "jq -M $lastPostStr")
-  echo lastAfter=$lastAfter, lastPostStr=$lastPostStr, lastPostCal=$lastPostCal
+#  lastAfter=$(date -d "5 minutes ago" -Iminutes)
+#  lastPostStr="'.[0] | select(.dateString > \"$lastAfter\") | .glucose'"
+#  lastPostCal=$(cat ./entry.json | bash -c "jq -M $lastPostStr")
+#  echo lastAfter=$lastAfter, lastPostStr=$lastPostStr, lastPostCal=$lastPostCal
   mv ./entry.json ./last-entry.json
 fi
 
@@ -120,21 +120,23 @@ else
     fi
     echo "meterbg from nightscout: $meterbg"
 
-    if [ "$meterbg" -lt "400" -a "$meterbg" > "40" ]; then
+if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
       calibrationBg=$meterbg
-      if [ -z "$lastPostCal" ]; then
-        if [ "$lastPostCal" -gt "400" -a "$lastPostCal" -lt "40" ]; then
-          calibrationBg=$((($meterbg + $lastPostCal) / 2))
-        fi
-      fi
+#      if [ -z "$lastPostCal" ]; then
+#        if [ $(bc <<< "$lastPostCal < 400") -eq 1 -a $(bc <<< "$lastPostCal > 40") -eq 1 ]; then
+#          calibrationBg=$(bc <<< "($meterbg + $lastPostCal) / 2")
+#        fi
+#      fi
       calibration="$(bc <<< "$calibrationBg - $glucose")"
       echo "calibration=$calibration, meterbg=$meterbg, lastPostCal=$lastPostCal, calibrationBg=$calibrationBg, glucose=$glucose"
-      if [ "$calibration" -lt "60" -a "$calibration" -gt "-150" ]; then
+      if [ $(bc <<< "$calibration < 60") -eq 1 -a $(bc <<< "$calibration > -150") -eq 1 ]; then
         # another safety check, but this is a good calibration
         echo "[{\"calibration\":${calibration}}]" > $CALIBRATION_STORAGE
-        cat $CALIBRATION_STORAGE
         cp $METERBG_NS_RAW meterbg-ns-backup.json
+      else
+        echo "Invalid calibration"
       fi
+      cat $CALIBRATION_STORAGE
     fi
   fi
 
@@ -149,14 +151,14 @@ else
   fi
 
 
-  if [ "$calibratedglucose" -gt "400" -o "$calibratedglucose" -lt "40" ]; then
+  if [ $(bc <<< "$calibratedglucose > 400") -eq 1 -o $(bc <<< "$calibratedglucose < 40") -eq 1 ]; then
     echo "Glucose $calibratedglucose out of range [40,400] - exiting"
     bt-device -r $id
     exit
   fi
 
-  if [ "$dg" -gt "50" -o "$dg" -lt "-150" ]; then
-    echo "Change $dg out of range [50,-150] - exiting"
+  if [ $(bc <<< "$dg > 50") -eq 1 -o $(bc <<< "$dg < -50") -eq 1 ]; then
+    echo "Change $dg out of range [50,-50] - exiting"
     bt-device -r $id
     exit
   fi
@@ -192,7 +194,7 @@ else
       totalDelta=$(bc <<< "$totalDelta + $currentDelta")
     done
 
-    if [ "$usedRecords" -gt "0" ]; then
+    if [ $(bc <<< "$usedRecords > 0") -eq 1 ]; then
       perMinuteAverageDelta=$(bc -l <<< "$totalDelta / (5 * $usedRecords)")
 
       if (( $(bc <<< "$perMinuteAverageDelta > 3") )); then
