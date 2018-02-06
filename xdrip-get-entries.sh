@@ -236,6 +236,7 @@ if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; the
 
 
   predicted=$(bc -l <<< "($unfiltered-$yIntercept)/$slope")
+  predicted=$(bc <<< "($predicted/1)") # truncate
   echo "${datetime},${unfiltered},${filtered},${glucoseg5},${glucose},${calibratedglucose},${calSlope},${direction},${calibration},${calibrationBg},${predicted},${slope},${yIntercept}" >> /var/log/openaps/g5.csv
 
   echo "Posting glucose record to xdripAPS"
