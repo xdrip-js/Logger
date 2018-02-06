@@ -152,8 +152,8 @@ fi
 
 if [ $(bc  <<< "$yIntercept > $maxIntercept") -eq 1 ]; then
   yIntercept=$maxIntercept
-elif [ $(bc <<< "$yIntercept < 0") -eq 1 ]; then
-  yIntercept=0
+elif [ $(bc <<< "$yIntercept < -30000") -eq 1 ]; then
+  yIntercept=-30000
 fi 
 
 echo "After bounds check, slope=$slope, yIntercept=$yIntercept"
