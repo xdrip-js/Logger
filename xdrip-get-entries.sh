@@ -18,7 +18,9 @@ CALIBRATION_STORAGE="calibration.json"
 #  echo "sensor change - removing calibration"
 #  rm $CALIBRATION_STORAGE
 #fi
-calSlope=950
+calSlope=999
+b=16906
+m=914
 
 if [ -e "./entry.json" ] ; then
   lastGlucose=$(cat ./entry.json | jq -M $glucoseType)
@@ -122,16 +124,20 @@ else
 
 if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
       calibrationBg=$meterbg
-#      if [ -z "$lastPostCal" ]; then
-#        if [ $(bc <<< "$lastPostCal < 400") -eq 1 -a $(bc <<< "$lastPostCal > 40") -eq 1 ]; then
-#          calibrationBg=$(bc <<< "($meterbg + $lastPostCal) / 2")
-#        fi
-#      fi
       calibration="$(bc <<< "$calibrationBg - $glucose")"
-      echo "calibration=$calibration, meterbg=$meterbg, lastPostCal=$lastPostCal, calibrationBg=$calibrationBg, glucose=$glucose"
+      echo "calibration=$calibration, meterbg=$meterbg, calibrationBg=$calibrationBg, glucose=$glucose"
       if [ $(bc <<< "$calibration < 60") -eq 1 -a $(bc <<< "$calibration > -150") -eq 1 ]; then
         # another safety check, but this is a good calibration
-        echo "[{\"calibration\":${calibration}}]" > $CALIBRATION_STORAGE
+        if [ -e $CALIBRATION_STORAGE ]; then
+          tmp=$(mktemp)
+          jq ".[0].calibration = $calibration" $CALIBRATION_STORAGE > "$tmp" && mv "$tmp" $CALIBRATION_STORAGE 
+        else
+          echo "[{\"calibration\":$calibration}]" > $CALIBRATION_STORAGE
+        fi
+        #Begin log calibrations for 1pt 2pt and regressive calibration calculations
+        echo "$unfiltered,$meterbg,$datetime" >> ./calibrations.csv 
+        ./calc-calibration.sh ./calibrations.csv ./calibration-linear.json
+
         cp $METERBG_NS_RAW meterbg-ns-backup.json
       else
         echo "Invalid calibration"
@@ -142,6 +148,8 @@ if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; the
 
   if [ -e $CALIBRATION_STORAGE ]; then
     calibration=$(cat $CALIBRATION_STORAGE | jq -M '.[0] | .calibration')
+    slope=`jq -M '.[0] .slope' calibration-linear.json` 
+    yIntercept=`jq -M '.[0] .yIntercept' calibration-linear.json` 
     calibratedglucose=$(bc <<< "$glucose + $calibration")
     echo "After calibration calibratedglucose =$calibratedglucose"
   else
@@ -221,11 +229,14 @@ if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; the
 
   cat entry.json | jq ".[0].direction = \"$direction\"" > entry-xdrip.json
 
+
   if [ ! -f "/var/log/openaps/g5.csv" ]; then
-    echo "datetime,unfiltered,filtered,glucoseg5,glucose,calibratedglucose,slope,direction,calibration" > /var/log/openaps/g5.csv
+    echo "datetime,unfiltered,filtered,glucoseg5,glucose,calibratedglucose,slope,direction,calibration,calibrationBg,predictedBg,slope,yIntercept" > /var/log/openaps/g5.csv
   fi
 
-  echo "${datetime},${unfiltered},${filtered},${glucoseg5},${glucose},${calibratedglucose},${calSlope},${direction},${calibration}" >> /var/log/openaps/g5.csv
+
+  predicted=$(bc -l <<< "($unfiltered-$yIntercept)/$slope")
+  echo "${datetime},${unfiltered},${filtered},${glucoseg5},${glucose},${calibratedglucose},${calSlope},${direction},${calibration},${calibrationBg},${predicted},${slope},${yIntercept}" >> /var/log/openaps/g5.csv
 
   echo "Posting glucose record to xdripAPS"
   ./post-xdripAPS.sh ./entry-xdrip.json
