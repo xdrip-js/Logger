@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# 
 glucoseType='.[0].unfiltered'
 
 cd /root/src/xdrip-js-logger
