@@ -118,8 +118,8 @@ else
   yIntercept=0
 fi
 
-calibratedBG=$(bc -l <<< "($unfiltered-$yIntercept)/$slope")
-calibratedBG=$(bc <<< "($calibratedBG/1)") # truncate
+calibratedBG=$(bc -l <<< "($unfiltered - $yIntercept)/$slope")
+calibratedBG=$(bc <<< "($calibratedBG / 1)") # truncate
 echo "After calibration calibratedBG =$calibratedBG, slope=$slope, yIntercept=$yIntercept, unfiltered=$unfiltered"
 
 if [ $(bc <<< "$calibratedBG > 400") -eq 1 -o $(bc <<< "$calibratedBG < 40") -eq 1 ]; then

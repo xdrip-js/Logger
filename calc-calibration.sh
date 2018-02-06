@@ -39,7 +39,7 @@ function MathSum()
 
   for i in "$@"
   do
-    total=$(bc -l <<< "$total+$i")
+    total=$(bc -l <<< "$total + $i")
   done
 
   echo "$total"
@@ -51,7 +51,7 @@ function MathAvg()
   local total=$(MathSum "${arr[@]}") 
   local avg=0
 
-  avg=$(bc -l <<< "$total/${#arr[@]}")
+  avg=$(bc -l <<< "$total / ${#arr[@]}")
 
   echo "$avg"
 }
@@ -68,7 +68,7 @@ function MathStdDev()
     sqdif=$(bc -l <<< "$sqdif + ($i-$mean)^2") 
   done
   
-  stddev=$(bc -l <<< "sqrt($sqdif/(${#arr[@]}-1))")
+  stddev=$(bc -l <<< "sqrt($sqdif / (${#arr[@]} - 1))")
   echo $stddev
 }
 
@@ -94,17 +94,17 @@ function LeastSquaresRegression()
 
   for (( i=0; i<$n; i++ ))
   do
-    sumXY=$(bc -l <<< "$sumXY + ${xarr[i]}*${yarr[i]}")
-    sumXSq=$(bc -l <<< "$sumXSq + ${xarr[i]}*${xarr[i]}")
-    sumYSq=$(bc -l <<< "$sumYSq + ${yarr[i]}*${yarr[i]}")
+    sumXY=$(bc -l <<< "$sumXY + ${xarr[i]} * ${yarr[i]}")
+    sumXSq=$(bc -l <<< "$sumXSq + ${xarr[i]} * ${xarr[i]}")
+    sumYSq=$(bc -l <<< "$sumYSq + ${yarr[i]} * ${yarr[i]}")
   done  
   
-  r=$(bc -l <<< "($n*$sumXY-$sumX*$sumY)/sqrt((($n*$sumXSq-${sumX}^2)*($n*$sumYSq-${sumY}^2)))")
+  r=$(bc -l <<< "($n * $sumXY - $sumX * $sumY) / sqrt((($n * $sumXSq - ${sumX}^2) * ($n * $sumYSq - ${sumY}^2)))")
 #  echo "r=$r, n=$n, sumXSq=$sumXSq, sumYSq=$sumYSq"
 #  echo "sumY=$sumY, sumX=$sumX, stddevX=$stddevX, stddevY=$stddevY" 
 
   m=$(bc -l <<< "$r * $stddevY / $stddevX ")
-  b=$(bc -l <<< "$meanY - $m*$meanX ")
+  b=$(bc -l <<< "$meanY - $m * $meanX ")
 
 #  echo "m=$m, b=$b" 
 # sets global variables slope and yIntercept
@@ -136,8 +136,8 @@ elif [ "$numx" -gt "0" ]; then
 fi
 
 # truncate and bounds check
-yIntercept=$(bc <<< "$yIntercept/1") # truncate
-slope=$(bc <<< "$slope/1") # truncate
+yIntercept=$(bc <<< "$yIntercept / 1") # truncate
+slope=$(bc <<< "$slope / 1") # truncate
 
 # Set max yIntercept to the minimum of the set of unfiltered values
 maxIntercept=$(MathMin "${yarr[@]}")
