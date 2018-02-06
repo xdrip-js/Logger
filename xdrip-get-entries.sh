@@ -7,7 +7,9 @@ cd /root/src/xdrip-js-logger
 echo "Starting xdrip-get-entries.sh"
 date
 
-CALIBRATION_STORAGE="calibration.json"
+#CALIBRATION_STORAGE="calibration.json"
+CAL_INPUT="./calibrations.csv"
+CAL_OUTPUT="./calibration-linear.json"
 
 # remove old calibration storage when sensor change occurs
 # calibrate after 15 minutes of sensor change time entered in NS
@@ -123,40 +125,42 @@ else
     echo "meterbg from nightscout: $meterbg"
 
 if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
-      calibrationBg=$meterbg
-      calibration="$(bc <<< "$calibrationBg - $glucose")"
-      echo "calibration=$calibration, meterbg=$meterbg, calibrationBg=$calibrationBg, glucose=$glucose"
-      if [ $(bc <<< "$calibration < 60") -eq 1 -a $(bc <<< "$calibration > -150") -eq 1 ]; then
+#      calibrationBg=$meterbg
+#      calibration="$(bc <<< "$calibrationBg - $glucose")"
+#      echo "calibration=$calibration, meterbg=$meterbg, calibrationBg=$calibrationBg, glucose=$glucose"
+#      if [ $(bc <<< "$calibration < 60") -eq 1 -a $(bc <<< "$calibration > -150") -eq 1 ]; then
         # another safety check, but this is a good calibration
-        if [ -e $CALIBRATION_STORAGE ]; then
-          tmp=$(mktemp)
-          jq ".[0].calibration = $calibration" $CALIBRATION_STORAGE > "$tmp" && mv "$tmp" $CALIBRATION_STORAGE 
-        else
-          echo "[{\"calibration\":$calibration}]" > $CALIBRATION_STORAGE
-        fi
+#        if [ -e $CALIBRATION_STORAGE ]; then
+#          tmp=$(mktemp)
+#          jq ".[0].calibration = $calibration" $CALIBRATION_STORAGE > "$tmp" && mv "$tmp" $CALIBRATION_STORAGE 
+#        else
+#          echo "[{\"calibration\":$calibration}]" > $CALIBRATION_STORAGE
+#        fi
         #Begin log calibrations for 1pt 2pt and regressive calibration calculations
-        echo "$unfiltered,$meterbg,$datetime" >> ./calibrations.csv 
-        ./calc-calibration.sh ./calibrations.csv ./calibration-linear.json
+        echo "$unfiltered,$meterbg,$datetime" >> $CAL_INPUT
+        ./calc-calibration.sh $CAL_INPUT $CAL_OUTPUT
 
-        cp $METERBG_NS_RAW meterbg-ns-backup.json
+#        cp $METERBG_NS_RAW meterbg-ns-backup.json
       else
         echo "Invalid calibration"
       fi
-      cat $CALIBRATION_STORAGE
+      cat $CAL_OUTPUT
     fi
   fi
 
-  if [ -e $CALIBRATION_STORAGE ]; then
-    calibration=$(cat $CALIBRATION_STORAGE | jq -M '.[0] | .calibration')
+  if [ -e $CAL_OUTPUT ]; then
+#    calibration=$(cat $CALIBRATION_STORAGE | jq -M '.[0] | .calibration')
     slope=`jq -M '.[0] .slope' calibration-linear.json` 
     yIntercept=`jq -M '.[0] .yIntercept' calibration-linear.json` 
-    calibratedglucose=$(bc <<< "$glucose + $calibration")
-    echo "After calibration calibratedglucose =$calibratedglucose"
   else
-    echo "No valid calibration yet - exiting"
-    bt-device -r $id
-    exit
+    slope=1000
+    yIntercept=0
+#    echo "No valid calibration yet - exiting"
+#    bt-device -r $id
+#    exit
   fi
+  calibratedglucose=$(bc <<< "$glucose + $calibration")
+  echo "After calibration calibratedglucose =$calibratedglucose"
 
 
   if [ $(bc <<< "$calibratedglucose > 400") -eq 1 -o $(bc <<< "$calibratedglucose < 40") -eq 1 ]; then

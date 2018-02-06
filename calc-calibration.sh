@@ -9,6 +9,8 @@
 
 INPUT=${1:-"calibrations.csv"}
 OUTPUT=${2:-"calibration-linear.json"}
+MAXSLOPE=1350
+MINSLOPE=650
 
 yarr=( $(tail -7 $INPUT | cut -d ',' -f1 ) )
 xarr=( $(tail -7 $INPUT | cut -d ',' -f2 ) )
@@ -132,17 +134,19 @@ elif [ "$numx" -gt "0" ]; then
   slope=$(bc -l <<< "$y / $x")
 fi
 
-echo "Before bounds check, slope=$slope, yIntercept=$yIntercept"
-# bounds check now
-# truncate slope and yIntercept
-yIntercept=$(bc <<< "$yIntercept/1")
-slope=$(bc <<< "$slope/1")
+# truncate and bounds check
+yIntercept=$(bc <<< "$yIntercept/1") # truncate
+slope=$(bc <<< "$slope/1") # truncate
+
+# Set max yIntercept to the minimum of the set of unfiltered values
 maxIntercept=$(MathMin "${yarr[@]}")
 
-if [ $(bc <<< "$slope > 1250") -eq 1 ]; then
-  slope=1350
-elif [ $(bc <<< "$slope < 750") -eq 1 ]; then
-  slope=650
+echo "Before bounds check, slope=$slope, yIntercept=$yIntercept"
+
+if [ $(bc <<< "$slope > $MAXSLOPE") -eq 1 ]; then
+  slope=$MAXSLOPE
+elif [ $(bc <<< "$slope < $MINSLOPE") -eq 1 ]; then
+  slope=$MINSLOPE
 fi 
 
 if [ $(bc  <<< "$yIntercept > $maxIntercept") -eq 1 ]; then
