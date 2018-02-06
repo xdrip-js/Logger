@@ -125,13 +125,14 @@ if [ "$numx" -gt "2" ]; then
   echo "Calibration records = $numx, using LeastSquaresRegression" 
   LeastSquaresRegression
 elif [ "$numx" -gt "0" ]; then
-  echo "Calibration records = $numx, using single point linear" 
   # for less than 3 calibrations, fall back to single point calibration
   # get the last entry for x and y
   x=${xarr[-1]}
-  y=${xarr[-1]}
+  y=${yarr[-1]}
   yIntercept=0
   slope=$(bc -l <<< "$y / $x")
+  echo "Calibration records = $numx, using single point linear" 
+  echo "x=$x, y=$y, slope=$slope, yIntercept=0" 
 fi
 
 # truncate and bounds check

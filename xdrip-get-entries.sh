@@ -24,6 +24,7 @@ glucoseType='.[0].unfiltered'
 
 if [ -e "./entry.json" ] ; then
   lastGlucose=$(cat ./entry.json | jq -M '.[0].glucose')
+  echo "lastGlucose=$lastGlucose"
   
 #  lastAfter=$(date -d "5 minutes ago" -Iminutes)
 #  lastPostStr="'.[0] | select(.dateString > \"$lastAfter\") | .glucose'"
@@ -69,6 +70,7 @@ meterbgafter=$(date -d "7 minutes ago" -Iminutes)
 meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\") | .amount'"
 meterbg=$(bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json")
 # TBD: meter BG from pumphistory doesn't support mmol yet - has no units...
+echo
 echo "meterbg from pumphistory: $meterbg"
 
 if [ -z $meterbg ]; then
@@ -93,13 +95,15 @@ if [ -z $meterbg ]; then
   fi
   echo "meterbg from nightscout: $meterbg"
 
-  if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
-    echo "$unfiltered,$meterbg,$datetime" >> $CAL_INPUT
-    ./calc-calibration.sh $CAL_INPUT $CAL_OUTPUT
-  else
-    echo "Invalid calibration"
+  if [ "$meterBG" != "null" -a "$meterBG" != "" ]; then
+    if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
+      echo "$unfiltered,$meterbg,$datetime" >> $CAL_INPUT
+      ./calc-calibration.sh $CAL_INPUT $CAL_OUTPUT
+    else
+      echo "Invalid calibration"
+    fi
+    cat $CAL_OUTPUT
   fi
-  cat $CAL_OUTPUT
 fi
 
 if [ -e $CAL_OUTPUT ]; then
@@ -128,10 +132,11 @@ if [ -z "${glucose}" ] ; then
   cat ./entry.json
   rm ./entry.json
 else
-  if [ "${lastGlucose}" == "" ] ; then
+  echo "Valid response from g5 transmitter"
+  if [ -z $lastGlucose -o $(bc <<< "$lastGlucose < 40") -eq 1] ; then
     dg=0
   else
-    dg=`expr $glucose - $lastGlucose`
+    dg=$(bc <<< "$glucose - $lastGlucose")
   fi
 
   # begin try out averaging last two entries ...
@@ -167,7 +172,6 @@ else
   # end calibration logic
 
   direction='NONE'
-  echo "Valid response from g5 transmitter"
 
   # Begin trend calculation logic based on last 15 minutes glucose delta average
   if [ -z "$dg" ]; then
