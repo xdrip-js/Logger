@@ -11,7 +11,7 @@ ns_secret="${API_SECRET}"
 curl_status=-1
 
 if [ -e $1 ]; then
-  curl -f -m 30 -s -X POST -d @$1 \
+  curl --compressed -f -m 30 -s -X POST -d @$1 \
   -H "API-SECRET: $ns_secret" \
   -H "Content-Type: application/json" \
   "${ns_url}/api/v1/entries.json"

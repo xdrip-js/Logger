@@ -10,16 +10,33 @@ date
 #CALIBRATION_STORAGE="calibration.json"
 CAL_INPUT="./calibrations.csv"
 CAL_OUTPUT="./calibration-linear.json"
+# check UTC to begin with and use UTC flag for any curls
+NS_RAW="test.json"
+curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(dat
+e -d "120 minutes ago" -Iminutes -u)" 2>/dev/null  > $NS_RAW  
+createdAt=$(jq ".[0].created_at" $NS_RAW)
+if [[ $createdAt == *"Z"* ]]; then
+  UTC=" -u "
+  echo "NS s using UTC --Using UTC=$UTC"       
+else
+  UTC=""
+  echo "NS is not using UTC --Using UTC=$UTC"       
+fi
+rm $NS_RAW 
+
+UTC=" -u "
 
 # remove old calibration storage when sensor change occurs
 # calibrate after 15 minutes of sensor change time entered in NS
 # disable this feature for now. It isn't recreating the calibration file after sensor insert and BG check
 #
-#curl -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" -Iminutes -u)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
-#if [ $? == 0 ]; then
-#  echo "sensor change - removing calibration"
-#  rm $CALIBRATION_STORAGE
-#fi
+curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
+if [ $? == 0 ]; then
+  echo "sensor change - removing calibration"
+  cp $CAL_INPUT "${CAL_INPUT}.old" && rm $CAL_INPUT
+  cp $CAL_OUTPUT "${CAL_OUTPUT}.old" && rm $CAL_OUTPUT
+fi
+
 glucoseType='.[0].unfiltered'
 
 if [ -e "./entry.json" ] ; then
@@ -76,20 +93,10 @@ echo
 echo "meterbg from pumphistory: $meterbg"
 
 if [ -z $meterbg ]; then
-  curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes -u)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
+  curl --compressed -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
   #createdAt=$(jq ".[0].created_at" $METERBG_NS_RAW)
   meterbgid=$(jq ".[0]._id" $METERBG_NS_RAW)
-  createdAt=$(jq ".[0].created_at" $METERBG_NS_RAW)
 
-  if [[ $createdAt == *"Z"* ]]; then
-     echo "meterbg within 7 minutes using UTC time comparison."       
-  else   
-    if [ "$createdAt" != "null" -a "$createdAt" != "" ]; then
-      curl -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
-      echo "meterbg within 7 minutes using non-UTC time comparison."
-    fi
-  fi
-    
   meterbgunits=$(cat $METERBG_NS_RAW | jq -M '.[0] | .units')
   meterbg=`jq -M '.[0] .glucose' $METERBG_NS_RAW`
   meterbg="${meterbg%\"}"
@@ -101,7 +108,7 @@ if [ -z $meterbg ]; then
 
   if [ "$meterBG" != "null" -a "$meterBG" != "" ]; then
     if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
-      echo "$unfiltered,$meterbg,$datetime" >> $CAL_INPUT
+      echo "$unfiltered,$meterbg,$datetime,$meterbgid" >> $CAL_INPUT
       ./calc-calibration.sh $CAL_INPUT $CAL_OUTPUT
     else
       echo "Invalid calibration"
@@ -130,7 +137,7 @@ fi
 
 glucose=$calibratedBG
 
-if [ -z $lastGlucose -o $(bc <<< "$lastGlucose < 40") -eq 1] ; then
+if [ -z $lastGlucose -o $(bc <<< "$lastGlucose < 40") -eq 1 ] ; then
   dg=0
 else
   dg=$(bc <<< "$glucose - $lastGlucose")
