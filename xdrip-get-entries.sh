@@ -35,6 +35,8 @@ if [ $? == 0 ]; then
   cp $CAL_OUTPUT "${CAL_OUTPUT}.$(date +%Y%m%d-%H%M%S)"
   rm $CAL_INPUT
   rm $CAL_OUTPUT
+  echo "exiting"
+  exit
 fi
 
 glucoseType='.[0].unfiltered'
@@ -127,6 +129,10 @@ if [ -e $CAL_OUTPUT ]; then
 else
   slope=1000
   yIntercept=0
+  # exit until we have a valid calibration record
+  echo "no valid calibration record yet, exiting ..."
+  bt-device -r $id
+  exit
 fi
 
 calibratedBG=$(bc -l <<< "($unfiltered - $yIntercept)/$slope")
@@ -184,6 +190,7 @@ direction='NONE'
 # Begin trend calculation logic based on last 15 minutes glucose delta average
 if [ -z "$dg" ]; then
   direction="NONE"
+  echo "setting direction=NONE because dg is null, dg=$dg"
 else
   echo $dg > bgdelta-$(date +%Y%m%d-%H%M%S).dat
 
