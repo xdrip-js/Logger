@@ -12,7 +12,7 @@ transmitter.on('glucose', glucose => {
       'device': 'DexcomR4',
       'date': glucose.readDate,
       'dateString': new Date(glucose.readDate).toISOString(),
-      'sgv': Math.round(glucose.unfiltered),
+      'sgv': Math.round(glucose.unfiltered/1000),
       'direction': 'None',
       'type': 'sgv',
       'filtered': Math.round(glucose.filtered),
