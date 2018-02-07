@@ -11,20 +11,18 @@ date
 CAL_INPUT="./calibrations.csv"
 CAL_OUTPUT="./calibration-linear.json"
 # check UTC to begin with and use UTC flag for any curls
-NS_RAW="test.json"
-curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(dat
-e -d "120 minutes ago" -Iminutes -u)" 2>/dev/null  > $NS_RAW  
-createdAt=$(jq ".[0].created_at" $NS_RAW)
+NS_RAW="testUTC.json"
+curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/entries.json?find\[dateString\]\[\$gte\]=$(date -d "10 minutes ago" -Iminutes -u)" 2>/dev/null  > $NS_RAW  
+createdAt=$(jq ".[0].dateString" $NS_RAW)
 if [[ $createdAt == *"Z"* ]]; then
   UTC=" -u "
-  echo "NS is using UTC --Using UTC=$UTC"       
+  echo "NS is using UTC $UTC"       
 else
   UTC=""
-  echo "NS is not using UTC --Using UTC=$UTC"       
+  echo "NS is not using UTC"       
 fi
-rm $NS_RAW 
 
-UTC=" -u "
+#UTC=" -u "
 
 # remove old calibration storage when sensor change occurs
 # calibrate after 15 minutes of sensor change time entered in NS
@@ -32,9 +30,11 @@ UTC=" -u "
 #
 curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
 if [ $? == 0 ]; then
-  echo "sensor change - removing calibration"
-  cp $CAL_INPUT "${CAL_INPUT}.old" && rm $CAL_INPUT
-  cp $CAL_OUTPUT "${CAL_OUTPUT}.old" && rm $CAL_OUTPUT
+  echo "sensor change within last 15 minutes - clearing calibration files"
+  cp $CAL_INPUT "${CAL_INPUT}.$(date +%Y%m%d-%H%M%S)" 
+  cp $CAL_OUTPUT "${CAL_OUTPUT}.$(date +%Y%m%d-%H%M%S)"
+  rm $CAL_INPUT
+  rm $CAL_OUTPUT
 fi
 
 glucoseType='.[0].unfiltered'
@@ -108,8 +108,11 @@ if [ -z $meterbg ]; then
 
   if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
     if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
-      echo "$unfiltered,$meterbg,$datetime,$meterbgid" >> $CAL_INPUT
-      ./calc-calibration.sh $CAL_INPUT $CAL_OUTPUT
+      # only do this once for a single calibration check for duplicate BG check record ID
+      if ! cat $CAL_INPUT | egrep "$meterbgid"; then 
+        echo "$unfiltered,$meterbg,$datetime,$meterbgid" >> $CAL_INPUT
+        ./calc-calibration.sh $CAL_INPUT $CAL_OUTPUT
+      fi
     else
       echo "Invalid calibration"
     fi
