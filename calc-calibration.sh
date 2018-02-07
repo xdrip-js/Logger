@@ -110,6 +110,19 @@ function LeastSquaresRegression()
 # sets global variables slope and yIntercept
   slope=$m
   yIntercept=$b
+
+# calculate error
+  local varSum=0
+  for (( j=0; j<$n; j++ ))
+  do
+    varSum=$(bc -l <<< "$varSum + (${yarr[$j]} - $b - $m * ${xarr[$j]})^2")   
+  done
+
+  local delta=$(bc -l <<< "$n * $sumXSq - ($sumX)^2")  
+  local vari=$(bc -l <<< "1.0 / ($n - 2.0) * $varSum")
+  
+  yError=$(bc -l <<< "sqrt($vari / $delta * $sumXSq)") 
+  slopeError=$(bc -l <<< "sqrt($n / $delta * $vari)")
 }
 
 
@@ -120,6 +133,8 @@ function LeastSquaresRegression()
 numx=${#xarr[@]}
 slope=0
 yIntercept=1000
+slopeError=0
+yError=0
 
 if [ "$numx" -gt "2" ]; then
   echo "Calibration records = $numx, using LeastSquaresRegression" 
@@ -138,6 +153,8 @@ fi
 # truncate and bounds check
 yIntercept=$(bc <<< "$yIntercept / 1") # truncate
 slope=$(bc <<< "$slope / 1") # truncate
+yError=$(bc <<< "$yError / 1") # truncate
+slopeError=$(bc <<< "$slopeError / 1") # truncate
 
 # Set max yIntercept to the minimum of the set of unfiltered values
 maxIntercept=$(MathMin "${yarr[@]}")
@@ -159,7 +176,7 @@ fi
 echo "After bounds check, slope=$slope, yIntercept=$yIntercept"
 
 # store the calibration in a json file for use by xdrip-get-entries.sh
-echo "[{\"slope\":$slope, \"yIntercept\":$yIntercept, \"formula\":\"calibratedbg=(unfiltered-yIntercept)/slope\"}]" > $OUTPUT 
+echo "[{\"slope\":$slope, \"yIntercept\":$yIntercept, \"formula\":\"calibratedbg=(unfiltered-yIntercept)/slope\", \"yError\":$yError, \"slopeError\":${slopeError}}]" > $OUTPUT 
 
 echo "Created $OUTPUT"
 cat $OUTPUT
