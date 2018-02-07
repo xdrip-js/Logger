@@ -17,7 +17,7 @@ e -d "120 minutes ago" -Iminutes -u)" 2>/dev/null  > $NS_RAW
 createdAt=$(jq ".[0].created_at" $NS_RAW)
 if [[ $createdAt == *"Z"* ]]; then
   UTC=" -u "
-  echo "NS s using UTC --Using UTC=$UTC"       
+  echo "NS is using UTC --Using UTC=$UTC"       
 else
   UTC=""
   echo "NS is not using UTC --Using UTC=$UTC"       
@@ -106,13 +106,14 @@ if [ -z $meterbg ]; then
   fi
   echo "meterbg from nightscout: $meterbg"
 
-  if [ "$meterBG" != "null" -a "$meterBG" != "" ]; then
+  if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
     if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
       echo "$unfiltered,$meterbg,$datetime,$meterbgid" >> $CAL_INPUT
       ./calc-calibration.sh $CAL_INPUT $CAL_OUTPUT
     else
       echo "Invalid calibration"
     fi
+    cat $CAL_INPUT
     cat $CAL_OUTPUT
   fi
 fi
@@ -129,7 +130,7 @@ calibratedBG=$(bc -l <<< "($unfiltered - $yIntercept)/$slope")
 calibratedBG=$(bc <<< "($calibratedBG / 1)") # truncate
 echo "After calibration calibratedBG =$calibratedBG, slope=$slope, yIntercept=$yIntercept, unfiltered=$unfiltered"
 
-if [ $(bc <<< "$calibratedBG > 400") -eq 1 -o $(bc <<< "$calibratedBG < 40") -eq 1 ]; then
+if [ -z $calibratedBG -o $(bc <<< "$calibratedBG > 400") -eq 1 -o $(bc <<< "$calibratedBG < 40") -eq 1 ]; then
   echo "Glucose $calibratedBG out of range [40,400] - exiting"
   bt-device -r $id
   exit
