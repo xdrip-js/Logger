@@ -158,6 +158,7 @@ if [ -z $lastGlucose -o $(bc <<< "$lastGlucose < 40") -eq 1 ] ; then
 else
   dg=$(bc <<< "$glucose - $lastGlucose")
 fi
+echo "lastGlucose=$lastGlucose, dg=$dg"
 
 # begin try out averaging last two entries ...
 da=$dg

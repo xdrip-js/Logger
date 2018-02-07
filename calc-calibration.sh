@@ -4,16 +4,16 @@
 # test.csv in the form of 
 # unfiltered,meterbg,datetime
 #
-# yarr = array of up to 7 last unfiltered values associated with xarr bg meter checks / calibrations
-# xarr = array of up to 7 last bg meter checks / calibrations
+# yarr = array of up to 11 last unfiltered values associated with xarr bg meter checks / calibrations
+# xarr = array of up to 11 last bg meter checks / calibrations
 
 INPUT=${1:-"calibrations.csv"}
 OUTPUT=${2:-"calibration-linear.json"}
 MAXSLOPE=1350
 MINSLOPE=550
 
-yarr=( $(tail -7 $INPUT | cut -d ',' -f1 ) )
-xarr=( $(tail -7 $INPUT | cut -d ',' -f2 ) )
+yarr=( $(tail -11 $INPUT | cut -d ',' -f1 ) )
+xarr=( $(tail -11 $INPUT | cut -d ',' -f2 ) )
 
 echo "Begin calibration using input of $INPUT and output of $OUTPUT"
 
