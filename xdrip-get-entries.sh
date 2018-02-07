@@ -1,6 +1,6 @@
 #!/bin/bash
 
-glucoseType='.[0].unfiltered'
+glucoseType="unfiltered"
 
 cd /root/src/xdrip-js-logger
 
@@ -39,7 +39,6 @@ if [ $? == 0 ]; then
   exit
 fi
 
-glucoseType='.[0].unfiltered'
 
 if [ -e "./entry.json" ] ; then
   lastGlucose=$(cat ./entry.json | jq -M '.[0].glucose')
@@ -79,6 +78,11 @@ unfiltered=$(cat ./entry.json | jq -M '.[0].unfiltered')
 filtered=$(cat ./entry.json | jq -M '.[0].filtered')
 glucoseg5=$(cat ./entry.json | jq -M '.[0].glucose')
 datetime=$(date +"%Y-%m-%d %H:%M")
+if [ "glucoseType" == "filtered" ]; then
+  raw=$filtered
+else
+  raw=$unfiltered
+fi
 
 # begin calibration logic - look for calibration from NS, use existing calibration or none
 ns_url="${NIGHTSCOUT_HOST}"
@@ -112,7 +116,7 @@ if [ -z $meterbg ]; then
     if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
       # only do this once for a single calibration check for duplicate BG check record ID
       if ! cat $CAL_INPUT | egrep "$meterbgid"; then 
-        echo "$unfiltered,$meterbg,$datetime,$meterbgid" >> $CAL_INPUT
+        echo "$raw,$meterbg,$datetime,$meterbgid" >> $CAL_INPUT
         ./calc-calibration.sh $CAL_INPUT $CAL_OUTPUT
       fi
     else
@@ -135,9 +139,11 @@ else
   exit
 fi
 
-calibratedBG=$(bc -l <<< "($unfiltered - $yIntercept)/$slope")
+# $raw is either unfiltered or filtered value from g5
+# based upon glucoseType variable at top of script
+calibratedBG=$(bc -l <<< "($raw - $yIntercept)/$slope")
 calibratedBG=$(bc <<< "($calibratedBG / 1)") # truncate
-echo "After calibration calibratedBG =$calibratedBG, slope=$slope, yIntercept=$yIntercept, unfiltered=$unfiltered"
+echo "After calibration calibratedBG =$calibratedBG, slope=$slope, yIntercept=$yIntercept, filtered=$filtered, unfiltered=$unfiltered, raw=$raw"
 
 if [ -z $calibratedBG -o $(bc <<< "$calibratedBG > 400") -eq 1 -o $(bc <<< "$calibratedBG < 40") -eq 1 ]; then
   echo "Glucose $calibratedBG out of range [40,400] - exiting"
