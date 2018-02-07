@@ -159,7 +159,7 @@ slopeError=$(bc <<< "$slopeError / 1") # truncate
 # Set max yIntercept to the minimum of the set of unfiltered values
 maxIntercept=$(MathMin "${yarr[@]}")
 
-echo "Before bounds check, slope=$slope, yIntercept=$yIntercept"
+echo "Calibration - Before bounds check, slope=$slope, yIntercept=$yIntercept"
 
 if [ $(bc <<< "$slope > $MAXSLOPE") -eq 1 ]; then
   slope=$MAXSLOPE
@@ -173,12 +173,13 @@ elif [ $(bc <<< "$yIntercept < -30000") -eq 1 ]; then
   yIntercept=-30000
 fi 
 
-echo "After bounds check, slope=$slope, yIntercept=$yIntercept"
+echo "Calibration - After bounds check, slope=$slope, yIntercept=$yIntercept"
+echo "Calibration - slopeError=$slopeError, yError=$yError"
 
 # store the calibration in a json file for use by xdrip-get-entries.sh
 echo "[{\"slope\":$slope, \"yIntercept\":$yIntercept, \"formula\":\"calibratedbg=(unfiltered-yIntercept)/slope\", \"yError\":$yError, \"slopeError\":${slopeError}}]" > $OUTPUT 
 
-echo "Created $OUTPUT"
+echo "Calibration - Created $OUTPUT"
 cat $OUTPUT
 
 
