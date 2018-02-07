@@ -12,8 +12,8 @@ CAL_INPUT="./calibrations.csv"
 CAL_OUTPUT="./calibration-linear.json"
 # check UTC to begin with and use UTC flag for any curls
 NS_RAW="testUTC.json"
-curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/entries.json?find\[dateString\]\[\$gte\]=$(date -d "10 minutes ago" -Iminutes -u)" 2>/dev/null  > $NS_RAW  
-createdAt=$(jq ".[0].dateString" $NS_RAW)
+curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[created_at\]\[\$gte\]=$(date -d "6000 minutes ago" -Iminutes -u)" 2>/dev/null  > $NS_RAW  
+createdAt=$(jq ".[0].created_at" $NS_RAW)
 if [[ $createdAt == *"Z"* ]]; then
   UTC=" -u "
   echo "NS is using UTC $UTC"       
