@@ -10,7 +10,7 @@
 INPUT=${1:-"calibrations.csv"}
 OUTPUT=${2:-"calibration-linear.json"}
 MAXSLOPE=1350
-MINSLOPE=650
+MINSLOPE=550
 
 yarr=( $(tail -7 $INPUT | cut -d ',' -f1 ) )
 xarr=( $(tail -7 $INPUT | cut -d ',' -f2 ) )
