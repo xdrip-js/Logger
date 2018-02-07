@@ -49,6 +49,9 @@ if [ -e "./entry.json" ] ; then
 #  lastPostCal=$(cat ./entry.json | bash -c "jq -M $lastPostStr")
 #  echo lastAfter=$lastAfter, lastPostStr=$lastPostStr, lastPostCal=$lastPostCal
   mv ./entry.json ./last-entry.json
+else
+  echo "prior entry.json not available, setting lastGlucose=0"
+  lastGlucose=0
 fi
 
 transmitter=$1
