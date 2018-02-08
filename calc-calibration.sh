@@ -4,18 +4,25 @@
 # test.csv in the form of 
 # unfiltered,meterbg,datetime
 #
-# yarr = array of up to 7 last unfiltered values associated with xarr bg meter checks / calibrations
-# xarr = array of up to 7 last bg meter checks / calibrations
+# yarr = array of up to 11 last unfiltered values associated with xarr bg meter checks / calibrations
+# xarr = array of up to 11 last bg meter checks / calibrations
 
 INPUT=${1:-"calibrations.csv"}
 OUTPUT=${2:-"calibration-linear.json"}
 MAXSLOPE=1350
 MINSLOPE=550
+MAXRECORDS=8
+MINRECORDSFORLSR=3
 
-yarr=( $(tail -7 $INPUT | cut -d ',' -f1 ) )
-xarr=( $(tail -7 $INPUT | cut -d ',' -f2 ) )
+yarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f1 ) )
+xarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f2 ) )
 
 echo "Begin calibration using input of $INPUT and output of $OUTPUT"
+
+# Future how to compare date values if we want to limit calibration set to a timeframe
+#    dt1970arr[$i]=`date +%s --date="${dtarr[$i]}"`
+#    set initial i value based on date differences
+# dtarr=( $(tail -11 $INPUT | cut -d ',' -f3 ) )
 
 function MathMin()
 {
@@ -23,6 +30,7 @@ function MathMin()
   local n=${#arr[@]}
   local min=${arr[0]}
    
+
   for (( i=1; i<$n; i++ ))
   do
     if [ $(bc -l <<< "${arr[$i]} < $min") -eq 1 ]; then
@@ -136,11 +144,13 @@ yIntercept=1000
 slopeError=0
 yError=0
 
-if [ "$numx" -gt "2" ]; then
+if [ $(bc -l <<< "$numx >= $MINRECORDSFORLSR") -eq 1 ]; then
   echo "Calibration records = $numx, using LeastSquaresRegression" 
   LeastSquaresRegression
+  calibrationType="LeastSquaresRegression"
 elif [ "$numx" -gt "0" ]; then
-  # for less than 3 calibrations, fall back to single point calibration
+  # for less than $MINRECORDSFORLSR calibrations, 
+  # fall back to single point calibration
   # get the last entry for x and y
   x=${xarr[-1]}
   y=${yarr[-1]}
@@ -148,6 +158,7 @@ elif [ "$numx" -gt "0" ]; then
   slope=$(bc -l <<< "$y / $x")
   echo "Calibration records = $numx, using single point linear" 
   echo "x=$x, y=$y, slope=$slope, yIntercept=0" 
+  calibrationType="SinglePoint"
 fi
 
 # truncate and bounds check
@@ -177,9 +188,11 @@ echo "Calibration - After bounds check, slope=$slope, yIntercept=$yIntercept"
 echo "Calibration - slopeError=$slopeError, yError=$yError"
 
 # store the calibration in a json file for use by xdrip-get-entries.sh
-echo "[{\"slope\":$slope, \"yIntercept\":$yIntercept, \"formula\":\"calibratedbg=(unfiltered-yIntercept)/slope\", \"yError\":$yError, \"slopeError\":${slopeError}}]" > $OUTPUT 
+echo "[{\"slope\":$slope, \"yIntercept\":$yIntercept, \"formula\":\"calibratedbg=(unfiltered-yIntercept)/slope\", \"yError\":$yError, \"slopeError\":${slopeError}, \"numCalibrations\":${numx}, \"calibrationType\":\"${calibrationType}\"}]" > $OUTPUT 
 
 echo "Calibration - Created $OUTPUT"
 cat $OUTPUT
+
+#ConvertDateArray
 
 
