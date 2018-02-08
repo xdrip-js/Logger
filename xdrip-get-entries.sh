@@ -134,14 +134,14 @@ if [ -e $CAL_OUTPUT ]; then
   yIntercept=`jq -M '.[0] .yIntercept' calibration-linear.json` 
   slopeError=`jq -M '.[0] .slopeError' calibration-linear.json` 
   yError=`jq -M '.[0] .yError' calibration-linear.json` 
+  calibrationType=`jq -M '.[0] .calibrationType' calibration-linear.json` 
 else
-  slope=1000
-  yIntercept=0
   # exit until we have a valid calibration record
   echo "no valid calibration record yet, exiting ..."
   bt-device -r $id
   exit
 fi
+
 
 # $raw is either unfiltered or filtered value from g5
 # based upon glucoseType variable at top of script
@@ -149,11 +149,28 @@ calibratedBG=$(bc -l <<< "($raw - $yIntercept)/$slope")
 calibratedBG=$(bc <<< "($calibratedBG / 1)") # truncate
 echo "After calibration calibratedBG =$calibratedBG, slope=$slope, yIntercept=$yIntercept, filtered=$filtered, unfiltered=$unfiltered, raw=$raw"
 
+# For Single Point calibration, use a calculated corrective intercept
+# for glucose in the range of 70 <= BG < 85
+# per https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4764224
+# AdjustedBG = BG - CI
+# CI = a1 * BG^2 + a2 * BG + a3
+# a1=-0.1667, a2=25.66667, a3=-977.5
+c=$calibratedBG
+if [ "$calibrationType" == "SinglePoint" ]; then
+  if [ $(bc <<< "$c > 69") -eq 1 -a $(bc <<< "$c < 85") -eq 1 ]; then
+    echo "SinglePoint calibration calculating corrective intercept"
+    echo "Before CI, BG=$c"
+    calibratedBG=$(bc <<< "$c - (-0.16667 * ${c}^2 + 25.6667 * ${c} - 977.5)")
+    echo "After CI, BG=$calibratedBG"
+  fi
+fi
+
 if [ -z $calibratedBG -o $(bc <<< "$calibratedBG > 400") -eq 1 -o $(bc <<< "$calibratedBG < 40") -eq 1 ]; then
   echo "Glucose $calibratedBG out of range [40,400] - exiting"
   bt-device -r $id
   exit
 fi
+
 
 glucose=$calibratedBG
 
