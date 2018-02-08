@@ -49,6 +49,9 @@ if [ -e "./entry.json" ] ; then
 #  lastPostCal=$(cat ./entry.json | bash -c "jq -M $lastPostStr")
 #  echo lastAfter=$lastAfter, lastPostStr=$lastPostStr, lastPostCal=$lastPostCal
   mv ./entry.json ./last-entry.json
+else
+  echo "prior entry.json not available, setting lastGlucose=0"
+  lastGlucose=0
 fi
 
 transmitter=$1
@@ -76,7 +79,6 @@ fi
 # capture raw values for use and for log to csv file 
 unfiltered=$(cat ./entry.json | jq -M '.[0].unfiltered')
 filtered=$(cat ./entry.json | jq -M '.[0].filtered')
-glucoseg5=$(cat ./entry.json | jq -M '.[0].glucose')
 datetime=$(date +"%Y-%m-%d %H:%M")
 if [ "glucoseType" == "filtered" ]; then
   raw=$filtered
@@ -130,6 +132,8 @@ fi
 if [ -e $CAL_OUTPUT ]; then
   slope=`jq -M '.[0] .slope' calibration-linear.json` 
   yIntercept=`jq -M '.[0] .yIntercept' calibration-linear.json` 
+  slopeError=`jq -M '.[0] .slopeError' calibration-linear.json` 
+  yError=`jq -M '.[0] .yError' calibration-linear.json` 
 else
   slope=1000
   yIntercept=0
@@ -240,11 +244,11 @@ cat entry.json | jq ".[0].direction = \"$direction\"" > entry-xdrip.json
 
 
 if [ ! -f "/var/log/openaps/g5.csv" ]; then
-  echo "datetime,unfiltered,filtered,glucoseg5,glucose,direction,calibratedBG,slope,yIntercept" > /var/log/openaps/g5.csv
+  echo "datetime,unfiltered,filtered,glucose,trend,calibratedBG,slope,yIntercept,slopeError,yError" > /var/log/openaps/g5.csv
 fi
 
 
-echo "${datetime},${unfiltered},${filtered},${glucoseg5},${glucose},${direction},${calibratedBG},${slope},${yIntercept}" >> /var/log/openaps/g5.csv
+echo "${datetime},${unfiltered},${filtered},${glucose},${direction},${calibratedBG},${slope},${yIntercept},${slopeError},${yError}" >> /var/log/openaps/g5.csv
 
 echo "Posting glucose record to xdripAPS"
 ./post-xdripAPS.sh ./entry-xdrip.json
