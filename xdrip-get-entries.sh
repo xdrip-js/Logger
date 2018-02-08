@@ -43,11 +43,6 @@ fi
 if [ -e "./entry.json" ] ; then
   lastGlucose=$(cat ./entry.json | jq -M '.[0].glucose')
   echo "lastGlucose=$lastGlucose"
-  
-#  lastAfter=$(date -d "5 minutes ago" -Iminutes)
-#  lastPostStr="'.[0] | select(.dateString > \"$lastAfter\") | .glucose'"
-#  lastPostCal=$(cat ./entry.json | bash -c "jq -M $lastPostStr")
-#  echo lastAfter=$lastAfter, lastPostStr=$lastPostStr, lastPostCal=$lastPostCal
   mv ./entry.json ./last-entry.json
 else
   echo "prior entry.json not available, setting lastGlucose=0"
@@ -171,13 +166,10 @@ if [ -z $calibratedBG -o $(bc <<< "$calibratedBG > 400") -eq 1 -o $(bc <<< "$cal
   exit
 fi
 
-
-glucose=$calibratedBG
-
 if [ -z $lastGlucose -o $(bc <<< "$lastGlucose < 40") -eq 1 ] ; then
   dg=0
 else
-  dg=$(bc <<< "$glucose - $lastGlucose")
+  dg=$(bc <<< "$calibratedBG - $lastGlucose")
 fi
 echo "lastGlucose=$lastGlucose, dg=$dg"
 
@@ -187,10 +179,10 @@ if [ -n $da -a $(bc <<< "$da < 0") -eq 1 ]; then
   da=$(bc <<< "0 - $da")
 fi
 if [ "$da" -lt "45" -a "$da" -gt "15" ]; then
- echo "Before Average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, glucose=$glucose"
- glucose=$(bc <<< "($glucose + $lastGlucose)/2")
- dg=$(bc <<< "$glucose - $lastGlucose")
- echo "After average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, glucose=${glucose}"
+ echo "Before Average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, calibratedBG=$calibratedBG"
+ calibratedBG=$(bc <<< "($calibratedBG + $lastGlucose)/2")
+ dg=$(bc <<< "$calibratedBG - $lastGlucose")
+ echo "After average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, calibratedBG=${calibratedBG}"
 fi
 # end average last two entries if noise  code
 
@@ -254,18 +246,18 @@ else
 fi
 
 echo "perMinuteAverageDelta=$perMinuteAverageDelta, totalDelta=$totalDelta, usedRecords=$usedRecords"
-echo "Gluc=${glucose}, last=${lastGlucose}, diff=${dg}, dir=${direction}"
+echo "Gluc=${calibratedBG}, last=${lastGlucose}, diff=${dg}, dir=${direction}"
 
 
 cat entry.json | jq ".[0].direction = \"$direction\"" > entry-xdrip.json
 
 
 if [ ! -f "/var/log/openaps/g5.csv" ]; then
-  echo "datetime,unfiltered,filtered,glucose,trend,calibratedBG,slope,yIntercept,slopeError,yError" > /var/log/openaps/g5.csv
+  echo "datetime,unfiltered,filtered,trend,calibratedBG,slope,yIntercept,slopeError,yError" > /var/log/openaps/g5.csv
 fi
 
 
-echo "${datetime},${unfiltered},${filtered},${glucose},${direction},${calibratedBG},${slope},${yIntercept},${slopeError},${yError}" >> /var/log/openaps/g5.csv
+echo "${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${slope},${yIntercept},${slopeError},${yError}" >> /var/log/openaps/g5.csv
 
 echo "Posting glucose record to xdripAPS"
 ./post-xdripAPS.sh ./entry-xdrip.json
