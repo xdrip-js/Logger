@@ -79,7 +79,6 @@ fi
 # capture raw values for use and for log to csv file 
 unfiltered=$(cat ./entry.json | jq -M '.[0].unfiltered')
 filtered=$(cat ./entry.json | jq -M '.[0].filtered')
-glucoseg5=$(cat ./entry.json | jq -M '.[0].glucose')
 datetime=$(date +"%Y-%m-%d %H:%M")
 if [ "glucoseType" == "filtered" ]; then
   raw=$filtered
@@ -245,11 +244,11 @@ cat entry.json | jq ".[0].direction = \"$direction\"" > entry-xdrip.json
 
 
 if [ ! -f "/var/log/openaps/g5.csv" ]; then
-  echo "datetime,unfiltered,filtered,glucoseg5,glucose,direction,calibratedBG,slope,yIntercept,slopeError,yError" > /var/log/openaps/g5.csv
+  echo "datetime,unfiltered,filtered,glucose,trend,calibratedBG,slope,yIntercept,slopeError,yError" > /var/log/openaps/g5.csv
 fi
 
 
-echo "${datetime},${unfiltered},${filtered},${glucoseg5},${glucose},${direction},${calibratedBG},${slope},${yIntercept},${slopeError},${yError}" >> /var/log/openaps/g5.csv
+echo "${datetime},${unfiltered},${filtered},${glucose},${direction},${calibratedBG},${slope},${yIntercept},${slopeError},${yError}" >> /var/log/openaps/g5.csv
 
 echo "Posting glucose record to xdripAPS"
 ./post-xdripAPS.sh ./entry-xdrip.json
