@@ -130,6 +130,9 @@ if [ -e $CAL_OUTPUT ]; then
   slopeError=`jq -M '.[0] .slopeError' calibration-linear.json` 
   yError=`jq -M '.[0] .yError' calibration-linear.json` 
   calibrationType=`jq -M '.[0] .calibrationType' calibration-linear.json` 
+  calibrationType="${calibrationType%\"}"
+  calibrationType="${calibrationType#\"}"
+  numCalibrations=`jq -M '.[0] .numCalibrations' calibration-linear.json` 
   rSquared=`jq -M '.[0] .rSquared' calibration-linear.json` 
 else
   # exit until we have a valid calibration record
@@ -152,12 +155,16 @@ echo "After calibration calibratedBG =$calibratedBG, slope=$slope, yIntercept=$y
 # CI = a1 * BG^2 + a2 * BG + a3
 # a1=-0.1667, a2=25.66667, a3=-977.5
 c=$calibratedBG
-if [ "$calibrationType" == "SinglePoint" ]; then
+echo "numCalibrations=$numCalibrations, calibrationType=$calibrationType, c=$c"
+if [ "$calibrationType" = "SinglePoint" ]; then
+  echo "inside CalibrationType=$calibrationType, c=$c"
   if [ $(bc <<< "$c > 69") -eq 1 -a $(bc <<< "$c < 85") -eq 1 ]; then
     echo "SinglePoint calibration calculating corrective intercept"
     echo "Before CI, BG=$c"
     calibratedBG=$(bc <<< "$c - (-0.16667 * ${c}^2 + 25.6667 * ${c} - 977.5)")
     echo "After CI, BG=$calibratedBG"
+  else
+    echo "bg not in range [70-84]"
   fi
 fi
 
