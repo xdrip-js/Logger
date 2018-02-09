@@ -130,6 +130,7 @@ if [ -e $CAL_OUTPUT ]; then
   slopeError=`jq -M '.[0] .slopeError' calibration-linear.json` 
   yError=`jq -M '.[0] .yError' calibration-linear.json` 
   calibrationType=`jq -M '.[0] .calibrationType' calibration-linear.json` 
+  rSquared=`jq -M '.[0] .rSquared' calibration-linear.json` 
 else
   # exit until we have a valid calibration record
   echo "no valid calibration record yet, exiting ..."
@@ -253,11 +254,11 @@ cat entry.json | jq ".[0].direction = \"$direction\"" > entry-xdrip.json
 
 
 if [ ! -f "/var/log/openaps/g5.csv" ]; then
-  echo "datetime,unfiltered,filtered,trend,calibratedBG,slope,yIntercept,slopeError,yError" > /var/log/openaps/g5.csv
+  echo "datetime,unfiltered,filtered,trend,calibratedBG,slope,yIntercept,slopeError,yError,rSquared" > /var/log/openaps/g5.csv
 fi
 
 
-echo "${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${slope},${yIntercept},${slopeError},${yError}" >> /var/log/openaps/g5.csv
+echo "${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${slope},${yIntercept},${slopeError},${yError},${rSquared}" >> /var/log/openaps/g5.csv
 
 echo "Posting glucose record to xdripAPS"
 ./post-xdripAPS.sh ./entry-xdrip.json

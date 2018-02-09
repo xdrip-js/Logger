@@ -13,6 +13,7 @@ MAXSLOPE=1350
 MINSLOPE=550
 MAXRECORDS=8
 MINRECORDSFORLSR=3
+rSquared=0
 
 yarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f1 ) )
 xarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f2 ) )
@@ -108,6 +109,7 @@ function LeastSquaresRegression()
   done  
   
   r=$(bc -l <<< "($n * $sumXY - $sumX * $sumY) / sqrt((($n * $sumXSq - ${sumX}^2) * ($n * $sumYSq - ${sumY}^2)))")
+  rSquared=$(bc -l <<< "(${r})^2")
 #  echo "r=$r, n=$n, sumXSq=$sumXSq, sumYSq=$sumYSq"
 #  echo "sumY=$sumY, sumX=$sumX, stddevX=$stddevX, stddevY=$stddevY" 
 
@@ -188,7 +190,7 @@ echo "Calibration - After bounds check, slope=$slope, yIntercept=$yIntercept"
 echo "Calibration - slopeError=$slopeError, yError=$yError"
 
 # store the calibration in a json file for use by xdrip-get-entries.sh
-echo "[{\"slope\":$slope, \"yIntercept\":$yIntercept, \"formula\":\"calibratedbg=(unfiltered-yIntercept)/slope\", \"yError\":$yError, \"slopeError\":${slopeError}, \"numCalibrations\":${numx}, \"calibrationType\":\"${calibrationType}\"}]" > $OUTPUT 
+echo "[{\"slope\":$slope, \"yIntercept\":$yIntercept, \"formula\":\"calibratedbg=(unfiltered-yIntercept)/slope\", \"yError\":$yError, \"slopeError\":${slopeError}, \"rSquared\":${rSquared}, \"numCalibrations\":${numx}, \"calibrationType\":\"${calibrationType}\"}]" > $OUTPUT 
 
 echo "Calibration - Created $OUTPUT"
 cat $OUTPUT
