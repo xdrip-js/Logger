@@ -161,7 +161,8 @@ if [ "$calibrationType" = "SinglePoint" ]; then
   if [ $(bc <<< "$c > 69") -eq 1 -a $(bc <<< "$c < 85") -eq 1 ]; then
     echo "SinglePoint calibration calculating corrective intercept"
     echo "Before CI, BG=$c"
-    calibratedBG=$(bc <<< "$c - (-0.16667 * ${c}^2 + 25.6667 * ${c} - 977.5)")
+    calibratedBG=$(bc -l <<< "$c - (-0.16667 * ${c}^2 + 25.6667 * ${c} - 977.5)")
+    calibratedBG=$(bc <<< "($calibratedBG / 1)") # truncate
     echo "After CI, BG=$calibratedBG"
   else
     echo "bg not in range [70-84]"
