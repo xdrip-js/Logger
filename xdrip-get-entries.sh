@@ -262,11 +262,11 @@ cat entry.json | jq ".[0].direction = \"$direction\"" > entry-xdrip.json
 
 
 if [ ! -f "/var/log/openaps/g5.csv" ]; then
-  echo "datetime,unfiltered,filtered,trend,calibratedBG,slope,yIntercept,slopeError,yError,rSquared" > /var/log/openaps/g5.csv
+  echo "datetime,unfiltered,filtered,trend,calibratedBG,meterbg,slope,yIntercept,slopeError,yError,rSquared" > /var/log/openaps/g5.csv
 fi
 
 
-echo "${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${slope},${yIntercept},${slopeError},${yError},${rSquared}" >> /var/log/openaps/g5.csv
+echo "${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared}" >> /var/log/openaps/g5.csv
 
 echo "Posting glucose record to xdripAPS"
 ./post-xdripAPS.sh ./entry-xdrip.json
