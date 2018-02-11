@@ -7,13 +7,26 @@ cd /root/src/xdrip-js-logger
 echo "Starting xdrip-get-entries.sh"
 date
 
-#CALIBRATION_STORAGE="calibration.json"
-CAL_INPUT="./calibrations.csv"
-CAL_OUTPUT="./calibration-linear.json"
+function ClearCalibrationInput()
+{
+  if [ -e ./calibrations.csv ]; then
+    cp ./calibrations.csv "./calibrations.csv.$(date +%Y%m%d-%H%M%S)" 
+    rm ./calibrations.csv
+  fi
+}
+
+function ClearCalibrationCache()
+{
+  local cache="./calibration-linear.json"
+  if [ -e $cache ]; then
+    cp $cache "${cache}.$(date +%Y%m%d-%H%M%S)" 
+    rm $cache 
+  fi
+}
+
 # check UTC to begin with and use UTC flag for any curls
-NS_RAW="testUTC.json"
-curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[created_at\]\[\$gte\]=$(date -d "6000 minutes ago" -Iminutes -u)" 2>/dev/null  > $NS_RAW  
-createdAt=$(jq ".[0].created_at" $NS_RAW)
+curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[created_at\]\[\$gte\]=$(date -d "6000 minutes ago" -Iminutes -u)" 2>/dev/null  > ./testUTC.json  
+createdAt=$(jq ".[0].created_at" ./testUTC.json)
 if [[ $createdAt == *"Z"* ]]; then
   UTC=" -u "
   echo "NS is using UTC $UTC"       
@@ -22,8 +35,6 @@ else
   echo "NS is not using UTC"       
 fi
 
-#UTC=" -u "
-
 # remove old calibration storage when sensor change occurs
 # calibrate after 15 minutes of sensor change time entered in NS
 # disable this feature for now. It isn't recreating the calibration file after sensor insert and BG check
@@ -31,10 +42,9 @@ fi
 curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
 if [ $? == 0 ]; then
   echo "sensor change within last 15 minutes - clearing calibration files"
-  cp $CAL_INPUT "${CAL_INPUT}.$(date +%Y%m%d-%H%M%S)" 
-  cp $CAL_OUTPUT "${CAL_OUTPUT}.$(date +%Y%m%d-%H%M%S)"
-  rm $CAL_INPUT
-  rm $CAL_OUTPUT
+  ClearCalibrationInput
+  ClearCalibrationCache
+  touch ./last_sensor_change
   echo "exiting"
   exit
 fi
@@ -112,28 +122,38 @@ if [ -z $meterbg ]; then
   if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
     if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
       # only do this once for a single calibration check for duplicate BG check record ID
-      if ! cat $CAL_INPUT | egrep "$meterbgid"; then 
-        echo "$raw,$meterbg,$datetime,$meterbgid" >> $CAL_INPUT
-        ./calc-calibration.sh $CAL_INPUT $CAL_OUTPUT
+      if ! cat ./calibrations.csv | egrep "$meterbgid"; then 
+        echo "$raw,$meterbg,$datetime,$meterbgid" >> ./calibrations.csv
+        ./calc-calibration.sh ./calibrations.csv ./calibration-linear.json
       fi
     else
-      echo "Invalid calibration"
+      echo "Invalid calibration, meterbg=$meterbg outside of range [40,400]"
     fi
-    cat $CAL_INPUT
-    cat $CAL_OUTPUT
+    cat ./calibrations.csv
+    cat ./calibration-linear.json
+  fi
+fi
+# check if sensor changed in last 12 hours.
+# If so, clear calibration inputs and only calibrate using single point calibration
+# do not keep the calibration records within the first 12 hours as they might skew LSR
+if [ -e ./last_sensor_change ]; then
+  if test  `find ./last_sensor_change -mmin -720`
+  then
+    echo "sensor change within last 12 hours - will use single pt calibration"
+    ClearCalibrationInput
   fi
 fi
 
-if [ -e $CAL_OUTPUT ]; then
-  slope=`jq -M '.[0] .slope' calibration-linear.json` 
-  yIntercept=`jq -M '.[0] .yIntercept' calibration-linear.json` 
-  slopeError=`jq -M '.[0] .slopeError' calibration-linear.json` 
-  yError=`jq -M '.[0] .yError' calibration-linear.json` 
-  calibrationType=`jq -M '.[0] .calibrationType' calibration-linear.json` 
+if [ -e ./calibration-linear.json ]; then
+  slope=`jq -M '.[0] .slope' ./calibration-linear.json` 
+  yIntercept=`jq -M '.[0] .yIntercept' ./calibration-linear.json` 
+  slopeError=`jq -M '.[0] .slopeError' ./calibration-linear.json` 
+  yError=`jq -M '.[0] .yError' ./calibration-linear.json` 
+  calibrationType=`jq -M '.[0] .calibrationType' ./calibration-linear.json` 
   calibrationType="${calibrationType%\"}"
   calibrationType="${calibrationType#\"}"
-  numCalibrations=`jq -M '.[0] .numCalibrations' calibration-linear.json` 
-  rSquared=`jq -M '.[0] .rSquared' calibration-linear.json` 
+  numCalibrations=`jq -M '.[0] .numCalibrations' ./calibration-linear.json` 
+  rSquared=`jq -M '.[0] .rSquared' ./calibration-linear.json` 
 else
   # exit until we have a valid calibration record
   echo "no valid calibration record yet, exiting ..."
@@ -165,7 +185,7 @@ if [ "$calibrationType" = "SinglePoint" ]; then
     calibratedBG=$(bc <<< "($calibratedBG / 1)") # truncate
     echo "After CI, BG=$calibratedBG"
   else
-    echo "bg not in range [70-84]"
+    echo "Not using CI because bg not in [70-84]"
   fi
 fi
 

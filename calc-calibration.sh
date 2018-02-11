@@ -182,8 +182,8 @@ fi
 
 if [ $(bc  <<< "$yIntercept > $maxIntercept") -eq 1 ]; then
   yIntercept=$maxIntercept
-elif [ $(bc <<< "$yIntercept < -30000") -eq 1 ]; then
-  yIntercept=-30000
+elif [ $(bc <<< "$yIntercept < (0 - $maxIntercept)") -eq 1 ]; then
+  yIntercept=$(bc <<< "0 - $maxIntercept")
 fi 
 
 echo "Calibration - After bounds check, slope=$slope, yIntercept=$yIntercept"
