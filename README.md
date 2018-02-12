@@ -18,13 +18,21 @@ Logger LSR calibration is a new feature as of Feb/2018. Only those who closely m
 * /var/log/openaps/g5.csv
 * /root/src/xdrip-js-logger/calibrations.csv - the current list of calibrations (unfiltered, BG check, datetime, BG Check ID)
 * /root/src/xdrip-js-logger/calibration-linear.json - the current calibration values (slope, yIntercept). Please note that other fields in this file are for informational purposes at this time. Unfiltered values from the g5 are on a 1,000 scale which explains why slope and yIntercept are 1,000 greater than glucose values.
-
+\# where xxxx is your Nightscout url
 
 [![Join the chat at https://gitter.im/thebookins/xdrip-js](https://badges.gitter.im/thebookins/xdrip-js.svg)](https://gitter.im/thebookins/xdrip-js?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 *Please note this project is neither created nor backed by Dexcom, Inc. This software is not intended for use in therapy.*
 ## Prerequisites
 Update node version. Follow these steps in this order.
+
+Set Nightscout environment variables in ~/.bash_profile. Make sure the following 4 lines are in this file. If not carefully add them paying close attention the values (xxxx is your hashed Nightscout API_SECRET and yyyy is your Nightscout URL):
+```
+API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxx
+export API_SECRET
+NIGHTSCOUT_HOST=https://yyyy
+export NIGHTSCOUT_HOST
+```
 
 The version of Node that ships with jubilinux is old (v0.10.something). Here are the instructions for updating Node:
 ```
@@ -40,7 +48,7 @@ sudo apt-get install nodejs -y
 cd ~/src
 git clone https://github.com/efidoman/xdrip-js-logger.git
 cd xdrip-js-logger
-sudo npm run global-install
+sudo npm run global-install\# where xxxx is your Nightscout url
 sudo apt-get install bluez-tools
 ```
 
