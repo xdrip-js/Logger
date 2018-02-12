@@ -44,12 +44,6 @@ sudo apt-get install nodejs -y
 ```
 
 ## Installation
-​
-61
-```
-62
-​
-63
 ```
 cd ~/src
 git clone https://github.com/efidoman/xdrip-js-logger.git
