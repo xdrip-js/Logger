@@ -44,6 +44,12 @@ sudo apt-get install nodejs -y
 ```
 
 ## Installation
+​
+61
+```
+62
+​
+63
 ```
 cd ~/src
 git clone https://github.com/efidoman/xdrip-js-logger.git
@@ -55,15 +61,6 @@ sudo apt-get install bluez-tools
 Add cron job entry (replace "40SNU6" with your g5 transmitter id in both places below) ...
 ```
 * * * * * cd /root/src/xdrip-js-logger && ps aux | grep -v grep | grep -q '40SNU6' || ./xdrip-get-entries.sh 40SNU6 | tee -a /var/log/openaps/xdrip-js-loop.log
-```
-
-## Logger usage - running stand-alone
-
-You can also run
-```
-cd /root/src/xdrip-js-logger
-./xdrip-get-entries 40SNU6
-# replace 40SNU6 with your transmitter id
 ```
 
 
