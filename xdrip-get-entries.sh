@@ -7,6 +7,24 @@ cd /root/src/xdrip-js-logger
 echo "Starting xdrip-get-entries.sh"
 date
 
+# Check required environment variables
+if [ "$API_SECRET" = "" ]; then
+   echo "API_SECRET environment variable is not set"
+   echo -e "Make sure the two lines below are in your ~/.bash_profile as follows:\n"
+   echo "API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxx # where xxxx is your hased NS API_SECRET"
+   echo -e "export API_SECRET\n\nexiting\n"
+   exit
+fi
+if [ "$NIGHTSCOUT_HOST" = "" ]; then
+   echo "NIGHTSCOUT_HOST environment variable is not set"
+   echo -e "Make sure the two lines below are in your ~/.bash_profile as follows:\n"
+   echo "NIGHTSCOUT_HOST=https://xxxx # where xxxx is your hased Nightscout url"
+   echo -e "export NIGHTSCOUT_HOST\n\nexiting\n"
+   exit
+fi
+
+
+
 function ClearCalibrationInput()
 {
   if [ -e ./calibrations.csv ]; then
@@ -25,15 +43,19 @@ function ClearCalibrationCache()
 }
 
 # check UTC to begin with and use UTC flag for any curls
-curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[created_at\]\[\$gte\]=$(date -d "6000 minutes ago" -Iminutes -u)" 2>/dev/null  > ./testUTC.json  
+curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[created_at\]\[\$gte\]=$(date -d "2400 hours ago" -Ihours -u)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null  > ./testUTC.json  
 createdAt=$(jq ".[0].created_at" ./testUTC.json)
-#if [[ ! ($createdAt == *"Z"*) ]]; then
-#  UTC=""
-#  echo "NS is not using UTC"       
-#else
+if [ "$createdAt" == "" ]; then
+  echo "You must record a \"Sensor Insert\" in Nightscout before Logger will run" 
+  echo -e "exiting\n"
+  exit
+elif [[ $createdAt == *"Z"* ]]; then
   UTC=" -u "
   echo "NS is using UTC $UTC"      
-#fi
+else
+  UTC=""
+  echo "NS is not using UTC $UTC"      
+fi
 
 # remove old calibration storage when sensor change occurs
 # calibrate after 15 minutes of sensor change time entered in NS
