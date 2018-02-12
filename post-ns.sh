@@ -1,5 +1,8 @@
 #!/bin/bash
 
+export NIGHTSCOUT_HOST
+export API_SECRET
+
 ns_url="${NIGHTSCOUT_HOST}"
 ns_secret="${API_SECRET}"
     

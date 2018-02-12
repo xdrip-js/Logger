@@ -8,6 +8,8 @@ echo "Starting xdrip-get-entries.sh"
 date
 
 # Check required environment variables
+export API_SECRET
+export NIGHTSCOUT_HOST
 if [ "$API_SECRET" = "" ]; then
    echo "API_SECRET environment variable is not set"
    echo -e "Make sure the two lines below are in your ~/.bash_profile as follows:\n"
