@@ -11,14 +11,14 @@ date
 if [ "$API_SECRET" = "" ]; then
    echo "API_SECRET environment variable is not set"
    echo -e "Make sure the two lines below are in your ~/.bash_profile as follows:\n"
-   echo "API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxx # where xxxx is your hased NS API_SECRET"
+   echo "API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxx # where xxxx is your hashed NS API_SECRET"
    echo -e "export API_SECRET\n\nexiting\n"
    exit
 fi
 if [ "$NIGHTSCOUT_HOST" = "" ]; then
    echo "NIGHTSCOUT_HOST environment variable is not set"
    echo -e "Make sure the two lines below are in your ~/.bash_profile as follows:\n"
-   echo "NIGHTSCOUT_HOST=https://xxxx # where xxxx is your hased Nightscout url"
+   echo "NIGHTSCOUT_HOST=https://xxxx # where xxxx is your hashed Nightscout url"
    echo -e "export NIGHTSCOUT_HOST\n\nexiting\n"
    exit
 fi
