@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source ~/.bash_profile
+
 export NIGHTSCOUT_HOST
 export API_SECRET
 

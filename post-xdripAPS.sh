@@ -5,6 +5,8 @@
 # 0 ==> success
 # other ==> curl_status
 
+source ~/.bash_profile
+
 export API_SECRET
 
 ns_url="http://127.0.0.1:5000"
