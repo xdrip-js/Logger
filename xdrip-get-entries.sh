@@ -130,6 +130,7 @@ meterbg=$(bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json")
 echo
 echo "meterbg from pumphistory: $meterbg"
 
+maxDelta=50
 if [ -z $meterbg ]; then
   curl --compressed -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
   #createdAt=$(jq ".[0].created_at" $METERBG_NS_RAW)
@@ -150,6 +151,7 @@ if [ -z $meterbg ]; then
       if ! cat ./calibrations.csv | egrep "$meterbgid"; then 
         echo "$raw,$meterbg,$datetime,$meterbgid" >> ./calibrations.csv
         ./calc-calibration.sh ./calibrations.csv ./calibration-linear.json
+        maxDelta=100
       fi
     else
       echo "Invalid calibration, meterbg=$meterbg outside of range [40,400]"
@@ -241,8 +243,8 @@ fi
 # end average last two entries if noise  code
 
 
-if [ $(bc <<< "$dg > 50") -eq 1 -o $(bc <<< "$dg < -50") -eq 1 ]; then
-  echo "Change $dg out of range [50,-50] - exiting"
+if [ $(bc <<< "$dg > $maxDelta") -eq 1 -o $(bc <<< "$dg < (0 - $maxDelta") -eq 1 ]; then
+  echo "Change $dg out of range [$maxDelta,-${maxDelta}] - exiting"
   bt-device -r $id
   exit
 fi
