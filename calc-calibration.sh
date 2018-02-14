@@ -12,7 +12,7 @@ OUTPUT=${2:-"calibration-linear.json"}
 MAXSLOPE=1350
 MINSLOPE=550
 MAXRECORDS=8
-MINRECORDSFORLSR=3
+MINRECORDSFORLSR=4
 rSquared=0
 
 yarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f1 ) )
@@ -137,6 +137,21 @@ function LeastSquaresRegression()
 
 
 
+function SinglePointCalibration
+{
+  if [ "$numx" -gt "0" ]; then
+    # for less than $MINRECORDSFORLSR calibrations, 
+    # fall back to single point calibration
+    # get the last entry for x and y
+    x=${xarr[-1]}
+    y=${yarr[-1]}
+    yIntercept=0
+    slope=$(bc -l <<< "$y / $x")
+    calibrationType="SinglePoint"
+    echo "x=$x, y=$y, slope=$slope, yIntercept=0" 
+  fi
+}
+
 #echo "${xarr[@]}"
 
 #get the number of calibrations
@@ -150,17 +165,9 @@ if [ $(bc -l <<< "$numx >= $MINRECORDSFORLSR") -eq 1 ]; then
   echo "Calibration records = $numx, using LeastSquaresRegression" 
   LeastSquaresRegression
   calibrationType="LeastSquaresRegression"
-elif [ "$numx" -gt "0" ]; then
-  # for less than $MINRECORDSFORLSR calibrations, 
-  # fall back to single point calibration
-  # get the last entry for x and y
-  x=${xarr[-1]}
-  y=${yarr[-1]}
-  yIntercept=0
-  slope=$(bc -l <<< "$y / $x")
+else
   echo "Calibration records = $numx, using single point linear" 
-  echo "x=$x, y=$y, slope=$slope, yIntercept=0" 
-  calibrationType="SinglePoint"
+  SinglePointCalibration
 fi
 
 # truncate and bounds check
@@ -181,9 +188,14 @@ elif [ $(bc <<< "$slope < $MINSLOPE") -eq 1 ]; then
 fi 
 
 if [ $(bc  <<< "$yIntercept > $maxIntercept") -eq 1 ]; then
-  yIntercept=$maxIntercept
+  # fall back to Single Point in this case
+  echo "yIntercept of $yIntercept > maxIntercept of $maxIntercept, using single point linear" 
+  SinglePointCalibration
 elif [ $(bc <<< "$yIntercept < (0 - $maxIntercept)") -eq 1 ]; then
-  yIntercept=$(bc <<< "0 - $maxIntercept")
+  # fall back to Single Point in this case
+  echo "yIntercept of $yIntercept < negative maxIntercept of -$maxIntercept, using single point linear" 
+  SinglePointCalibration
+  echo "x=$x, y=$y, slope=$slope, yIntercept=0" 
 fi 
 
 echo "Calibration - After bounds check, slope=$slope, yIntercept=$yIntercept"
