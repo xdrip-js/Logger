@@ -243,7 +243,7 @@ fi
 # end average last two entries if noise  code
 
 
-if [ $(bc <<< "$dg > $maxDelta)" -eq 1 -o $(bc <<< "$dg < (0 - $maxDelta)" -eq 1 ]; then
+if [ $(bc <<< "$dg > $maxDelta") -eq 1 -o $(bc <<< "$dg < (0 - $maxDelta)") -eq 1 ]; then
   echo "Change $dg out of range [$maxDelta,-${maxDelta}] - exiting"
   bt-device -r $id
   exit
