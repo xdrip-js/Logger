@@ -9,7 +9,7 @@
 
 INPUT=${1:-"calibrations.csv"}
 OUTPUT=${2:-"calibration-linear.json"}
-MAXSLOPE=1350
+MAXSLOPE=1450
 MINSLOPE=550
 MAXRECORDS=8
 MINRECORDSFORLSR=4
@@ -182,9 +182,13 @@ maxIntercept=$(MathMin "${yarr[@]}")
 echo "Calibration - Before bounds check, slope=$slope, yIntercept=$yIntercept"
 
 if [ $(bc <<< "$slope > $MAXSLOPE") -eq 1 ]; then
-  slope=$MAXSLOPE
+  # fall back to Single Point in this case
+  echo "slope of $slope > maxSlope of $MAXSLOPE, using single point linear" 
+  SinglePointCalibration
 elif [ $(bc <<< "$slope < $MINSLOPE") -eq 1 ]; then
-  slope=$MINSLOPE
+  # fall back to Single Point in this case
+  echo "slope of $slope < minSlope of $MINSLOPE, using single point linear" 
+  SinglePointCalibration
 fi 
 
 if [ $(bc  <<< "$yIntercept > $maxIntercept") -eq 1 ]; then
