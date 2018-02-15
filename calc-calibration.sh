@@ -202,6 +202,24 @@ elif [ $(bc <<< "$yIntercept < (0 - $maxIntercept)") -eq 1 ]; then
   echo "x=$x, y=$y, slope=$slope, yIntercept=0" 
 fi 
 
+
+# check slope again if SinglePoint for safety
+# this is for the case that we fell back to SinglePoint
+# to make sure that we don't have use without bounds a potentiall bad 
+# or mistaken calibration recent record
+if [ "$calibrationType" == "SinglePoint" ]; then
+  if [ $(bc <<< "$slope > $MAXSLOPE") -eq 1 ]; then
+    echo "single point slope of $slope > maxSlope of $MAXSLOPE, using $MAXSLOPE" 
+    slope=$MAXSLOPE
+  elif [ $(bc <<< "$slope < $MINSLOPE") -eq 1 ]; then
+    echo "single point slope of $slope < minSlope of $MINSLOPE, using $MINSLOPE" 
+    slope=$MINSLOPE
+  fi 
+fi
+
+yIntercept=$(bc <<< "$yIntercept / 1") # truncate
+slope=$(bc <<< "$slope / 1") # truncate
+
 echo "Calibration - After bounds check, slope=$slope, yIntercept=$yIntercept"
 echo "Calibration - slopeError=$slopeError, yError=$yError"
 
