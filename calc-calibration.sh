@@ -112,9 +112,6 @@ function LeastSquaresRegression()
   local sumYSq=0
   local r=0
   local n=${#xarr[@]}
-  local m=0
-  local b=0
-   
 
   for (( i=0; i<$n; i++ ))
   do
@@ -123,31 +120,31 @@ function LeastSquaresRegression()
     sumYSq=$(bc -l <<< "$sumYSq + ${yarr[i]} * ${yarr[i]}")
   done  
   
-  r=$(bc -l <<< "($n * $sumXY - $sumX * $sumY) / sqrt((($n * $sumXSq - ${sumX}^2) * ($n * $sumYSq - ${sumY}^2)))")
-  rSquared=$(bc -l <<< "(${r})^2")
-#  echo "r=$r, n=$n, sumXSq=$sumXSq, sumYSq=$sumYSq"
-#  echo "sumY=$sumY, sumX=$sumX, stddevX=$stddevX, stddevY=$stddevY" 
+  denominator=$(bc -l <<< "sqrt((($n * $sumXSq - ${sumX}^2) * ($n * $sumYSq - ${sumY}^2)))")
+  if [ $(bc <<< "$denominator == 0") -eq 1 -o  $(bc <<< "$stddevX == 0") -eq 1 ] ; then
+    slope=1000
+    yIntercept=0
+  else
+    r=$(bc -l <<< "($n * $sumXY - $sumX * $sumY) / $denominator")
+    rSquared=$(bc -l <<< "(${r})^2")
 
-  m=$(bc -l <<< "$r * $stddevY / $stddevX ")
-  b=$(bc -l <<< "$meanY - $m * $meanX ")
+    slope=$(bc -l <<< "$r * $stddevY / $stddevX ")
+    yIntercept=$(bc -l <<< "$meanY - $slope * $meanX ")
 
-#  echo "m=$m, b=$b" 
-# sets global variables slope and yIntercept
-  slope=$m
-  yIntercept=$b
 
-# calculate error
-  local varSum=0
-  for (( j=0; j<$n; j++ ))
-  do
-    varSum=$(bc -l <<< "$varSum + (${yarr[$j]} - $b - $m * ${xarr[$j]})^2")   
-  done
+  # calculate error
+    local varSum=0
+    for (( j=0; j<$n; j++ ))
+    do
+      varSum=$(bc -l <<< "$varSum + (${yarr[$j]} - $yIntercept - $slope * ${xarr[$j]})^2")   
+    done
 
-  local delta=$(bc -l <<< "$n * $sumXSq - ($sumX)^2")  
-  local vari=$(bc -l <<< "1.0 / ($n - 2.0) * $varSum")
+    local delta=$(bc -l <<< "$n * $sumXSq - ($sumX)^2")  
+    local vari=$(bc -l <<< "1.0 / ($n - 2.0) * $varSum")
   
-  yError=$(bc -l <<< "sqrt($vari / $delta * $sumXSq)") 
-  slopeError=$(bc -l <<< "sqrt($n / $delta * $vari)")
+    yError=$(bc -l <<< "sqrt($vari / $delta * $sumXSq)") 
+    slopeError=$(bc -l <<< "sqrt($n / $delta * $vari)")
+  fi
 }
 
 
@@ -171,8 +168,8 @@ function SinglePointCalibration
 
 #get the number of calibrations
 numx=${#xarr[@]}
-slope=0
-yIntercept=1000
+slope=1000
+yIntercept=0
 slopeError=0
 yError=0
 
@@ -180,9 +177,12 @@ if [ $(bc -l <<< "$numx >= $MINRECORDSFORLSR") -eq 1 ]; then
   echo "Calibration records = $numx, using LeastSquaresRegression" 
   LeastSquaresRegression
   calibrationType="LeastSquaresRegression"
-else
+elif [ $(bc -l <<< "$numx > 0") -eq 1 ]; then
   echo "Calibration records = $numx, using single point linear" 
   SinglePointCalibration
+else
+  slope=1000
+  yIntercept=0
 fi
 
 # truncate and bounds check
