@@ -1,6 +1,6 @@
 {
   "name": "xdrip-js-logger",
-  "version": "0.1.4",
+  "version": "0.2.1",
   "description": "",
   "main": "logger/index.js",
   "author": "Paul Dickens",
@@ -15,7 +15,8 @@
   "bin": {
     "xdrip-get-entries": "./xdrip-get-entries.sh",
     "post-xdripAPS": "./post-xdripAPS.sh",
-    "post-ns": "./post-ns.sh"
+    "post-ns": "./post-ns.sh",
+    "calc-calibration": "./calc-calibration.sh"
   }
 }
 
