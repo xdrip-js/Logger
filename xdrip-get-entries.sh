@@ -49,8 +49,8 @@ function ClearCalibrationCache()
 UTC=" -u "
 # check UTC to begin with and use UTC flag for any curls
 curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[created_at\]\[\$gte\]=$(date -d "2400 hours ago" -Ihours -u)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null  > ./testUTC.json  
-createdAt=$(jq ".[0].created_at" ./testUTC.json)
 if [ $? == 0 ]; then
+  createdAt=$(jq ".[0].created_at" ./testUTC.json)
   if [ $"$createdAt" == "" ]; then
     echo "You must record a \"Sensor Insert\" in Nightscout before Logger will run" 
     echo -e "exiting\n"
