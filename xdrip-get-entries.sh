@@ -3,6 +3,7 @@
 glucoseType="unfiltered"
 
 cd /root/src/xdrip-js-logger
+mkdir -p old-calibrations
 
 echo "Starting xdrip-get-entries.sh"
 date
@@ -31,14 +32,14 @@ fi
 function ClearCalibrationInput()
 {
   if [ -e ./calibrations.csv ]; then
-    cp ./calibrations.csv "./calibrations.csv.$(date +%Y%m%d-%H%M%S)" 
+    cp ./calibrations.csv "./old-calibrations/calibrations.csv.$(date +%Y%m%d-%H%M%S)" 
     rm ./calibrations.csv
   fi
 }
 
 function ClearCalibrationCache()
 {
-  local cache="./calibration-linear.json"
+  local cache="./old-calibrations/calibration-linear.json"
   if [ -e $cache ]; then
     cp $cache "${cache}.$(date +%Y%m%d-%H%M%S)" 
     rm $cache 

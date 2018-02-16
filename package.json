@@ -1,6 +1,6 @@
 {
   "name": "xdrip-js-logger",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "",
   "main": "logger/index.js",
   "author": "Paul Dickens",
