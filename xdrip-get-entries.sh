@@ -315,7 +315,7 @@ if [ ! -f "/var/log/openaps/g5.csv" ]; then
 fi
 
 
-# calculate noise and position it for updating the entry sent to NS and xdripAPS
+# calculate the noise and position it for updating the entry sent to NS and xdripAPS
 noise=$(./calc-noise.sh)
 
 noiseSend=0 # unknown
