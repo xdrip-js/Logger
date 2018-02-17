@@ -263,7 +263,6 @@ jq ".[0].sgv = $calibratedBG" entry.json > "$tmp" && mv "$tmp" entry.json
 
 tmp=$(mktemp)
 jq ".[0].device = \"${transmitter}\"" entry.json > "$tmp" && mv "$tmp" entry.json
-# end calibration logic
 
 direction='NONE'
 
@@ -311,13 +310,29 @@ echo "Gluc=${calibratedBG}, last=${lastGlucose}, diff=${dg}, dir=${direction}"
 
 cat entry.json | jq ".[0].direction = \"$direction\"" > entry-xdrip.json
 
-
 if [ ! -f "/var/log/openaps/g5.csv" ]; then
-  echo "datetime,unfiltered,filtered,trend,calibratedBG,meterbg,slope,yIntercept,slopeError,yError,rSquared" > /var/log/openaps/g5.csv
+  echo "datetime,unfiltered,filtered,trend,calibratedBG,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend" > /var/log/openaps/g5.csv
 fi
 
 
-echo "${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared}" >> /var/log/openaps/g5.csv
+# calculate noise and position it for updating the entry sent to NS and xdripAPS
+noise=$(./calc-noise.sh)
+
+noiseSend=0 # unknown
+if [ $(bc -l <<< "$noise < 0.5") -eq 1 ]; then
+  noiseSend=1  # Clean
+elif [ $(bc -l <<< "$noise < 0.6") -eq 1 ]; then
+  noiseSend=2  # Light
+elif [ $(bc -l <<< "$noise < 0.75") -eq 1 ]; then
+  noiseSend=3  # Medium
+elif [ $(bc -l <<< "$noise >= 0.75") -eq 1 ]; then
+  noiseSend=4  # Heavy
+fi
+
+tmp=$(mktemp)
+jq ".[0].noise = $noiseSend" entry-xdrip.json > "$tmp" && mv "$tmp" entry-xdrip.json
+
+echo "${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend}" >> /var/log/openaps/g5.csv
 
 echo "Posting glucose record to xdripAPS"
 ./post-xdripAPS.sh ./entry-xdrip.json
@@ -333,7 +348,7 @@ else
   cp ./entry-xdrip.json ./entry-ns.json
 fi
 
-echo "Posting blood glucose record(s) to NightScout"
+echo "Posting blood glucose to NightScout"
 ./post-ns.sh ./entry-ns.json && (echo; echo "Upload to NightScout of xdrip entry worked ... removing ./entry-backfill.json"; rm -f ./entry-backfill.json) || (echo; echo "Upload to NS of xdrip entry did not work ... saving for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile"; cp ./entry-ns.json ./entry-backfill.json)
 echo
 
