@@ -331,11 +331,20 @@ if [ ! -f "/var/log/openaps/g5.csv" ]; then
   echo "epochdate,datetime,unfiltered,filtered,trend,calibratedBG,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend" > /var/log/openaps/g5.csv
 fi
 
+echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend}" >> /var/log/openaps/g5.csv
+
+echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ./noise-input.csv
+
 
 # calculate the noise and position it for updating the entry sent to NS and xdripAPS
 if [ $(bc -l <<< "$noiseSend == 0") -eq 1 ]; then
   # means that noise was not already set before
-  noise=$(./calc-noise.sh)
+  noise=$(./calc-noise.sh ./noise-input.csv ./noise.json)
+fi
+
+if [ -e ./noise.json ]; then
+  noise=`jq -M '.[0] .noise' ./noise.json` 
+  echo noise from json = $noise
 fi
 
 if [ $(bc -l <<< "$noise < 0.2") -eq 1 ]; then
@@ -350,8 +359,6 @@ fi
 
 tmp=$(mktemp)
 jq ".[0].noise = $noiseSend" entry-xdrip.json > "$tmp" && mv "$tmp" entry-xdrip.json
-
-echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend}" >> /var/log/openaps/g5.csv
 
 echo "Posting glucose record to xdripAPS"
 ./post-xdripAPS.sh ./entry-xdrip.json
