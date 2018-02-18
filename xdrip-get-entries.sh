@@ -46,7 +46,7 @@ function ClearCalibrationCache()
   fi
 }
 
-noise=0 # default unknown
+noiseSend=0 # default unknown
 UTC=" -u "
 # check UTC to begin with and use UTC flag for any curls
 curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[created_at\]\[\$gte\]=$(date -d "2400 hours ago" -Ihours -u)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null  > ./testUTC.json  
@@ -67,7 +67,6 @@ fi
 
 # remove old calibration storage when sensor change occurs
 # calibrate after 15 minutes of sensor change time entered in NS
-# disable this feature for now. It isn't recreating the calibration file after sensor insert and BG check
 #
 curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
 if [ $? == 0 ]; then
@@ -221,10 +220,27 @@ if [ "$calibrationType" = "SinglePoint" ]; then
   fi
 fi
 
-if [ -z $calibratedBG -o $(bc <<< "$calibratedBG > 400") -eq 1 -o $(bc <<< "$calibratedBG < 40") -eq 1 ]; then
-  echo "Glucose $calibratedBG out of range [40,400] - exiting"
-  bt-device -r $id
-  exit
+if [ -z $calibratedBG ]; then
+  # Outer calibrated BG boundary checks - exit and don't send these on to Nightscout / openaps
+  if [ $(bc <<< "$calibratedBG > 600") -eq 1 -o $(bc <<< "$calibratedBG < 0") -eq 1 ]; then
+    echo "Glucose $calibratedBG out of range [0,600] - exiting"
+    bt-device -r $id
+    exit
+  fi
+
+  # Inner Calibrated BG boundary checks for case > 400
+  if [ $(bc <<< "$calibratedBG > 400") -eq 1 ]; then
+    echo "Glucose $calibratedBG over 400 - setting noise level Heavy"
+    echo "BG value will show in Nightscout but Openaps will not use it for looping"
+    noiseSend=4
+  fi
+
+  # Inner Calibrated BG boundary checks for case < 40
+  if [ $(bc <<< "$calibratedBG < 40") -eq 1 ]; then
+    echo "Glucose $calibratedBG < 40 - setting noise level Light"
+    echo "BG value will show in Nightscout and Openaps will conservatively use it for looping"
+    noiseSend=2
+  fi
 fi
 
 if [ -z $lastGlucose -o $(bc <<< "$lastGlucose < 40") -eq 1 ] ; then
@@ -250,7 +266,7 @@ fi
 
 if [ $(bc <<< "$dg > $maxDelta") -eq 1 -o $(bc <<< "$dg < (0 - $maxDelta)") -eq 1 ]; then
   echo "Change $dg out of range [$maxDelta,-${maxDelta}] - setting noise=Heavy"
-  noise=1
+  noiseSend=4
 fi
 
 cp entry.json entry-before-calibration.json
@@ -316,7 +332,7 @@ fi
 
 
 # calculate the noise and position it for updating the entry sent to NS and xdripAPS
-if [ $(bc -l <<< "$noise == 0") -eq 1 ]; then
+if [ $(bc -l <<< "$noiseSend == 0") -eq 1 ]; then
   # means no Heavy noise already set above 
   noise=$(./calc-noise.sh)
 fi
