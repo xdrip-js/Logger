@@ -114,6 +114,7 @@ fi
 unfiltered=$(cat ./entry.json | jq -M '.[0].unfiltered')
 filtered=$(cat ./entry.json | jq -M '.[0].filtered')
 datetime=$(date +"%Y-%m-%d %H:%M")
+epochdate=$(date +'%s')
 if [ "glucoseType" == "filtered" ]; then
   raw=$filtered
 else
@@ -153,7 +154,7 @@ if [ -z $meterbg ]; then
     if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
       # only do this once for a single calibration check for duplicate BG check record ID
       if ! cat ./calibrations.csv | egrep "$meterbgid"; then 
-        echo "$raw,$meterbg,$datetime,$meterbgid" >> ./calibrations.csv
+        echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid" >> ./calibrations.csv
         ./calc-calibration.sh ./calibrations.csv ./calibration-linear.json
         maxDelta=60
       fi
@@ -327,7 +328,7 @@ echo "Gluc=${calibratedBG}, last=${lastGlucose}, diff=${dg}, dir=${direction}"
 cat entry.json | jq ".[0].direction = \"$direction\"" > entry-xdrip.json
 
 if [ ! -f "/var/log/openaps/g5.csv" ]; then
-  echo "datetime,unfiltered,filtered,trend,calibratedBG,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend" > /var/log/openaps/g5.csv
+  echo "epochdate,datetime,unfiltered,filtered,trend,calibratedBG,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend" > /var/log/openaps/g5.csv
 fi
 
 
@@ -350,7 +351,7 @@ fi
 tmp=$(mktemp)
 jq ".[0].noise = $noiseSend" entry-xdrip.json > "$tmp" && mv "$tmp" entry-xdrip.json
 
-echo "${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend}" >> /var/log/openaps/g5.csv
+echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend}" >> /var/log/openaps/g5.csv
 
 echo "Posting glucose record to xdripAPS"
 ./post-xdripAPS.sh ./entry-xdrip.json
