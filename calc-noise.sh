@@ -5,7 +5,20 @@ MAXRECORDS=8
 MINRECORDS=4
 XINCREMENT=10000
 yarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f2 ) )
+xdate=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f1 ) )
 n=${#yarr[@]}
+
+#    dt1970arr[$i]=`date +%s --date="${dtarr[$i]}"`
+#    set initial i value based on date differences
+
+#for (( i=0; i<$n; i++ ))
+#do
+#  xarr[$i]=`date +%s --date="${xdate[$i]}"`
+#done
+
+#echo ${xarr[@]}
+#echo ${xdate[@]}
+#exit
 
 # sod = sum of distances
 sod=0
