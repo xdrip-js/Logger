@@ -333,7 +333,7 @@ fi
 
 
 # calculate the noise and position it for updating the entry sent to NS and xdripAPS
-if [ "$noiseSend == 0" ]; then
+if [ "$noiseSend" == "0" ]; then
   # means that noise was not already set before
   noise=$(./calc-noise.sh)
 fi
