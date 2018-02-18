@@ -4,7 +4,7 @@ INPUT=${1:-"/var/log/openaps/g5.csv"}
 MAXRECORDS=8
 MINRECORDS=4
 XINCREMENT=10000
-yarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f2 ) )
+yarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f3 ) )
 xdate=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f1 ) )
 n=${#yarr[@]}
 
