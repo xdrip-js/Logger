@@ -40,6 +40,7 @@ if [ $(bc -l <<< "$sod == 0") -eq 1 ]; then
 else
   noise=$(bc -l <<< "1 - ($overallsod/$sod)")
 fi
+noise=$(printf "%.*f\n" 5 $noise)
 echo $noise
 
 

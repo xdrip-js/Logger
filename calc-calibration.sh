@@ -113,6 +113,11 @@ function LeastSquaresRegression()
   local r=0
   local n=${#xarr[@]}
 
+  # add weight to the latest value by using the latest record twice
+  xarr[$n]=${xarr[$n-1]}
+  yarr[$n]=${yarr[$n-1]}
+  n=${#xarr[@]}
+
   for (( i=0; i<$n; i++ ))
   do
     sumXY=$(bc -l <<< "$sumXY + ${xarr[i]} * ${yarr[i]}")
@@ -127,6 +132,8 @@ function LeastSquaresRegression()
   else
     r=$(bc -l <<< "($n * $sumXY - $sumX * $sumY) / $denominator")
     rSquared=$(bc -l <<< "(${r})^2")
+    rSquared=$(printf "%.*f\n" 5 $rSquared)
+
 
     slope=$(bc -l <<< "$r * $stddevY / $stddevX ")
     yIntercept=$(bc -l <<< "$meanY - $slope * $meanX ")
