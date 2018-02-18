@@ -46,7 +46,7 @@ function ClearCalibrationCache()
   fi
 }
 
-noiseSend=0 # unknown
+noise=0 # default unknown
 UTC=" -u "
 # check UTC to begin with and use UTC flag for any curls
 curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[created_at\]\[\$gte\]=$(date -d "2400 hours ago" -Ihours -u)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null  > ./testUTC.json  
@@ -245,7 +245,7 @@ if [ "$da" -lt "45" -a "$da" -gt "15" ]; then
  dg=$(bc <<< "$calibratedBG - $lastGlucose")
  echo "After average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, calibratedBG=${calibratedBG}"
 fi
-# end average last two entries if noise  code
+# end average last two entries if noise
 
 
 if [ $(bc <<< "$dg > $maxDelta") -eq 1 -o $(bc <<< "$dg < (0 - $maxDelta)") -eq 1 ]; then
@@ -316,7 +316,7 @@ fi
 
 
 # calculate the noise and position it for updating the entry sent to NS and xdripAPS
-if [ $(bc -l <<<  "$noise == 0") -eq 1 ]; then
+if [ $(bc -l <<< "$noise == 0") -eq 1 ]; then
   # means no Heavy noise already set above 
   noise=$(./calc-noise.sh)
 fi
