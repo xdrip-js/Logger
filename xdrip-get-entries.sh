@@ -7,6 +7,7 @@ mkdir -p old-calibrations
 
 echo "Starting xdrip-get-entries.sh"
 date
+scale=5
 
 # Check required environment variables
 source ~/.bash_profile
@@ -333,7 +334,7 @@ fi
 
 
 # calculate the noise and position it for updating the entry sent to NS and xdripAPS
-if [ "$noiseSend" == "0" ]; then
+if [ "$noiseSend" -eq "0" ]; then
   # means that noise was not already set before
   noise=$(./calc-noise.sh)
 fi
