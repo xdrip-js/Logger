@@ -134,7 +134,7 @@ meterbg=$(bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json")
 echo
 echo "meterbg from pumphistory: $meterbg"
 
-maxDelta=50
+maxDelta=30
 if [ -z $meterbg ]; then
   curl --compressed -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
   #createdAt=$(jq ".[0].created_at" $METERBG_NS_RAW)
@@ -155,7 +155,7 @@ if [ -z $meterbg ]; then
       if ! cat ./calibrations.csv | egrep "$meterbgid"; then 
         echo "$raw,$meterbg,$datetime,$meterbgid" >> ./calibrations.csv
         ./calc-calibration.sh ./calibrations.csv ./calibration-linear.json
-        maxDelta=100
+        maxDelta=60
       fi
     else
       echo "Invalid calibration, meterbg=$meterbg outside of range [40,400]"
