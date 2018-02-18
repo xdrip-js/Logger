@@ -4,8 +4,21 @@ INPUT=${1:-"/var/log/openaps/g5.csv"}
 MAXRECORDS=8
 MINRECORDS=4
 XINCREMENT=10000
-yarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f2 ) )
+yarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f3 ) )
+xdate=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f1 ) )
 n=${#yarr[@]}
+
+#    dt1970arr[$i]=`date +%s --date="${dtarr[$i]}"`
+#    set initial i value based on date differences
+
+#for (( i=0; i<$n; i++ ))
+#do
+#  xarr[$i]=`date +%s --date="${xdate[$i]}"`
+#done
+
+#echo ${xarr[@]}
+#echo ${xdate[@]}
+#exit
 
 # sod = sum of distances
 sod=0
@@ -27,6 +40,7 @@ if [ $(bc -l <<< "$sod == 0") -eq 1 ]; then
 else
   noise=$(bc -l <<< "1 - ($overallsod/$sod)")
 fi
+noise=$(printf "%.*f\n" 5 $noise)
 echo $noise
 
 

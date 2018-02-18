@@ -46,6 +46,7 @@ function ClearCalibrationCache()
   fi
 }
 
+noiseSend=0 # default unknown
 UTC=" -u "
 # check UTC to begin with and use UTC flag for any curls
 curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[created_at\]\[\$gte\]=$(date -d "2400 hours ago" -Ihours -u)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null  > ./testUTC.json  
@@ -66,7 +67,6 @@ fi
 
 # remove old calibration storage when sensor change occurs
 # calibrate after 15 minutes of sensor change time entered in NS
-# disable this feature for now. It isn't recreating the calibration file after sensor insert and BG check
 #
 curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
 if [ $? == 0 ]; then
@@ -114,6 +114,7 @@ fi
 unfiltered=$(cat ./entry.json | jq -M '.[0].unfiltered')
 filtered=$(cat ./entry.json | jq -M '.[0].filtered')
 datetime=$(date +"%Y-%m-%d %H:%M")
+epochdate=$(date +'%s')
 if [ "glucoseType" == "filtered" ]; then
   raw=$filtered
 else
@@ -134,7 +135,7 @@ meterbg=$(bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json")
 echo
 echo "meterbg from pumphistory: $meterbg"
 
-maxDelta=50
+maxDelta=30
 if [ -z $meterbg ]; then
   curl --compressed -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
   #createdAt=$(jq ".[0].created_at" $METERBG_NS_RAW)
@@ -153,9 +154,9 @@ if [ -z $meterbg ]; then
     if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
       # only do this once for a single calibration check for duplicate BG check record ID
       if ! cat ./calibrations.csv | egrep "$meterbgid"; then 
-        echo "$raw,$meterbg,$datetime,$meterbgid" >> ./calibrations.csv
+        echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid" >> ./calibrations.csv
         ./calc-calibration.sh ./calibrations.csv ./calibration-linear.json
-        maxDelta=100
+        maxDelta=60
       fi
     else
       echo "Invalid calibration, meterbg=$meterbg outside of range [40,400]"
@@ -220,10 +221,27 @@ if [ "$calibrationType" = "SinglePoint" ]; then
   fi
 fi
 
-if [ -z $calibratedBG -o $(bc <<< "$calibratedBG > 400") -eq 1 -o $(bc <<< "$calibratedBG < 40") -eq 1 ]; then
-  echo "Glucose $calibratedBG out of range [40,400] - exiting"
-  bt-device -r $id
-  exit
+if [ -z $calibratedBG ]; then
+  # Outer calibrated BG boundary checks - exit and don't send these on to Nightscout / openaps
+  if [ $(bc <<< "$calibratedBG > 600") -eq 1 -o $(bc <<< "$calibratedBG < 0") -eq 1 ]; then
+    echo "Glucose $calibratedBG out of range [0,600] - exiting"
+    bt-device -r $id
+    exit
+  fi
+
+  # Inner Calibrated BG boundary checks for case > 400
+  if [ $(bc <<< "$calibratedBG > 400") -eq 1 ]; then
+    echo "Glucose $calibratedBG over 400 - setting noise level Heavy"
+    echo "BG value will show in Nightscout but Openaps will not use it for looping"
+    noiseSend=4
+  fi
+
+  # Inner Calibrated BG boundary checks for case < 40
+  if [ $(bc <<< "$calibratedBG < 40") -eq 1 ]; then
+    echo "Glucose $calibratedBG < 40 - setting noise level Light"
+    echo "BG value will show in Nightscout and Openaps will conservatively use it for looping"
+    noiseSend=2
+  fi
 fi
 
 if [ -z $lastGlucose -o $(bc <<< "$lastGlucose < 40") -eq 1 ] ; then
@@ -244,13 +262,12 @@ if [ "$da" -lt "45" -a "$da" -gt "15" ]; then
  dg=$(bc <<< "$calibratedBG - $lastGlucose")
  echo "After average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, calibratedBG=${calibratedBG}"
 fi
-# end average last two entries if noise  code
+# end average last two entries if noise
 
 
 if [ $(bc <<< "$dg > $maxDelta") -eq 1 -o $(bc <<< "$dg < (0 - $maxDelta)") -eq 1 ]; then
-  echo "Change $dg out of range [$maxDelta,-${maxDelta}] - exiting"
-  bt-device -r $id
-  exit
+  echo "Change $dg out of range [$maxDelta,-${maxDelta}] - setting noise=Heavy"
+  noiseSend=4
 fi
 
 cp entry.json entry-before-calibration.json
@@ -311,19 +328,21 @@ echo "Gluc=${calibratedBG}, last=${lastGlucose}, diff=${dg}, dir=${direction}"
 cat entry.json | jq ".[0].direction = \"$direction\"" > entry-xdrip.json
 
 if [ ! -f "/var/log/openaps/g5.csv" ]; then
-  echo "datetime,unfiltered,filtered,trend,calibratedBG,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend" > /var/log/openaps/g5.csv
+  echo "epochdate,datetime,unfiltered,filtered,trend,calibratedBG,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend" > /var/log/openaps/g5.csv
 fi
 
 
 # calculate the noise and position it for updating the entry sent to NS and xdripAPS
-noise=$(./calc-noise.sh)
+if [ $(bc -l <<< "$noiseSend == 0") -eq 1 ]; then
+  # means that noise was not already set before
+  noise=$(./calc-noise.sh)
+fi
 
-noiseSend=0 # unknown
-if [ $(bc -l <<< "$noise < 0.5") -eq 1 ]; then
+if [ $(bc -l <<< "$noise < 0.2") -eq 1 ]; then
   noiseSend=1  # Clean
-elif [ $(bc -l <<< "$noise < 0.6") -eq 1 ]; then
+elif [ $(bc -l <<< "$noise < 0.4") -eq 1 ]; then
   noiseSend=2  # Light
-elif [ $(bc -l <<< "$noise < 0.75") -eq 1 ]; then
+elif [ $(bc -l <<< "$noise < 0.6") -eq 1 ]; then
   noiseSend=3  # Medium
 elif [ $(bc -l <<< "$noise >= 0.75") -eq 1 ]; then
   noiseSend=4  # Heavy
@@ -332,7 +351,7 @@ fi
 tmp=$(mktemp)
 jq ".[0].noise = $noiseSend" entry-xdrip.json > "$tmp" && mv "$tmp" entry-xdrip.json
 
-echo "${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend}" >> /var/log/openaps/g5.csv
+echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend}" >> /var/log/openaps/g5.csv
 
 echo "Posting glucose record to xdripAPS"
 ./post-xdripAPS.sh ./entry-xdrip.json
