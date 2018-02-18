@@ -7,7 +7,6 @@ mkdir -p old-calibrations
 
 echo "Starting xdrip-get-entries.sh"
 date
-scale=5
 
 # Check required environment variables
 source ~/.bash_profile
@@ -339,11 +338,11 @@ if [ $(bc -l <<< "$noiseSend == 0") -eq 1 ]; then
   noise=$(./calc-noise.sh)
 fi
 
-if [ $(bc -l <<< "$noise < 0.5") -eq 1 ]; then
+if [ $(bc -l <<< "$noise < 0.2") -eq 1 ]; then
   noiseSend=1  # Clean
-elif [ $(bc -l <<< "$noise < 0.6") -eq 1 ]; then
+elif [ $(bc -l <<< "$noise < 0.4") -eq 1 ]; then
   noiseSend=2  # Light
-elif [ $(bc -l <<< "$noise < 0.75") -eq 1 ]; then
+elif [ $(bc -l <<< "$noise < 0.6") -eq 1 ]; then
   noiseSend=3  # Medium
 elif [ $(bc -l <<< "$noise >= 0.75") -eq 1 ]; then
   noiseSend=4  # Heavy
