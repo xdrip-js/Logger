@@ -1,20 +1,43 @@
 #!/bin/bash
 
-INPUT=${1:-"/var/log/openaps/g5.csv"}
+#"${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ./noise-input.csv
+
+INPUT=${1:-"./noise-input.csv"}
+OUTPUT=${2:-"./noise.json"}
 MAXRECORDS=8
 MINRECORDS=4
 XINCREMENT=10000
-yarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f3 ) )
-xdate=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f1 ) )
-n=${#yarr[@]}
+noise=0
 
-#    dt1970arr[$i]=`date +%s --date="${dtarr[$i]}"`
-#    set initial i value based on date differences
+function ReportNoiseAndExit()
+{
+  echo "[{"noise":$noise}]" > $OUTPUT
+  echo $noise
+  exit
+}
 
-#for (( i=0; i<$n; i++ ))
-#do
-#  xarr[$i]=`date +%s --date="${xdate[$i]}"`
-#done
+if [ -e $INPUT ]; then
+  yarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f2 ) )
+  xdate=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f1 ) )
+  n=${#yarr[@]}
+else
+  noise=0
+  ReportNoiseAndExit
+fi
+
+#    set initial x values based on date differences
+
+if [ $(bc <<< "$n < 3") -eq 1 ]; then
+  # set noise = 0 - unknown
+  noise=0
+  ReportNoiseAndExit
+fi
+
+firstDate=${xdate[0]}
+for (( i=0; i<$n; i++ ))
+do
+  xarr[$i]=$(bc <<< "${xdate[$i]} - $firstDate")
+done
 
 #echo ${xarr[@]}
 #echo ${xdate[@]}
@@ -41,6 +64,4 @@ else
   noise=$(bc -l <<< "1 - ($overallsod/$sod)")
 fi
 noise=$(printf "%.*f\n" 5 $noise)
-echo $noise
-
-
+ReportNoiseAndExit
