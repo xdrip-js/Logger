@@ -10,10 +10,10 @@ noise=0
 
 function ReportNoiseAndExit()
 {
-  echo noise=$noise
-  noise=0
+#  echo noise=$noise
+#  noise=0
   echo "[{"noise":$noise}]" > $OUTPUT
-  echo $noise
+#  echo $noise
   exit
 }
 
@@ -38,7 +38,7 @@ firstDate=${xdate[0]}
 for (( i=0; i<$n; i++ ))
 do
   xarr[$i]=$(bc <<< "(${xdate[$i]} - $firstDate) * 30") # use 30 multiplier to normalize axis
-  echo "x,y=${xarr[$i]},${yarr[$i]}"
+#  echo "x,y=${xarr[$i]},${yarr[$i]}"
 done
 
 echo ${xarr[@]}
@@ -56,7 +56,7 @@ do
   x1=${xarr[$i]}
   x2=${xarr[$i-1]}
 
-  echo "x1=$x1, x2=$x2, y1=$y1, y2=$y2"
+#  echo "x1=$x1, x2=$x2, y1=$y1, y2=$y2"
   sod=$(bc -l <<< "$sod + sqrt(($x1 - $x2)^2 + ($y1 - $y2)^2)")
 done  
 
@@ -66,7 +66,7 @@ if [ $(bc -l <<< "$sod == 0") -eq 1 ]; then
   # assume no noise if no records
   noise = 0
 else
-  echo "sod=$sod, overallsod=$overallsod"
+#  echo "sod=$sod, overallsod=$overallsod"
   noise=$(bc -l <<< "1 - ($overallsod/$sod)")
 fi
 noise=$(printf "%.*f\n" 5 $noise)
