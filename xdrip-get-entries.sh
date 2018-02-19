@@ -331,7 +331,6 @@ if [ ! -f "/var/log/openaps/g5.csv" ]; then
   echo "epochdate,datetime,unfiltered,filtered,trend,calibratedBG,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend" > /var/log/openaps/g5.csv
 fi
 
-echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend}" >> /var/log/openaps/g5.csv
 
 echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ./noise-input.csv
 
@@ -356,6 +355,8 @@ elif [ $(bc -l <<< "$noise < 0.6") -eq 1 ]; then
 elif [ $(bc -l <<< "$noise >= 0.75") -eq 1 ]; then
   noiseSend=4  # Heavy
 fi
+
+echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend}" >> /var/log/openaps/g5.csv
 
 tmp=$(mktemp)
 jq ".[0].noise = $noiseSend" entry-xdrip.json > "$tmp" && mv "$tmp" entry-xdrip.json
