@@ -10,10 +10,8 @@ noise=0
 
 function ReportNoiseAndExit()
 {
-#  echo noise=$noise
-#  noise=0
   echo "[{"noise":$noise}]" > $OUTPUT
-#  echo $noise
+  cat $OUTPUT
   exit
 }
 
@@ -41,23 +39,27 @@ do
 #  echo "x,y=${xarr[$i]},${yarr[$i]}"
 done
 
-echo ${xarr[@]}
-echo ${xdate[@]}
+#echo ${xarr[@]}
+#echo ${xdate[@]}
 
 # sod = sum of distances
 sod=0
 overallsod=0
 
+lastDelta=0
 for (( i=1; i<$n; i++ ))
 do
-  y1=${yarr[$i]}
-  y2=${yarr[$i-1]}
+  y2y1Delta=$(bc  <<< "${yarr[$i]} - ${yarr[$i-1]}")
+  x2x1Delta=$(bc  <<< "${xarr[$i]} - ${xarr[$i-1]}")
+  if [ $(bc <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$y2y1Delta < 0") -eq 1 ]; then
+    # switched from positive delta to negative, increase noise impact  
+    y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.1")
+  elif [ $(bc <<< "$lastDelta < 0") -eq 1 -a $(bc <<< "$y2y1Delta > 0") -eq 1 ]; then
+    # switched from positive delta to negative, increase noise impact 
+    y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.3")
+  fi
 
-  x1=${xarr[$i]}
-  x2=${xarr[$i-1]}
-
-#  echo "x1=$x1, x2=$x2, y1=$y1, y2=$y2"
-  sod=$(bc -l <<< "$sod + sqrt(($x1 - $x2)^2 + ($y1 - $y2)^2)")
+  sod=$(bc  <<< "$sod + sqrt(($x2x1Delta)^2 + ($y2y1Delta)^2)")
 done  
 
 overallsod=$(bc -l <<< "sqrt((${yarr[$n-1]} - ${yarr[0]})^2 + (${xarr[$n-1]} - ${xarr[0]})^2)")
