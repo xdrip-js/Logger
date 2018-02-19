@@ -39,9 +39,9 @@ function ClearCalibrationInput()
 
 function ClearCalibrationCache()
 {
-  local cache="./old-calibrations/calibration-linear.json"
+  local cache="calibration-linear.json"
   if [ -e $cache ]; then
-    cp $cache "${cache}.$(date +%Y%m%d-%H%M%S)" 
+    cp $cache "./old-calibrations/${cache}.$(date +%Y%m%d-%H%M%S)" 
     rm $cache 
   fi
 }
@@ -155,6 +155,7 @@ if [ -z $meterbg ]; then
       # only do this once for a single calibration check for duplicate BG check record ID
       if ! cat ./calibrations.csv | egrep "$meterbgid"; then 
         echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid" >> ./calibrations.csv
+        echo "epochdate=$epochdate"
         ./calc-calibration.sh ./calibrations.csv ./calibration-linear.json
         maxDelta=60
       fi
