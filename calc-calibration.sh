@@ -32,13 +32,12 @@ rSquared=0
 
 yarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f1 ) )
 xarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f2 ) )
+tdate=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f4 ) )
 
 echo "Begin calibration using input of $INPUT and output of $OUTPUT"
 
-# Future how to compare date values if we want to limit calibration set to a timeframe
-#    dt1970arr[$i]=`date +%s --date="${dtarr[$i]}"`
-#    set initial i value based on date differences
-# dtarr=( $(tail -11 $INPUT | cut -d ',' -f3 ) )
+
+
 
 function MathMin()
 {
@@ -113,18 +112,39 @@ function LeastSquaresRegression()
   local r=0
   local n=${#xarr[@]}
 
+  usingDates=0
+  echo "tdate[]=${tdate[@]}"
+  local firstDate=${tdate[0]}
+  local re='^[0-9]+$'
+  if [[ $firstDate =~ $re ]]; then 
+    for (( i=0; i<$n; i++ ))
+    do
+      tarr[$i]=$(bc <<< "${tdate[$i]} - $firstDate") 
+    done
+    echo using tdates
+    echo "tarr[]=${tarr[@]}"
+    usingDates=1
+  fi
+ 
+
   # add weight to the latest value by using the latest record twice
-  xarr[$n]=${xarr[$n-1]}
-  yarr[$n]=${yarr[$n-1]}
+  #xarr[$n]=${xarr[$n-1]}
+  #yarr[$n]=${yarr[$n-1]}
+
   n=${#xarr[@]}
+  echo n=$n
+  local multiplier=1
 
   for (( i=0; i<$n; i++ ))
   do
-    sumXY=$(bc -l <<< "$sumXY + ${xarr[i]} * ${yarr[i]}")
-    sumXSq=$(bc -l <<< "$sumXSq + ${xarr[i]} * ${xarr[i]}")
-    sumYSq=$(bc -l <<< "$sumYSq + ${yarr[i]} * ${yarr[i]}")
+    if [ $(bc <<< "$i != 0") -eq 1 -a $(bc <<< "$usingDates == 1") -eq 1 ]; then
+      multiplier=$(bc -l <<< "1 + ${tarr[$i-1]} / (${tarr[$n-1]} * 2)")
+    fi
+    echo "Cal record $i, time(${tdate[$i]}), weighted multiplier=$multiplier" 
+    sumXY=$(bc -l <<< "($sumXY + ${xarr[i]} * ${yarr[i]}) * $multiplier")
+    sumXSq=$(bc -l <<< "($sumXSq + ${xarr[i]} * ${xarr[i]}) * $multiplier")
+    sumYSq=$(bc -l <<< "($sumYSq + ${yarr[i]} * ${yarr[i]}) * $multiplier")
   done  
-  
   denominator=$(bc -l <<< "sqrt((($n * $sumXSq - ${sumX}^2) * ($n * $sumYSq - ${sumY}^2)))")
   if [ $(bc <<< "$denominator == 0") -eq 1 -o  $(bc <<< "$stddevX == 0") -eq 1 ] ; then
     slope=1000

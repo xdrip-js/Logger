@@ -4,7 +4,7 @@
 
 INPUT=${1:-"./noise-input.csv"}
 OUTPUT=${2:-"./noise.json"}
-MAXRECORDS=8
+MAXRECORDS=12
 MINRECORDS=4
 noise=0
 
@@ -26,7 +26,7 @@ fi
 
 #    set initial x values based on date differences
 
-if [ $(bc <<< "$n < 3") -eq 1 ]; then
+if [ $(bc <<< "$n < $MINRECORDS") -eq 1 ]; then
   # set noise = 0 - unknown
   noise=0
   ReportNoiseAndExit
@@ -49,14 +49,17 @@ overallsod=0
 lastDelta=0
 for (( i=1; i<$n; i++ ))
 do
-  y2y1Delta=$(bc  <<< "${yarr[$i]} - ${yarr[$i-1]}")
+  # y2y1Delta adds a multiplier that gives 
+  # higher priority to the latest BG's
+  y2y1Delta=$(bc  <<< "(${yarr[$i]} - ${yarr[$i-1]}) * (1 + $i/($n * 3))")
   x2x1Delta=$(bc  <<< "${xarr[$i]} - ${xarr[$i-1]}")
+  #echo "x delta=$x2x1Delta, y delta=$y2y1Delta" 
   if [ $(bc <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$y2y1Delta < 0") -eq 1 ]; then
     # switched from positive delta to negative, increase noise impact  
     y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.1")
   elif [ $(bc <<< "$lastDelta < 0") -eq 1 -a $(bc <<< "$y2y1Delta > 0") -eq 1 ]; then
     # switched from positive delta to negative, increase noise impact 
-    y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.3")
+    y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.2")
   fi
 
   sod=$(bc  <<< "$sod + sqrt(($x2x1Delta)^2 + ($y2y1Delta)^2)")
