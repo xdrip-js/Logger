@@ -10,7 +10,7 @@ noise=0
 
 function ReportNoiseAndExit()
 {
-  echo "[{"noise":$noise}]" > $OUTPUT
+  echo "[{\"noise\":$noise}]" > $OUTPUT
   cat $OUTPUT
   exit
 }
