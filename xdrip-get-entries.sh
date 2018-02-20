@@ -344,7 +344,7 @@ fi
 
 if [ -e ./noise.json ]; then
   noise=`jq -M '.[0] .noise' ./noise.json` 
-  echo noise from json = $noise
+  echo "Raw noise of $noise will be used to determine noiseSend value."
 fi
 
 if [ $(bc -l <<< "$noise < 0.2") -eq 1 ]; then

@@ -1,6 +1,17 @@
 #!/bin/bash
 
 #"${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ./noise-input.csv
+# calculate the noise from csv input (format shown above) and put the noise in ./noise.json
+# calculated noise is a floating point number from 0 to 1 where 0 is the cleanest and 1 is the noisiest
+#
+# Calculate the sum of the distance of all points (overallsod)
+# Calculate the overall distance of between the first and last point (sod)
+# Calculate noise as the following formula 1 - sod/overallsod
+# noise will get closer to zero as the sum of the individual lines are mostly in a straight or straight moving curve
+# noise will get closer to one as the sum of the distance of the individual lines gets large 
+# also added multiplier to get more weight to the latest BG values
+# also added weight for points where the delta shifts from pos to neg or neg to pos (peaks/valleys)
+# the more peaks and valleys, the more noise is amplified
 
 INPUT=${1:-"./noise-input.csv"}
 OUTPUT=${2:-"./noise.json"}
@@ -49,16 +60,21 @@ overallsod=0
 lastDelta=0
 for (( i=1; i<$n; i++ ))
 do
+  # time-based multiplier 
   # y2y1Delta adds a multiplier that gives 
   # higher priority to the latest BG's
   y2y1Delta=$(bc  <<< "(${yarr[$i]} - ${yarr[$i-1]}) * (1 + $i/($n * 3))")
   x2x1Delta=$(bc  <<< "${xarr[$i]} - ${xarr[$i-1]}")
   #echo "x delta=$x2x1Delta, y delta=$y2y1Delta" 
   if [ $(bc <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$y2y1Delta < 0") -eq 1 ]; then
-    # switched from positive delta to negative, increase noise impact  
+    # for this single point, bg switched from positive delta to negative, increase noise impact  
+    # this will not effect noise to much for a normal peak, but will increase the overall noise value
+    # in the case that the trend goes up/down multiple times such as the bounciness of a dying sensor's signal 
     y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.1")
   elif [ $(bc <<< "$lastDelta < 0") -eq 1 -a $(bc <<< "$y2y1Delta > 0") -eq 1 ]; then
-    # switched from positive delta to negative, increase noise impact 
+    # switched from negative delta to positive, increase noise impact 
+    # in this case count the noise a bit more because it could indicate a big "false" swing upwards which could
+    # be troublesome if it is a false swing upwards and a loop algorithm takes it into account as "clean"
     y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.2")
   fi
 
