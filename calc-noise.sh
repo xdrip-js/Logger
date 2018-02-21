@@ -4,9 +4,9 @@
 # calculate the noise from csv input (format shown above) and put the noise in ./noise.json
 # calculated noise is a floating point number from 0 to 1 where 0 is the cleanest and 1 is the noisiest
 #
-# Calculate the sum of the distance of all points (overallsod)
+# Calculate the sum of the distance of all points (overallDistance)
 # Calculate the overall distance of between the first and last point (sod)
-# Calculate noise as the following formula 1 - sod/overallsod
+# Calculate noise as the following formula 1 - sod/overallDistance
 # noise will get closer to zero as the sum of the individual lines are mostly in a straight or straight moving curve
 # noise will get closer to one as the sum of the distance of the individual lines gets large 
 # also added multiplier to get more weight to the latest BG values
@@ -55,7 +55,7 @@ done
 
 # sod = sum of distances
 sod=0
-overallsod=0
+overallDistance=0
 
 lastDelta=0
 for (( i=1; i<$n; i++ ))
@@ -81,14 +81,14 @@ do
   sod=$(bc  <<< "$sod + sqrt(($x2x1Delta)^2 + ($y2y1Delta)^2)")
 done  
 
-overallsod=$(bc -l <<< "sqrt((${yarr[$n-1]} - ${yarr[0]})^2 + (${xarr[$n-1]} - ${xarr[0]})^2)")
+overallDistance=$(bc -l <<< "sqrt((${yarr[$n-1]} - ${yarr[0]})^2 + (${xarr[$n-1]} - ${xarr[0]})^2)")
 
 if [ $(bc -l <<< "$sod == 0") -eq 1 ]; then
   # assume no noise if no records
   noise = 0
 else
-#  echo "sod=$sod, overallsod=$overallsod"
-  noise=$(bc -l <<< "1 - ($overallsod/$sod)")
+#  echo "sod=$sod, overallDistance=$overallDistance"
+  noise=$(bc -l <<< "1 - ($overallDistance/$sod)")
 fi
 noise=$(printf "%.*f\n" 5 $noise)
 ReportNoiseAndExit
