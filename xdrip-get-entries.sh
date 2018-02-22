@@ -89,6 +89,10 @@ else
 fi
 
 transmitter=$1
+meterid=${2:-"123456"}
+
+
+
 
 id2=$(echo "${transmitter: -2}")
 id="Dexcom${id2}"
@@ -361,6 +365,14 @@ echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibrat
 
 tmp=$(mktemp)
 jq ".[0].noise = $noiseSend" entry-xdrip.json > "$tmp" && mv "$tmp" entry-xdrip.json
+
+
+if type "fakemeter" > /dev/null; then
+  if ! listen -t 10s >& /dev/null ; then 
+    echo "Sending BG of $calibratedBG to pump via meterid $METERID"
+    fakemeter -m $METERID  $calibratedBG 
+  fi
+fi
 
 echo "Posting glucose record to xdripAPS"
 ./post-xdripAPS.sh ./entry-xdrip.json
