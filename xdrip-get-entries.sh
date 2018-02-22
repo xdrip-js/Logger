@@ -370,7 +370,7 @@ jq ".[0].noise = $noiseSend" entry-xdrip.json > "$tmp" && mv "$tmp" entry-xdrip.
 if type "fakemeter" > /dev/null; then
   if ! listen -t 30s >& /dev/null ; then 
     echo "Sending BG of $calibratedBG to pump via meterid $meterid"
-    fakemeter -m $METERID  $calibratedBG 
+    fakemeter -m $meterid  $calibratedBG 
   else
     echo "Timed out trying to send BG of $calibratedBG to pump via meterid $meterid"
   fi
