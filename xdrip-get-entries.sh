@@ -1,6 +1,9 @@
 #!/bin/bash
 
 glucoseType="unfiltered"
+export MEDTRONIC_PUMP_ID=`grep serial ~/myopenaps/pump.ini | tr -cd 0-9`
+export MEDTRONIC_FREQUENCY=`cat ~/myopenaps/monitor/medtronic_frequency.ini`
+
 
 cd /root/src/xdrip-js-logger
 mkdir -p old-calibrations
