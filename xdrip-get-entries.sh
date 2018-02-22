@@ -145,7 +145,7 @@ if [ -z $meterbg ]; then
   meterbg=`jq -M '.[0] .glucose' $METERBG_NS_RAW`
   meterbg="${meterbg%\"}"
   meterbg="${meterbg#\"}"
-  if [ "$meterbgunits" == "mmol" ]; then
+  if [[ "$meterbgunits" == *"mmol"* ]]; then
     meterbg=$(bc <<< "($meterbg *18)/1")
   fi
   echo "meterbg from nightscout: $meterbg"
