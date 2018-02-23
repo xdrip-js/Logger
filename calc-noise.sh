@@ -63,7 +63,7 @@ do
   # time-based multiplier 
   # y2y1Delta adds a multiplier that gives 
   # higher priority to the latest BG's
-  y2y1Delta=$(bc  <<< "(${yarr[$i]} - ${yarr[$i-1]}) * (1 + $i/($n * 3))")
+  y2y1Delta=$(bc -l  <<< "(${yarr[$i]} - ${yarr[$i-1]}) * (1 - ($n - $i)/($n * 3))")
   x2x1Delta=$(bc  <<< "${xarr[$i]} - ${xarr[$i-1]}")
   #echo "x delta=$x2x1Delta, y delta=$y2y1Delta" 
   if [ $(bc <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$y2y1Delta < 0") -eq 1 ]; then
@@ -77,7 +77,9 @@ do
     # be troublesome if it is a false swing upwards and a loop algorithm takes it into account as "clean"
     y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.2")
   fi
+  lastDelta=$y2y1Delta
 
+  #echo "yDelta=$y2y1Delta, xDelta=$x2x1Delta"
   sod=$(bc  <<< "$sod + sqrt(($x2x1Delta)^2 + ($y2y1Delta)^2)")
 done  
 
@@ -87,7 +89,7 @@ if [ $(bc -l <<< "$sod == 0") -eq 1 ]; then
   # assume no noise if no records
   noise = 0
 else
-#  echo "sod=$sod, overallDistance=$overallDistance"
+  #echo "sod=$sod, overallDistance=$overallDistance"
   noise=$(bc -l <<< "1 - ($overallDistance/$sod)")
 fi
 noise=$(printf "%.*f\n" 5 $noise)

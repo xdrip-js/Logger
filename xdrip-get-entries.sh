@@ -344,7 +344,8 @@ echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ./noise-input.c
 # calculate the noise and position it for updating the entry sent to NS and xdripAPS
 if [ $(bc -l <<< "$noiseSend == 0") -eq 1 ]; then
   # means that noise was not already set before
-  noise=$(./calc-noise.sh ./noise-input.csv ./noise.json)
+  tail -12 ./noise-input.csv > ./noise-input12.csv
+  noise=$(./calc-noise.sh ./noise-input12.csv ./noise.json)
 fi
 
 if [ -e ./noise.json ]; then
