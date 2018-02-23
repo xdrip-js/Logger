@@ -1,8 +1,6 @@
 #!/bin/bash
 
 glucoseType="unfiltered"
-export MEDTRONIC_PUMP_ID=`grep serial ~/myopenaps/pump.ini | tr -cd 0-9`
-export MEDTRONIC_FREQUENCY=`cat ~/myopenaps/monitor/medtronic_frequency.ini`
 
 
 cd /root/src/xdrip-js-logger
@@ -371,7 +369,9 @@ jq ".[0].noise = $noiseSend" entry-xdrip.json > "$tmp" && mv "$tmp" entry-xdrip.
 
 
 if type "fakemeter" > /dev/null; then
-  if ! listen -t 30s >& /dev/null ; then 
+  export MEDTRONIC_PUMP_ID=`grep serial ~/myopenaps/pump.ini | tr -cd 0-9`
+  export MEDTRONIC_FREQUENCY=`cat ~/myopenaps/monitor/medtronic_frequency.ini`
+  if ! listen -t 10s >& /dev/null ; then 
     echo "Sending BG of $calibratedBG to pump via meterid $meterid"
     fakemeter -m $meterid  $calibratedBG 
   else
