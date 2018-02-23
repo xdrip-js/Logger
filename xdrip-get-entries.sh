@@ -345,7 +345,14 @@ echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ./noise-input.c
 if [ $(bc -l <<< "$noiseSend == 0") -eq 1 ]; then
   # means that noise was not already set before
   tail -12 ./noise-input.csv > ./noise-input12.csv
-  noise=$(./calc-noise.sh ./noise-input12.csv ./noise.json)
+  if type "./calc-noise" > /dev/null; then
+    # use the go-based version
+    echo "calculating noise using go-based version"
+    ./calc-noise ./noise-input12.csv ./noise.json
+  else 
+    echo "calculating noise using bash-based version"
+    ./calc-noise.sh ./noise-input12.csv ./noise.json
+  fi
 fi
 
 if [ -e ./noise.json ]; then
