@@ -10,6 +10,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"strconv"
 )
 
 func usage() {
@@ -18,9 +19,14 @@ func usage() {
 	os.Exit(1)
 }
 
-func Round(x, unit float64) float64 {
-	//	return float64(int64(x/unit+0.5)) * unit
-	return float64(int64(x*10000)) / 10000
+func Round(x float64, digits int) float64 {
+	s := strconv.FormatFloat(x, 'f', digits, 64)
+	var yo float64
+	if _, err := fmt.Sscan(s, &yo); err != nil {
+		log.Print("Calculate Noise Rounding - ", err)
+	}
+	return yo
+
 }
 
 type NoiseS struct {
@@ -147,9 +153,9 @@ func main() {
 		noise = 1 - (overallDistance / sod)
 	}
 
-	noise = Round(noise, 0.00001)
-	sod = Round(sod, 0.00001)
-	overallDistance = Round(overallDistance, 0.00001)
+	noise = Round(noise, 5)
+	sod = Round(sod, 5)
+	overallDistance = Round(overallDistance, 5)
 	log.Print("sod=", sod, ", overallDistance=", overallDistance, ", noise=", noise)
 	ReportNoiseAndExit(noise, flag.Arg(1))
 
