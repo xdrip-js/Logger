@@ -63,7 +63,7 @@ do
   # time-based multiplier 
   # y2y1Delta adds a multiplier that gives 
   # higher priority to the latest BG's
-  y2y1Delta=$(bc -l  <<< "(${yarr[$i]} - ${yarr[$i-1]}) * (1 - ($n - $i)/($n * 3))")
+  y2y1Delta=$(bc -l  <<< "(${yarr[$i]} - ${yarr[$i-1]}) * (1 +  $i/($n * 4))")
   x2x1Delta=$(bc  <<< "${xarr[$i]} - ${xarr[$i-1]}")
   #echo "x delta=$x2x1Delta, y delta=$y2y1Delta" 
   if [ $(bc <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$y2y1Delta < 0") -eq 1 ]; then

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"math"
 	"os"
 )
@@ -15,6 +16,11 @@ func usage() {
 	fmt.Fprintf(os.Stderr, "usage: %s [options] inputcsvfile outputjsonfile\n", os.Args[0])
 	flag.PrintDefaults()
 	os.Exit(1)
+}
+
+func Round(x, unit float64) float64 {
+	//	return float64(int64(x/unit+0.5)) * unit
+	return float64(int64(x*10000)) / 10000
 }
 
 type NoiseS struct {
@@ -27,9 +33,12 @@ func ReportNoiseAndExit(noise float64, outputFile string) {
 	b, err := json.Marshal(output)
 	if err == nil {
 		fmt.Println(string(b))
+
+		_ = ioutil.WriteFile(outputFile, b, 0644)
+	} else {
+		log.Fatal(err)
 	}
 
-	_ = ioutil.WriteFile(outputFile, b, 0644)
 	os.Exit(1)
 }
 
@@ -48,8 +57,7 @@ func main() {
 
 	inputFile, err := os.Open(flag.Arg(0))
 	if err != nil {
-		fmt.Println("Cannot open input file", flag.Arg(0))
-		fmt.Println("Error:", err)
+		log.Fatal("Cannot open input csv file - ", err)
 		ReportNoiseAndExit(0, flag.Arg(1))
 	}
 	defer inputFile.Close()
@@ -63,20 +71,22 @@ func main() {
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			fmt.Println("Error:", err)
+			log.Fatal(err)
 			usage()
 		}
 
 		var epochdate float64
-		var bg float64
+		var unfiltered float64
 		if _, err := fmt.Sscan(record[0], &epochdate); err != nil {
 			fmt.Printf("%T, %v\n", epochdate, epochdate)
+			log.Fatal("Issue with Input csv epoch date", err)
 		}
-		if _, err := fmt.Sscan(record[1], &bg); err != nil {
-			fmt.Printf("%T, %v\n", bg, bg)
+		if _, err := fmt.Sscan(record[1], &unfiltered); err != nil {
+			fmt.Printf("%T, %v\n", unfiltered, unfiltered)
+			log.Fatal("Issue with Input unfiltered BG", err)
 		}
 		xdate = append(xdate, epochdate)
-		yarr = append(yarr, bg)
+		yarr = append(yarr, unfiltered)
 		lineCount += 1
 	}
 
@@ -103,7 +113,7 @@ func main() {
 		// time-based multiplier
 		// y2y1Delta adds a multiplier that gives
 		// higher priority to the latest BG's
-		y2y1Delta = (yarr[i] - yarr[i-1]) * (1.0 - (float64(n)-float64(i))/(float64(n)*3.0))
+		y2y1Delta = (yarr[i] - yarr[i-1]) * (1.0 + float64(i)/(float64(n)*4.0))
 		x2x1Delta = xarr[i] - xarr[i-1]
 		if lastDelta > 0 && y2y1Delta < 0 {
 			// for this single point, bg switched from positive delta to negative,
@@ -137,7 +147,10 @@ func main() {
 		noise = 1 - (overallDistance / sod)
 	}
 
-	//	fmt.Fprintf(os.Stderr, "sod=%f, overallDistance=%f, noise=%f\n", sod, overallDistance, noise)
+	noise = Round(noise, 0.00001)
+	sod = Round(sod, 0.00001)
+	overallDistance = Round(overallDistance, 0.00001)
+	log.Print("sod=", sod, ", overallDistance=", overallDistance, ", noise=", noise)
 	ReportNoiseAndExit(noise, flag.Arg(1))
 
 }
