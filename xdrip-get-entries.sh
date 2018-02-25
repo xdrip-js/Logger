@@ -140,6 +140,29 @@ meterbg=$(bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json")
 echo
 echo "meterbg from pumphistory: $meterbg"
 
+# look for a bg check from monitor/calibration.json
+if [ -z $meterbg ]; then
+  CALFILE="/root/myopenaps/monitor/calibration.json"
+  if [ -e $CALFILE ]; then
+    if test  `find $CALFILE -mmin -7`
+    then
+      calDate=$(jq ".[0].date" $CALFILE)
+      # check the date inside to make sure we don't calibrate using old record
+      if [ $(bc <<< "($epochdate - $calDate) < 420") -eq 1 ]; then
+         calDate=$(jq ".[0].date" $CALFILE)
+         meterbg=$(jq ".[0].glucose" $CALFILE)
+         meterbgid=$(jq ".[0]._id" $CALFILE)
+         echo "Calibration of $meterbg from $CALFILE being processed - id = $meterbgid"
+      else
+        echo "Calibration bg over 7 minutes - not used"
+      fi
+    fi
+    cat $CALFILE
+    rm $CALFILE
+  fi
+fi
+echo "meterbg from monitor/calibration.json: $meterbg"
+
 maxDelta=30
 if [ -z $meterbg ]; then
   curl --compressed -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
@@ -154,22 +177,22 @@ if [ -z $meterbg ]; then
     meterbg=$(bc <<< "($meterbg *18)/1")
   fi
   echo "meterbg from nightscout: $meterbg"
+fi
 
-  if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
-    if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
-      # only do this once for a single calibration check for duplicate BG check record ID
-      if ! cat ./calibrations.csv | egrep "$meterbgid"; then 
-        echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid" >> ./calibrations.csv
-        echo "epochdate=$epochdate"
-        ./calc-calibration.sh ./calibrations.csv ./calibration-linear.json
-        maxDelta=60
-      fi
-    else
-      echo "Invalid calibration, meterbg=$meterbg outside of range [40,400]"
+if [ -n $meterbg -a "$meterbg" != "null" ]; then
+  if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
+    # only do this once for a single calibration check for duplicate BG check record ID
+    if ! cat ./calibrations.csv | egrep "$meterbgid"; then 
+      echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid" >> ./calibrations.csv
+      echo "epochdate=$epochdate"
+      ./calc-calibration.sh ./calibrations.csv ./calibration-linear.json
+      maxDelta=60
     fi
-    cat ./calibrations.csv
-    cat ./calibration-linear.json
+  else
+    echo "Invalid calibration, meterbg="${meterbg}" outside of range [40,400]"
   fi
+  cat ./calibrations.csv
+  cat ./calibration-linear.json
 fi
 # check if sensor changed in last 12 hours.
 # If so, clear calibration inputs and only calibrate using single point calibration

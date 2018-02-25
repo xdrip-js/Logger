@@ -141,7 +141,7 @@ func main() {
 		}
 		lastDelta = y2y1Delta
 		//		fmt.Fprintf(os.Stderr, "yDelta=%f, xdelta=%f\n", y2y1Delta, x2x1Delta)
-		sod = sod + math.Sqrt(x2x1Delta*x2x1Delta+y2y1Delta*y2y1Delta)
+		sod += math.Sqrt(x2x1Delta*x2x1Delta + y2y1Delta*y2y1Delta)
 
 	}
 	y2y1Delta = yarr[n-1] - yarr[0]
