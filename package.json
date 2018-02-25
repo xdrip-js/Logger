@@ -7,9 +7,8 @@
   "license": "MIT",
   "scripts": {
     "test": "make test",
-    "go": "go build calc-noise.go",
-    "link": "ln -s /root/src/xdrip-js-logger/bin/calibrate.sh /usr/local/bin/calibrate",
-    "global-install": "npm install && sudo npm install -g && sudo npm link && sudo npm link xdrip-js-logger && npm run go && npm run link "
+    "setup": "./bin/logger-setup.sh",
+    "global-install": "npm install && sudo npm install -g && sudo npm link && sudo npm link xdrip-js-logger && ./bin/logger-setup.sh "
   },
   "dependencies": {
     "xdrip-js": "thebookins/xdrip-js#v1.1.2"
