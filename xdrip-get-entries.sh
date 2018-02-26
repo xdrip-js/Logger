@@ -38,6 +38,17 @@ function ClearCalibrationInput()
   fi
 }
 
+# we need to save the last calibration for meterbgid checks, throw out the rest
+function ClearCalibrationInputOne()
+{
+  if [ -e ./calibrations.csv ]; then
+    cp ./calibrations.csv "./old-calibrations/calibrations.csv.$(date +%Y%m%d-%H%M%S)"
+    tail -1 ./calibrations.csv > ./calibrations.csv.new
+    rm ./calibrations.csv
+    mv ./calibrations.csv.new ./calibrations.csv
+  fi
+}
+
 function ClearCalibrationCache()
 {
   local cache="calibration-linear.json"
@@ -118,8 +129,11 @@ fi
 # capture raw values for use and for log to csv file 
 unfiltered=$(cat ./entry.json | jq -M '.[0].unfiltered')
 filtered=$(cat ./entry.json | jq -M '.[0].filtered')
+
+# get dates for use in filenames and json entries
 datetime=$(date +"%Y-%m-%d %H:%M")
 epochdate=$(date +'%s')
+
 if [ "glucoseType" == "filtered" ]; then
   raw=$filtered
 else
@@ -133,9 +147,12 @@ METERBG_NS_RAW="meterbg_ns_raw.json"
 rm $METERBG_NS_RAW # clear any old meterbg curl responses
 
 # look for a bg check from pumphistory (direct from meter->openaps):
-meterbgafter=$(date -d "7 minutes ago" -Iminutes)
-meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\") | .amount'"
-meterbg=$(bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json")
+# note: pumphistory may not be loaded by openaps very timely...
+meterbgafter=$(date -d "9 minutes ago" -Iminutes)
+meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\")'"
+bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json" > $METERBG_NS_RAW
+meterbg=$(bash -c "jq .amount $METERBG_NS_RAW")
+meterbgid=$(bash -c "jq .timestamp $METERBG_NS_RAW")
 # TBD: meter BG from pumphistory doesn't support mmol yet - has no units...
 echo
 echo "meterbg from pumphistory: $meterbg"
@@ -153,6 +170,12 @@ if [ -z $meterbg ]; then
          meterbg=$(jq ".[0].glucose" $CALFILE)
          meterbgid=$(jq ".[0]._id" $CALFILE)
          echo "Calibration of $meterbg from $CALFILE being processed - id = $meterbgid"
+         # put in backfill so that the command line calibration will be sent up to NS 
+         # now (or later if offline)
+#        echo "Setting up to send calibration to NS now if online (or later with backfill)"
+#        echo "[{\"enteredBy\":\"OpenAPS\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ./calibration-backfill.json
+#        jq -s add ./calibration-backfill.json ./entry-backfill.json > ./entry-backfill.json
+#        cat ./entry-backfill.json
       else
         echo "Calibration bg over 7 minutes - not used"
       fi
@@ -165,19 +188,31 @@ echo "meterbg from monitor/calibration.json: $meterbg"
 
 maxDelta=30
 if [ -z $meterbg ]; then
-  curl --compressed -m 30 "${ns_url}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Check" 2>/dev/null > $METERBG_NS_RAW
-  #createdAt=$(jq ".[0].created_at" $METERBG_NS_RAW)
-  meterbgid=$(jq ".[0]._id" $METERBG_NS_RAW)
-
-  meterbgunits=$(cat $METERBG_NS_RAW | jq -M '.[0] | .units')
-  meterbg=`jq -M '.[0] .glucose' $METERBG_NS_RAW`
-  meterbg="${meterbg%\"}"
-  meterbg="${meterbg#\"}"
-  if [[ "$meterbgunits" == *"mmol"* ]]; then
-    meterbg=$(bc <<< "($meterbg *18)/1")
+  # can't use the Sensor insert UTC determination for BG since they can
+  # be entered in either UTC or local time depending on how they were entered.
+  curl --compressed -m 30 "${ns_url}/api/v1/treatments.json?find\[eventType\]\[\$regex\]=Check&count=1" 2>/dev/null > $METERBG_NS_RAW
+  createdAt=$(jq -r ".[0].created_at" $METERBG_NS_RAW)
+  secNow=`date +%s`
+  secThen=`date +%s --date=$createdAt`
+  elapsed=$(bc <<< "($secNow - $secThen)")
+  echo "meterbg date=$createdAt, secNow=$secNow, secThen=$secThen, elapsed=$elapsed"
+  if [ $(bc <<< "$elapsed < 540") -eq 1 ]; then
+    # note: pumphistory bg has no _id field, but .timestamp matches .created_at
+    meterbgid=$(jq ".[0].created_at" $METERBG_NS_RAW)
+    meterbgunits=$(cat $METERBG_NS_RAW | jq -M '.[0] | .units')
+    meterbg=`jq -M '.[0] .glucose' $METERBG_NS_RAW`
+    meterbg="${meterbg%\"}"
+    meterbg="${meterbg#\"}"
+    if [ "$meterbgunits" == "mmol" ]; then
+      meterbg=$(bc <<< "($meterbg *18)/1")
+    fi
+  else
+    # clear old meterbg curl responses
+    rm $METERBG_NS_RAW
   fi
   echo "meterbg from nightscout: $meterbg"
 fi
+
 
 if [ -n $meterbg -a "$meterbg" != "null" ]; then
   if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
@@ -187,6 +222,8 @@ if [ -n $meterbg -a "$meterbg" != "null" ]; then
       echo "epochdate=$epochdate"
       ./calc-calibration.sh ./calibrations.csv ./calibration-linear.json
       maxDelta=60
+    else 
+      echo "this calibration was previously recorded - ignoring"
     fi
   else
     echo "Invalid calibration, meterbg="${meterbg}" outside of range [40,400]"
@@ -194,6 +231,7 @@ if [ -n $meterbg -a "$meterbg" != "null" ]; then
   cat ./calibrations.csv
   cat ./calibration-linear.json
 fi
+
 # check if sensor changed in last 12 hours.
 # If so, clear calibration inputs and only calibrate using single point calibration
 # do not keep the calibration records within the first 12 hours as they might skew LSR
@@ -201,7 +239,7 @@ if [ -e ./last_sensor_change ]; then
   if test  `find ./last_sensor_change -mmin -720`
   then
     echo "sensor change within last 12 hours - will use single pt calibration"
-    ClearCalibrationInput
+    ClearCalibrationInputOne
   fi
 fi
 
@@ -415,7 +453,6 @@ echo "Posting glucose record to xdripAPS"
 
 if [ -e "./entry-backfill.json" ] ; then
   # In this case backfill records not yet sent to Nightscout
-
   jq -s add ./entry-xdrip.json ./entry-backfill.json > ./entry-ns.json
   cp ./entry-ns.json ./entry-backfill.json
   echo "entry-backfill.json exists, so setting up for backfill"

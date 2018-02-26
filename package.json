@@ -1,6 +1,6 @@
 {
   "name": "xdrip-js-logger",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Logger xdrip openaps",
   "main": "logger/index.js",
   "author": "Paul Dickens",
