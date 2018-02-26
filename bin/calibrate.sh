@@ -5,15 +5,33 @@
 # This way any apps can put a calibration bg record in that 
 # file and Logger will pick it up and use it for calibration.
 
-BG=${1:-"null"}
-CALIBRATION=${2:-"/root/myopenaps/monitor/calibration.json"}
-dateString=$(date +"%Y-%m-%d %H:%M")
+BG=${1:-"null"}     # arg 1 is meter bg value
+UNITS=${2:-"mg/dl"} # arg 2 if "mmol" then bg in mmol
+TEST=${3:-""}       # arg 3 if "test" then test mode
+
+CALIBRATION="/root/myopenaps/monitor/calibration.json"
+dateString=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
 epochdate=$(date +'%s')
 UUID=$(cat /proc/sys/kernel/random/uuid)
 UUID=$(echo "${UUID//-}")
 
+# temporary while testing
+#UUID=""
 
+LOW=40
+HIGH=400
 
+# ability to test without causing BG Check treatment to be used
+if [ "$TEST" == "test" ]; then
+  tmp=$(mktemp)
+  CALIBRATION=$(mktemp)
+fi
+
+# ability to test without causing BG Check treatment to be used
+if [ "$UNITS" == "mmol" ]; then
+  LOW=2
+  HIGH=22
+fi
 
 if [ "$BG" == "null" ]; then
   echo "Error - Missing required argument 1 meterBG value"
@@ -21,12 +39,12 @@ if [ "$BG" == "null" ]; then
   exit
 fi
 
-if [ $(bc <<< "$BG > 39") -eq 1 -a $(bc <<< "$BG < 401") -eq 1 ]; then
-#  touch $CALIBRATION_FILE
-  echo "[{\"_id\":\"$UUID\",\"dateString\":\"${dateString}\",\"date\":${epochdate},\"glucose\":${BG}}]" >  $CALIBRATION
+if [ $(bc <<< "$BG >= $LOW") -eq 1 -a $(bc <<< "$BG <= $HIGH") -eq 1 ]; then
+  echo "[{\"_id\":\"${UUID}\",\"dateString\":\"${dateString}\",\"date\":${epochdate},\"glucose\":${BG},\"units\":\"${UNITS}\"}]" >  $CALIBRATION
+  echo "calibration treatment posted to $CALIBRATION - record is below"
   cat $CALIBRATION
 else
-  echo "Error - BG of $BG is out of range (40-400) for calibration and cannot be used"
+  echo "Error - BG of $BG $UNITS is out of range ($LOW-$HIGH $UNITS) for calibration and cannot be used"
 fi
 
 

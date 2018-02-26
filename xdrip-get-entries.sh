@@ -134,11 +134,13 @@ filtered=$(cat ./entry.json | jq -M '.[0].filtered')
 datetime=$(date +"%Y-%m-%d %H:%M")
 epochdate=$(date +'%s')
 
+echo "Using glucoseType of $glucoseType"
 if [ "glucoseType" == "filtered" ]; then
   raw=$filtered
 else
   raw=$unfiltered
 fi
+echo "raw glucose to be used for calibration = $raw"
 
 # begin calibration logic - look for calibration from NS, use existing calibration or none
 ns_url="${NIGHTSCOUT_HOST}"
@@ -163,23 +165,34 @@ if [ -z $meterbg ]; then
   if [ -e $CALFILE ]; then
     if test  `find $CALFILE -mmin -7`
     then
+      echo "calibration file $CALFILE contents below"
+      cat $CALFILE
+      echo
       calDate=$(jq ".[0].date" $CALFILE)
       # check the date inside to make sure we don't calibrate using old record
       if [ $(bc <<< "($epochdate - $calDate) < 420") -eq 1 ]; then
          calDate=$(jq ".[0].date" $CALFILE)
          meterbg=$(jq ".[0].glucose" $CALFILE)
-         meterbgid=$(jq ".[0]._id" $CALFILE)
+         meterbgid=$(jq ".[0].dateString" $CALFILE)
+         meterbgid="${meterbgid%\"}"
+         meterbgid="${meterbgid#\"}"
+         units=$(jq ".[0].units" $CALFILE)
+         if [[ "$units" == *"mmol"* ]]; then
+           meterbg=$(bc <<< "($meterbg *18)/1")
+           echo "converted meterbg from mmol value to $meterbg"
+         fi
          echo "Calibration of $meterbg from $CALFILE being processed - id = $meterbgid"
          # put in backfill so that the command line calibration will be sent up to NS 
          # now (or later if offline)
         echo "Setting up to send calibration to NS now if online (or later with backfill)"
-        echo "[{\"enteredBy\":\"OpenAPS\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ./calibration-backfill.json
+        echo "[{\"created_at\":\"$meterbgid\",\"enteredBy\":\"OpenAPS\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ./calibration-backfill.json
+        cat ./calibration-backfill.json
         jq -s add ./calibration-backfill.json ./treatments-backfill.json > ./treatments-backfill.json
       else
         echo "Calibration bg over 7 minutes - not used"
       fi
     fi
-    cat $CALFILE
+    
     rm $CALFILE
   fi
 fi
@@ -198,11 +211,13 @@ if [ -z $meterbg ]; then
   if [ $(bc <<< "$elapsed < 540") -eq 1 ]; then
     # note: pumphistory bg has no _id field, but .timestamp matches .created_at
     meterbgid=$(jq ".[0].created_at" $METERBG_NS_RAW)
+    meterbgid="${meterbgid%\"}"
+    meterbgid="${meterbgid#\"}"
     meterbgunits=$(cat $METERBG_NS_RAW | jq -M '.[0] | .units')
     meterbg=`jq -M '.[0] .glucose' $METERBG_NS_RAW`
     meterbg="${meterbg%\"}"
     meterbg="${meterbg#\"}"
-    if [ "$meterbgunits" == "mmol" ]; then
+    if [[ "$meterbgunits" == *"mmol"* ]]; then
       meterbg=$(bc <<< "($meterbg *18)/1")
     fi
   else
@@ -218,7 +233,6 @@ if [ -n $meterbg -a "$meterbg" != "null" ]; then
     # only do this once for a single calibration check for duplicate BG check record ID
     if ! cat ./calibrations.csv | egrep "$meterbgid"; then 
       echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid" >> ./calibrations.csv
-      echo "epochdate=$epochdate"
       ./calc-calibration.sh ./calibrations.csv ./calibration-linear.json
       maxDelta=60
     else 
