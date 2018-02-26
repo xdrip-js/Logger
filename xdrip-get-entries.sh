@@ -102,6 +102,7 @@ fi
 
 transmitter=$1
 meterid=${2:-"123456"}
+pumpUnits=${3:-"mg/dl"}
 
 
 
@@ -155,7 +156,12 @@ meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$met
 bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json" > $METERBG_NS_RAW
 meterbg=$(bash -c "jq .amount $METERBG_NS_RAW")
 meterbgid=$(bash -c "jq .timestamp $METERBG_NS_RAW")
-# TBD: meter BG from pumphistory doesn't support mmol yet - has no units...
+# meter BG from pumphistory doesn't support mmol yet - has no units...
+# using arg3 if mmol then convert it
+if [[ "$pumpUnits" == *"mmol"* ]]; then
+  meterbg=$(bc <<< "($meterbg *18)/1")
+  echo "converted pump history meterbg from mmol value to $meterbg"
+fi
 echo
 echo "meterbg from pumphistory: $meterbg"
 
@@ -179,7 +185,7 @@ if [ -z $meterbg ]; then
          units=$(jq ".[0].units" $CALFILE)
          if [[ "$units" == *"mmol"* ]]; then
            meterbg=$(bc <<< "($meterbg *18)/1")
-           echo "converted meterbg from mmol value to $meterbg"
+           echo "converted OpenAPS meterbg from mmol value to $meterbg"
          fi
          echo "Calibration of $meterbg from $CALFILE being processed - id = $meterbgid"
          # put in backfill so that the command line calibration will be sent up to NS 
