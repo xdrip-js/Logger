@@ -172,10 +172,9 @@ if [ -z $meterbg ]; then
          echo "Calibration of $meterbg from $CALFILE being processed - id = $meterbgid"
          # put in backfill so that the command line calibration will be sent up to NS 
          # now (or later if offline)
-#        echo "Setting up to send calibration to NS now if online (or later with backfill)"
-#        echo "[{\"enteredBy\":\"OpenAPS\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ./calibration-backfill.json
-#        jq -s add ./calibration-backfill.json ./entry-backfill.json > ./entry-backfill.json
-#        cat ./entry-backfill.json
+        echo "Setting up to send calibration to NS now if online (or later with backfill)"
+        echo "[{\"enteredBy\":\"OpenAPS\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ./calibration-backfill.json
+        jq -s add ./calibration-backfill.json ./treatments-backfill.json > ./treatments-backfill.json
       else
         echo "Calibration bg over 7 minutes - not used"
       fi
@@ -464,6 +463,12 @@ fi
 echo "Posting blood glucose to NightScout"
 ./post-ns.sh ./entry-ns.json && (echo; echo "Upload to NightScout of xdrip entry worked ... removing ./entry-backfill.json"; rm -f ./entry-backfill.json) || (echo; echo "Upload to NS of xdrip entry did not work ... saving for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile"; cp ./entry-ns.json ./entry-backfill.json)
 echo
+
+if [ -e "./treatments-backfill.json" ]; then
+  echo "Posting treatments to NightScout"
+  ./post-ns.sh ./treatments-backfill.json treatments && (echo; echo "Upload to NightScout of xdrip treatments worked ... removing ./treatments-backfill.json"; rm -f ./treatments-backfill.json) || (echo; echo "Upload to NS of xdrip entry did not work ... saving treatments for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile")
+  echo
+fi
 
 bt-device -r $id
 echo "Finished xdrip-get-entries.sh"
