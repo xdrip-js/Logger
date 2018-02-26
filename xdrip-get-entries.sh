@@ -426,7 +426,7 @@ elif [ $(bc -l <<< "$noise < 0.4") -eq 1 ]; then
   noiseSend=2  # Light
 elif [ $(bc -l <<< "$noise < 0.6") -eq 1 ]; then
   noiseSend=3  # Medium
-elif [ $(bc -l <<< "$noise >= 0.75") -eq 1 ]; then
+elif [ $(bc -l <<< "$noise >= 0.60") -eq 1 ]; then
   noiseSend=4  # Heavy
 fi
 
