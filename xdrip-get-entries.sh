@@ -101,7 +101,7 @@ else
 fi
 
 transmitter=$1
-meterid=${2:-"123456"}
+meterid=${2:-"000000"}
 pumpUnits=${3:-"mg/dl"}
 
 
@@ -456,6 +456,7 @@ tmp=$(mktemp)
 jq ".[0].noise = $noiseSend" entry-xdrip.json > "$tmp" && mv "$tmp" entry-xdrip.json
 
 
+# disable temporarily by messing up fakemeter command string
 if type "fakemeter" > /dev/null; then
   export MEDTRONIC_PUMP_ID=`grep serial ~/myopenaps/pump.ini | tr -cd 0-9`
   export MEDTRONIC_FREQUENCY=`cat ~/myopenaps/monitor/medtronic_frequency.ini`
