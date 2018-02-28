@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"github.com/efidoman/xdrip-js-logger/logger"
 	"io/ioutil"
 	"log"
-        "github.com/efidoman/xdrip-js-logger"
-//	"net/http"
+	//	"net/http"
 	"os"
-//	"time"
+	//	"time"
 )
 
 //
@@ -54,4 +54,3 @@ func main() {
 	fmt.Println(body)
 	os.Exit(curlStatus)
 }
-
