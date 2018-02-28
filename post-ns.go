@@ -1,8 +1,7 @@
-package main
+package xdrip-js-logger
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -11,40 +10,7 @@ import (
 	"time"
 )
 
-//
-// exit codes
-// -1 ==> INPUT file doesn't exist
-//  0 ==> success
-// -2 ==> err on http request
-
-var curlStatus int = -1
-
-func usage() {
-	fmt.Fprintf(os.Stderr, "usage: %s inputjsonfile type\n", os.Args[0])
-	fmt.Fprintf(os.Stderr, "          inputjsonfile = Nightscout json record file\n")
-	fmt.Fprintf(os.Stderr, "          type = Nightscout record type, default is \"entries\"\n")
-	flag.PrintDefaults()
-	os.Exit(curlStatus)
-}
-
-func main() {
-
-	flag.Parse()
-	flag.Usage = usage
-
-	var nsUrl string = os.Getenv("NIGHTSCOUT_HOST")
-	var nsSecret string = os.Getenv("API_SECRET")
-
-	//fmt.Fprintf(os.Stderr, "nsUrl=%s, nsSecret=%s\n", nsUrl, nsSecret)
-
-	if flag.NArg() < 2 {
-		usage()
-	}
-	//fmt.Fprintf(os.Stderr, "arg0=%s\n", flag.Arg(0))
-	//fmt.Fprintf(os.Stderr, "arg1=%s\n", flag.Arg(1))
-
-	jsonFile := flag.Arg(0)
-	nsType := flag.Arg(1)
+func PostNightscoutRecord(jsonFile string, nsType string, nsUrl string, nsSecret string) (err error, body string) {
 
 	b, err := ioutil.ReadFile(jsonFile) // just pass the file name
 	if err != nil {
@@ -79,7 +45,7 @@ func main() {
 
 	//fmt.Println("response Status:", resp.Status)
 	//	fmt.Println("response Headers:", resp.Header)
-	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(body))
-	os.Exit(curlStatus)
+	respB, _ := ioutil.ReadAll(resp.Body)
+	//	fmt.Println(string(body))
+	return err, string(respB)
 }
