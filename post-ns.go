@@ -1,4 +1,4 @@
-package xdrip-js-logger
+package logger
 
 import (
 	"bytes"
