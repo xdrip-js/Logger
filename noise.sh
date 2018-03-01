@@ -5,7 +5,7 @@ MAXRECORDS=25
 
 n=0
 
-echo "Datetime,                     bg, noise, noise*100, noisesend"
+echo "Datetime,      bg, noise, noise*100, noisesend"
 
 if [ -e $INPUT ]; then
   arrdate=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f1 ) )
@@ -18,7 +18,7 @@ fi
 
 for (( i=0; i<$n; i++ ))
 do
-  arrdate[$i]=$(date -d @${arrdate[$i]})
+  arrdate[$i]=$(date -d @${arrdate[$i]} +%Y%m%d-%H:%M)
 done
 
 for (( i=0; i<$n; i++ ))
