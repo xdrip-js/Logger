@@ -439,13 +439,13 @@ if [ $(bc -l <<< "$noiseSend == 0") -eq 1 ]; then
     echo "Raw noise of $noise will be used to determine noiseSend value."
   fi
 
-  if [ $(bc -l <<< "$noise < 0.2") -eq 1 ]; then
+  if [ $(bc -l <<< "$noise < 0.3") -eq 1 ]; then
     noiseSend=1  # Clean
-  elif [ $(bc -l <<< "$noise < 0.4") -eq 1 ]; then
+  elif [ $(bc -l <<< "$noise < 0.45") -eq 1 ]; then
     noiseSend=2  # Light
   elif [ $(bc -l <<< "$noise < 0.6") -eq 1 ]; then
     noiseSend=3  # Medium
-  elif [ $(bc -l <<< "$noise >= 0.60") -eq 1 ]; then
+  elif [ $(bc -l <<< "$noise >= 0.6") -eq 1 ]; then
     noiseSend=4  # Heavy
   fi
 fi
