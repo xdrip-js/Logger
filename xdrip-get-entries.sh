@@ -234,21 +234,23 @@ if [ -z $meterbg ]; then
 fi
 
 
-if [ -n $meterbg -a "$meterbg" != "null" ]; then
-  if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
-    # only do this once for a single calibration check for duplicate BG check record ID
-    if ! cat ./calibrations.csv | egrep "$meterbgid"; then 
-      echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid,$filtered,$unfiltered" >> ./calibrations.csv
-      ./calc-calibration.sh ./calibrations.csv ./calibration-linear.json
-      maxDelta=60
-    else 
-      echo "this calibration was previously recorded - ignoring"
+if [ -n $meterbg ]; then 
+  if [ "$meterbg" != "null" ]; then
+    if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
+      # only do this once for a single calibration check for duplicate BG check record ID
+      if ! cat ./calibrations.csv | egrep "$meterbgid"; then 
+        echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid,$filtered,$unfiltered" >> ./calibrations.csv
+        ./calc-calibration.sh ./calibrations.csv ./calibration-linear.json
+        maxDelta=60
+      else 
+        echo "this calibration was previously recorded - ignoring"
+      fi
+    else
+      echo "Invalid calibration, meterbg="${meterbg}" outside of range [40,400]"
     fi
-  else
-    echo "Invalid calibration, meterbg="${meterbg}" outside of range [40,400]"
+    cat ./calibrations.csv
+    cat ./calibration-linear.json
   fi
-  cat ./calibrations.csv
-  cat ./calibration-linear.json
 fi
 
 # check if sensor changed in last 12 hours.
@@ -272,6 +274,22 @@ if [ -e ./calibration-linear.json ]; then
   calibrationType="${calibrationType#\"}"
   numCalibrations=`jq -M '.[0] .numCalibrations' ./calibration-linear.json` 
   rSquared=`jq -M '.[0] .rSquared' ./calibration-linear.json` 
+  if [ "$maxDelta" == "60" ];then
+    # new calibration record log it to NS
+    echo "[{\"device\":\"$transmitter\",\"type\":\"cal\",\"date\":$epochdate,\"scale\":1,\"intercept\":$yIntercept,\"slope\":$slope}]" > cal.json 
+    echo "Posting cal record to NightScout"
+./post-ns.sh ./cal.json && (echo; echo "Upload to NightScout of cal record entry worked";) || (echo; echo "Upload to NS of cal record did not work")
+
+#[{
+#        'device': 'openaps://' + os.hostname(),
+#        'type': 'cal',
+#        'date': calData.date,
+#        'scale': calData.scale,
+#        'intercept': calData.intercept,
+#        'slope': calData.slope,
+#      }];
+
+  fi
 else
   # exit until we have a valid calibration record
   echo "no valid calibration record yet, exiting ..."
@@ -425,7 +443,7 @@ echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ./noise-input.c
 if [ $(bc -l <<< "$noiseSend == 0") -eq 1 ]; then
   # means that noise was not already set before
   tail -12 ./noise-input.csv > ./noise-input12.csv
-  if type "./calc-noise" > /dev/null; then
+  if [ -e "./calc-noise" ]; then
     # use the go-based version
     echo "calculating noise using go-based version"
     ./calc-noise ./noise-input12.csv ./noise.json
@@ -455,9 +473,7 @@ echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibrat
 tmp=$(mktemp)
 jq ".[0].noise = $noiseSend" entry-xdrip.json > "$tmp" && mv "$tmp" entry-xdrip.json
 
-
-# disable temporarily by messing up fakemeter command string
-if type "fakemeter" > /dev/null; then
+if [ -e "./fakemeter" ]; then
   export MEDTRONIC_PUMP_ID=`grep serial ~/myopenaps/pump.ini | tr -cd 0-9`
   export MEDTRONIC_FREQUENCY=`cat ~/myopenaps/monitor/medtronic_frequency.ini`
   if ! listen -t 4s >& /dev/null ; then 
@@ -480,6 +496,7 @@ else
   echo "entry-backfill.json does not exist so no backfill"
   cp ./entry-xdrip.json ./entry-ns.json
 fi
+
 
 echo "Posting blood glucose to NightScout"
 ./post-ns.sh ./entry-ns.json && (echo; echo "Upload to NightScout of xdrip entry worked ... removing ./entry-backfill.json"; rm -f ./entry-backfill.json) || (echo; echo "Upload to NS of xdrip entry did not work ... saving for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile"; cp ./entry-ns.json ./entry-backfill.json)
