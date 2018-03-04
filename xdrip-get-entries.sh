@@ -442,7 +442,7 @@ echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ./noise-input.c
 # calculate the noise and position it for updating the entry sent to NS and xdripAPS
 if [ $(bc -l <<< "$noiseSend == 0") -eq 1 ]; then
   # means that noise was not already set before
-  tail -12 ./noise-input.csv > ./noise-input12.csv
+  tail -8 ./noise-input.csv > ./noise-input12.csv
   if [ -e "./calc-noise" ]; then
     # use the go-based version
     echo "calculating noise using go-based version"
