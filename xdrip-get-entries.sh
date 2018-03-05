@@ -235,7 +235,7 @@ fi
 
 
 if [ -n $meterbg ]; then 
-  if [ "$meterbg" != "null" ]; then
+  if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
     if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
       # only do this once for a single calibration check for duplicate BG check record ID
       if ! cat ./calibrations.csv | egrep "$meterbgid"; then 
