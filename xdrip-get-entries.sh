@@ -473,7 +473,7 @@ echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibrat
 tmp=$(mktemp)
 jq ".[0].noise = $noiseSend" entry-xdrip.json > "$tmp" && mv "$tmp" entry-xdrip.json
 
-if [ -e "./fakemeter" ]; then
+if [ -e "/usr/local/bin/fakemeter" ]; then
   export MEDTRONIC_PUMP_ID=`grep serial ~/myopenaps/pump.ini | tr -cd 0-9`
   export MEDTRONIC_FREQUENCY=`cat ~/myopenaps/monitor/medtronic_frequency.ini`
   if ! listen -t 4s >& /dev/null ; then 
