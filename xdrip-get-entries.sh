@@ -42,10 +42,13 @@ function ClearCalibrationInput()
 function ClearCalibrationInputOne()
 {
   if [ -e ./calibrations.csv ]; then
-    cp ./calibrations.csv "./old-calibrations/calibrations.csv.$(date +%Y%m%d-%H%M%S)"
-    tail -1 ./calibrations.csv > ./calibrations.csv.new
-    rm ./calibrations.csv
-    mv ./calibrations.csv.new ./calibrations.csv
+    howManyLines=$(wc -l ./calibrations.csv | awk '{print $1}')
+    if [ $(bc <<< "$howManyLines > 1") -eq 1 ]; then
+      cp ./calibrations.csv "./old-calibrations/calibrations.csv.$(date +%Y%m%d-%H%M%S)"
+      tail -1 ./calibrations.csv > ./calibrations.csv.new
+      rm ./calibrations.csv
+      mv ./calibrations.csv.new ./calibrations.csv
+    fi
   fi
 }
 
@@ -234,22 +237,35 @@ if [ -z $meterbg ]; then
 fi
 
 
+calibrationDone=0
 if [ -n $meterbg ]; then 
   if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
     if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
       # only do this once for a single calibration check for duplicate BG check record ID
       if ! cat ./calibrations.csv | egrep "$meterbgid"; then 
-        echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid,$filtered,$unfiltered" >> ./calibrations.csv
-        ./calc-calibration.sh ./calibrations.csv ./calibration-linear.json
-        maxDelta=60
+        # safety check to make sure we don't have wide variance between the meterbg and the unfiltered/raw value
+        # Use 1000 as slope for safety in this check
+        meterbg_raw_delta=$(bc -l <<< "$meterbgid - $raw/1000")
+        # calculate absolute value
+        if [ $(bc -l <<< "$meterbg_raw_delta < 0") ]; then
+	  meterbg_raw_delta=$(bc -l <<< "0 - $meterbg_raw_delta")
+        fi
+        if [ $(bc -l <<< "$meterbg_raw_delta > 60") ]; then
+	  echo "Raw/unfiltered compared to meterbg is $meterbg_raw_delta > 60, ignoring calibration"
+        else
+          echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid,$filtered,$unfiltered" >> ./calibrations.csv
+          ./calc-calibration.sh ./calibrations.csv ./calibration-linear.json
+          maxDelta=60
+          calibrationDone=1
+          cat ./calibrations.csv
+          cat ./calibration-linear.json
+        fi
       else 
         echo "this calibration was previously recorded - ignoring"
       fi
     else
       echo "Invalid calibration, meterbg="${meterbg}" outside of range [40,400]"
     fi
-    cat ./calibrations.csv
-    cat ./calibration-linear.json
   fi
 fi
 
@@ -274,21 +290,12 @@ if [ -e ./calibration-linear.json ]; then
   calibrationType="${calibrationType#\"}"
   numCalibrations=`jq -M '.[0] .numCalibrations' ./calibration-linear.json` 
   rSquared=`jq -M '.[0] .rSquared' ./calibration-linear.json` 
-  if [ "$maxDelta" == "60" ];then
+
+  if [ "$calibrationDone" == "1" ];then
     # new calibration record log it to NS
     echo "[{\"device\":\"$transmitter\",\"type\":\"cal\",\"date\":$epochdate,\"scale\":1,\"intercept\":$yIntercept,\"slope\":$slope}]" > cal.json 
     echo "Posting cal record to NightScout"
 ./post-ns.sh ./cal.json && (echo; echo "Upload to NightScout of cal record entry worked";) || (echo; echo "Upload to NS of cal record did not work")
-
-#[{
-#        'device': 'openaps://' + os.hostname(),
-#        'type': 'cal',
-#        'date': calData.date,
-#        'scale': calData.scale,
-#        'intercept': calData.intercept,
-#        'slope': calData.slope,
-#      }];
-
   fi
 else
   # exit until we have a valid calibration record
