@@ -488,7 +488,7 @@ if [ $(bc -l <<< "$noiseSend == 0") -eq 1 ]; then
   echo usedRecords=$usedRecords last 41 minutes = ${gluc41[@]}
 
   truncate -s 0 ./noise-input41.csv
-  for (( i=0; i<$usedRecords; i++ ))
+  for (( i=$usedRecords-1; i>=0; i-- ))
   do
     dateSeconds=$(bc <<< "${date41[$i]} / 1000")
     echo "$dateSeconds,${unf41[$i]},${fil41[$i]},${gluc41[$i]}" >> ./noise-input41.csv
