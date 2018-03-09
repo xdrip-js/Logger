@@ -416,7 +416,7 @@ else
   after=$(date -d "15 minutes ago" -Iminutes)
   glucosejqstr="'[ .[] | select(.dateString > \"$after\") ]'"
   bash -c "jq -c $glucosejqstr ~/myopenaps/monitor/glucose.json" > last15minutes.json
-  last3=$(jq ".[].glucose" last15minutes.json)
+  last3=( $(jq -r ".[].glucose" last15minutes.json) )
 #  echo ${last3[@]}
 
   usedRecords=${#last3[@]}
@@ -471,14 +471,37 @@ echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ./noise-input.c
 # calculate the noise and position it for updating the entry sent to NS and xdripAPS
 if [ $(bc -l <<< "$noiseSend == 0") -eq 1 ]; then
   # means that noise was not already set before
-  tail -8 ./noise-input.csv > ./noise-input12.csv
+  # get last 41 minutes (approx 7 BG's) from monitor/glucose to better support multiple rigs
+  # 
+#  tail -8 ./noise-input.csv > ./noise-input12.csv
+#
+# be able to support multiple rigs running openaps / Logger at same time. 
+  after=$(date -d "41 minutes ago" -Iminutes)
+  glucosejqstr="'[ .[] | select(.dateString > \"$after\") ]'"
+  bash -c "jq -c $glucosejqstr ~/myopenaps/monitor/glucose.json" > last41minutes.json
+  date41=( $(jq -r ".[].date" last41minutes.json) )
+  gluc41=( $(jq -r ".[].glucose" last41minutes.json) )
+  unf41=( $(jq -r ".[].unfiltered" last41minutes.json) )
+  fil41=( $(jq -r ".[].filtered" last41minutes.json) )
+
+  usedRecords=${#gluc41[@]}
+  echo usedRecords=$usedRecords last 41 minutes = ${gluc41[@]}
+
+  truncate -s 0 ./noise-input41.csv
+  for (( i=0; i<$usedRecords; i++ ))
+  do
+    dateSeconds=$(bc <<< "${date41[$i]} / 1000")
+    echo "$dateSeconds,${unf41[$i]},${fil41[$i]},${gluc41[$i]}" >> ./noise-input41.csv
+  done
+  echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ./noise-input41.csv
+
   if [ -e "./calc-noise" ]; then
     # use the go-based version
     echo "calculating noise using go-based version"
-    ./calc-noise ./noise-input12.csv ./noise.json
+    ./calc-noise ./noise-input41.csv ./noise.json
   else 
     echo "calculating noise using bash-based version"
-    ./calc-noise.sh ./noise-input12.csv ./noise.json
+    ./calc-noise.sh ./noise-input41.csv ./noise.json
   fi
 
   if [ -e ./noise.json ]; then
