@@ -401,11 +401,13 @@ if [ -z "$dg" ]; then
 else
   usedRecords=0
   totalDelta=0
-
 # Don't use files to store delta's anymore. Use monitor/glucose.json in order to 
 # be able to support multiple rigs running openaps / Logger at same time. 
-  after=$(date -d "15 minutes ago" -Iminutes)
-  glucosejqstr="'[ .[] | select(.dateString > \"$after\") ]'"
+
+#  after=$(date -d "15 minutes ago" -Iminutes)
+#  glucosejqstr="'[ .[] | select(.dateString > \"$after\") ]'"
+  epms15=$(bc -l <<< "$epochdate *1000  - 900000")
+  glucosejqstr="'[ .[] | select(.date > $epms15) ]'"
   bash -c "jq -c $glucosejqstr ~/myopenaps/monitor/glucose.json" > last15minutes.json
   last3=( $(jq -r ".[].glucose" last15minutes.json) )
   date3=( $(jq -r ".[].date" last15minutes.json) )
