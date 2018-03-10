@@ -399,17 +399,8 @@ if [ -z "$dg" ]; then
   direction="NONE"
   echo "setting direction=NONE because dg is null, dg=$dg"
 else
-#  echo $dg > bgdelta-$(date +%Y%m%d-%H%M%S).dat
-
-   # first delete any delta's > 15 minutes
-# find . -name 'bgdelta*.dat' -mmin +15 -delete
   usedRecords=0
   totalDelta=0
-# for i in ./bgdelta*.dat; do
-#    usedRecords=$(bc <<< "$usedRecords + 1")
-#    currentDelta=`cat $i`
-#    totalDelta=$(bc <<< "$totalDelta + $currentDelta")
-#  done
 
 # Don't use files to store delta's anymore. Use monitor/glucose.json in order to 
 # be able to support multiple rigs running openaps / Logger at same time. 
@@ -418,16 +409,16 @@ else
   bash -c "jq -c $glucosejqstr ~/myopenaps/monitor/glucose.json" > last15minutes.json
   last3=( $(jq -r ".[].glucose" last15minutes.json) )
   date3=( $(jq -r ".[].date" last15minutes.json) )
-  echo ${last3[@]}
+  #echo ${last3[@]}
 
   usedRecords=${#last3[@]}
   totalDelta=$dg
 
   for (( i=1; i<$usedRecords; i++ ))
   do
-    echo "before totalDelta=$totalDelta, last3[i-1]=${last3[$i-1]}, last3[i]=${last3[$i]}"
+    #echo "before totalDelta=$totalDelta, last3[i-1]=${last3[$i-1]}, last3[i]=${last3[$i]}"
     totalDelta=$(bc <<< "$totalDelta + (${last3[$i-1]} - ${last3[$i]})")
-    echo "after totalDelta=$totalDelta"
+    #echo "after totalDelta=$totalDelta"
   done
 
   if [ $(bc <<< "$usedRecords > 0") -eq 1 ]; then
