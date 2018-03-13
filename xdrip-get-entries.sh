@@ -392,7 +392,9 @@ jq ".[0].sgv = $calibratedBG" entry.json > "$tmp" && mv "$tmp" entry.json
 tmp=$(mktemp)
 jq ".[0].device = \"${transmitter}\"" entry.json > "$tmp" && mv "$tmp" entry.json
 
+
 direction='NONE'
+trend=0
 
 # Begin trend calculation logic based on last 15 minutes glucose delta average
 if [ -z "$dg" ]; then
@@ -431,18 +433,25 @@ else
 
     if (( $(bc <<< "$perMinuteAverageDelta > 3") )); then
       direction='DoubleUp'
+      trend=1
     elif (( $(bc <<< "$perMinuteAverageDelta > 2") )); then
       direction='SingleUp'
+      trend=2
     elif (( $(bc <<< "$perMinuteAverageDelta > 1") )); then
       direction='FortyFiveUp'
+      trend=3
     elif (( $(bc <<< "$perMinuteAverageDelta < -3") )); then
       direction='DoubleDown'
+      trend=7
     elif (( $(bc <<< "$perMinuteAverageDelta < -2") )); then
       direction='SingleDown'
+      trend=6
     elif (( $(bc <<< "$perMinuteAverageDelta < -1") )); then
       direction='FortyFiveDown'
+      trend=5
     else
       direction='Flat'
+      trend=4
     fi
   fi
 fi
@@ -450,11 +459,13 @@ fi
 echo "perMinuteAverageDelta=$perMinuteAverageDelta, totalDelta=$totalDelta, usedRecords=$usedRecords"
 echo "Gluc=${calibratedBG}, last=${lastGlucose}, diff=${dg}, dir=${direction}"
 
-
 cat entry.json | jq ".[0].direction = \"$direction\"" > entry-xdrip.json
 
+tmp=$(mktemp)
+jq ".[0].trend = $trend" entry-xdrip.json > "$tmp" && mv "$tmp" entry-xdrip.json
+
 if [ ! -f "/var/log/openaps/g5.csv" ]; then
-  echo "epochdate,datetime,unfiltered,filtered,trend,calibratedBG,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend" > /var/log/openaps/g5.csv
+  echo "epochdate,datetime,unfiltered,filtered,direction,calibratedBG,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend" > /var/log/openaps/g5.csv
 fi
 
 
@@ -469,8 +480,10 @@ if [ $(bc -l <<< "$noiseSend == 0") -eq 1 ]; then
 #  tail -8 ./noise-input.csv > ./noise-input12.csv
 #
 # be able to support multiple rigs running openaps / Logger at same time. 
-  after=$(date -d "41 minutes ago" -Iminutes)
-  glucosejqstr="'[ .[] | select(.dateString > \"$after\") ]'"
+#  after=$(date -d "41 minutes ago" -Iminutes)
+  epms15=$(bc -l <<< "$epochdate *1000  - 41*60000")
+  glucosejqstr="'[ .[] | select(.date > $epms15) ]'"
+#  glucosejqstr="'[ .[] | select(.dateString > \"$after\") ]'"
   bash -c "jq -c $glucosejqstr ~/myopenaps/monitor/glucose.json" > last41minutes.json
   date41=( $(jq -r ".[].date" last41minutes.json) )
   gluc41=( $(jq -r ".[].glucose" last41minutes.json) )
