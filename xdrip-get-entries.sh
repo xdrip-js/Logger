@@ -245,13 +245,13 @@ if [ -n $meterbg ]; then
       if ! cat ./calibrations.csv | egrep "$meterbgid"; then 
         # safety check to make sure we don't have wide variance between the meterbg and the unfiltered/raw value
         # Use 1000 as slope for safety in this check
-        meterbg_raw_delta=$(bc -l <<< "$meterbgid - $raw/1000")
+        meterbg_raw_delta=$(bc -l <<< "$meterbg - $raw/1000")
         # calculate absolute value
         if [ $(bc -l <<< "$meterbg_raw_delta < 0") ]; then
 	  meterbg_raw_delta=$(bc -l <<< "0 - $meterbg_raw_delta")
         fi
-        if [ $(bc -l <<< "$meterbg_raw_delta > 60") ]; then
-	  echo "Raw/unfiltered compared to meterbg is $meterbg_raw_delta > 60, ignoring calibration"
+        if [ $(bc -l <<< "$meterbg_raw_delta > 70") ]; then
+	  echo "Raw/unfiltered compared to meterbg is $meterbg_raw_delta > 70, ignoring calibration"
         else
           echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid,$filtered,$unfiltered" >> ./calibrations.csv
           ./calc-calibration.sh ./calibrations.csv ./calibration-linear.json
