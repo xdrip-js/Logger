@@ -531,17 +531,6 @@ echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibrat
 tmp=$(mktemp)
 jq ".[0].noise = $noiseSend" entry-xdrip.json > "$tmp" && mv "$tmp" entry-xdrip.json
 
-if [ -e "/usr/local/bin/fakemeter" ]; then
-  export MEDTRONIC_PUMP_ID=`grep serial ~/myopenaps/pump.ini | tr -cd 0-9`
-  export MEDTRONIC_FREQUENCY=`cat ~/myopenaps/monitor/medtronic_frequency.ini`
-  if ! listen -t 4s >& /dev/null ; then 
-    echo "Sending BG of $calibratedBG to pump via meterid $meterid"
-    fakemeter -m $meterid  $calibratedBG 
-  else
-    echo "Timed out trying to send BG of $calibratedBG to pump via meterid $meterid"
-  fi
-fi
-
 echo "Posting glucose record to xdripAPS"
 ./post-xdripAPS.sh ./entry-xdrip.json
 
@@ -564,6 +553,17 @@ if [ -e "./treatments-backfill.json" ]; then
   echo "Posting treatments to NightScout"
   ./post-ns.sh ./treatments-backfill.json treatments && (echo; echo "Upload to NightScout of xdrip treatments worked ... removing ./treatments-backfill.json"; rm -f ./treatments-backfill.json) || (echo; echo "Upload to NS of xdrip entry did not work ... saving treatments for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile")
   echo
+fi
+
+if [ -e "/usr/local/bin/fakemeter" ]; then
+  export MEDTRONIC_PUMP_ID=`grep serial ~/myopenaps/pump.ini | tr -cd 0-9`
+  export MEDTRONIC_FREQUENCY=`cat ~/myopenaps/monitor/medtronic_frequency.ini`
+  if ! listen -t 4s >& /dev/null ; then 
+    echo "Sending BG of $calibratedBG to pump via meterid $meterid"
+    fakemeter -m $meterid  $calibratedBG 
+  else
+    echo "Timed out trying to send BG of $calibratedBG to pump via meterid $meterid"
+  fi
 fi
 
 bt-device -r $id
