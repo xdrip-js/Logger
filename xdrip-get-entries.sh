@@ -247,10 +247,10 @@ if [ -n $meterbg ]; then
         # Use 1000 as slope for safety in this check
         meterbg_raw_delta=$(bc -l <<< "$meterbg - $raw/1000")
         # calculate absolute value
-        if [ $(bc -l <<< "$meterbg_raw_delta < 0") ]; then
+        if [ $(bc -l <<< "$meterbg_raw_delta < 0") -eq 1 ]; then
 	  meterbg_raw_delta=$(bc -l <<< "0 - $meterbg_raw_delta")
         fi
-        if [ $(bc -l <<< "$meterbg_raw_delta > 70") ]; then
+        if [ $(bc -l <<< "$meterbg_raw_delta > 70") -eq 1 ]; then
 	  echo "Raw/unfiltered compared to meterbg is $meterbg_raw_delta > 70, ignoring calibration"
         else
           echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid,$filtered,$unfiltered" >> ./calibrations.csv
