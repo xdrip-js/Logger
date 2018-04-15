@@ -26,6 +26,7 @@ INPUT=${1:-"calibrations.csv"}
 OUTPUT=${2:-"calibration-linear.json"}
 MAXSLOPE=1450
 MINSLOPE=550
+MINSLOPESINGLE=800
 MAXRECORDS=8
 MINRECORDSFORLSR=3
 rSquared=0
@@ -245,9 +246,9 @@ if [ "$calibrationType" == "SinglePoint" ]; then
   if [ $(bc <<< "$slope > $MAXSLOPE") -eq 1 ]; then
     echo "single point slope of $slope > maxSlope of $MAXSLOPE, using $MAXSLOPE" 
     slope=$MAXSLOPE
-  elif [ $(bc <<< "$slope < $MINSLOPE") -eq 1 ]; then
-    echo "single point slope of $slope < minSlope of $MINSLOPE, using $MINSLOPE" 
-    slope=$MINSLOPE
+  elif [ $(bc <<< "$slope < $MINSLOPESINGLE") -eq 1 ]; then
+    echo "single point slope of $slope < minSlope of $MINSLOPESINGLE, using $MINSLOPESINGLE" 
+    slope=$MINSLOPESINGLE
   fi 
 fi
 
