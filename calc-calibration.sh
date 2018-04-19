@@ -26,19 +26,19 @@ INPUT=${1:-"calibrations.csv"}
 OUTPUT=${2:-"calibration-linear.json"}
 MAXSLOPE=1450
 MINSLOPE=550
+MINSLOPESINGLE=800
 MAXRECORDS=8
-MINRECORDSFORLSR=4
+MINRECORDSFORLSR=3
 rSquared=0
 
 yarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f1 ) )
 xarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f2 ) )
+tdate=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f4 ) )
 
 echo "Begin calibration using input of $INPUT and output of $OUTPUT"
 
-# Future how to compare date values if we want to limit calibration set to a timeframe
-#    dt1970arr[$i]=`date +%s --date="${dtarr[$i]}"`
-#    set initial i value based on date differences
-# dtarr=( $(tail -11 $INPUT | cut -d ',' -f3 ) )
+
+
 
 function MathMin()
 {
@@ -113,13 +113,37 @@ function LeastSquaresRegression()
   local r=0
   local n=${#xarr[@]}
 
+  usingDates=0
+  local firstDate=${tdate[0]}
+  local re='^[0-9]+$'
+  if [[ $firstDate =~ $re ]]; then 
+    for (( i=0; i<$n; i++ ))
+    do
+      tarr[$i]=$(bc <<< "${tdate[$i]} - $firstDate") 
+    done
+    # avoid divide by zero if times are somehow the same in csv input file (shouldn't be) 
+    if [ $(bc <<< "${tarr[$n-1]} != 0") -eq 1 ]; then
+      usingDates=1
+    fi
+  fi
+ 
+  local multiplier=1
+  
+
   for (( i=0; i<$n; i++ ))
   do
-    sumXY=$(bc -l <<< "$sumXY + ${xarr[i]} * ${yarr[i]}")
-    sumXSq=$(bc -l <<< "$sumXSq + ${xarr[i]} * ${xarr[i]}")
-    sumYSq=$(bc -l <<< "$sumYSq + ${yarr[i]} * ${yarr[i]}")
+    if [ $(bc <<< "$i != 0") -eq 1 -a $(bc <<< "$usingDates == 1") -eq 1 ]; then
+      multiplier=$(bc -l <<< "1 + ${tarr[$i-1]} / (${tarr[$n-1]} * 2)")
+      # boundary check
+      if [ $(bc -l <<< "$multiplier < 1") -eq 1 -o $(bc -l <<< "$multiplier > 2") -eq 1 ]; then
+        multiplier=1
+      fi
+    fi
+    echo "Calibration - record $i, time(${tdate[$i]}), weighted multiplier=$multiplier" 
+    sumXY=$(bc -l <<< "($sumXY + ${xarr[i]} * ${yarr[i]}) * $multiplier")
+    sumXSq=$(bc -l <<< "($sumXSq + ${xarr[i]} * ${xarr[i]}) * $multiplier")
+    sumYSq=$(bc -l <<< "($sumYSq + ${yarr[i]} * ${yarr[i]}) * $multiplier")
   done  
-  
   denominator=$(bc -l <<< "sqrt((($n * $sumXSq - ${sumX}^2) * ($n * $sumYSq - ${sumY}^2)))")
   if [ $(bc <<< "$denominator == 0") -eq 1 -o  $(bc <<< "$stddevX == 0") -eq 1 ] ; then
     slope=1000
@@ -127,6 +151,8 @@ function LeastSquaresRegression()
   else
     r=$(bc -l <<< "($n * $sumXY - $sumX * $sumY) / $denominator")
     rSquared=$(bc -l <<< "(${r})^2")
+    rSquared=$(printf "%.*f\n" 5 $rSquared)
+
 
     slope=$(bc -l <<< "$r * $stddevY / $stddevX ")
     yIntercept=$(bc -l <<< "$meanY - $slope * $meanX ")
@@ -152,9 +178,6 @@ function LeastSquaresRegression()
 function SinglePointCalibration
 {
   if [ "$numx" -gt "0" ]; then
-    # for less than $MINRECORDSFORLSR calibrations, 
-    # fall back to single point calibration
-    # get the last entry for x and y
     x=${xarr[-1]}
     y=${yarr[-1]}
     yIntercept=0
@@ -174,7 +197,7 @@ slopeError=0
 yError=0
 
 if [ $(bc -l <<< "$numx >= $MINRECORDSFORLSR") -eq 1 ]; then
-  echo "Calibration records = $numx, using LeastSquaresRegression" 
+  echo "Calibration records = $numx, attempting to use LeastSquaresRegression" 
   LeastSquaresRegression
   calibrationType="LeastSquaresRegression"
 elif [ $(bc -l <<< "$numx > 0") -eq 1 ]; then
@@ -196,22 +219,19 @@ maxIntercept=$(MathMin "${yarr[@]}")
 
 echo "Calibration - Before bounds check, slope=$slope, yIntercept=$yIntercept"
 
+# Check for boundaries and fall back to Single Point Calibration if necessary
 if [ $(bc <<< "$slope > $MAXSLOPE") -eq 1 ]; then
-  # fall back to Single Point in this case
   echo "slope of $slope > maxSlope of $MAXSLOPE, using single point linear" 
   SinglePointCalibration
 elif [ $(bc <<< "$slope < $MINSLOPE") -eq 1 ]; then
-  # fall back to Single Point in this case
   echo "slope of $slope < minSlope of $MINSLOPE, using single point linear" 
   SinglePointCalibration
 fi 
 
 if [ $(bc  <<< "$yIntercept > $maxIntercept") -eq 1 ]; then
-  # fall back to Single Point in this case
   echo "yIntercept of $yIntercept > maxIntercept of $maxIntercept, using single point linear" 
   SinglePointCalibration
 elif [ $(bc <<< "$yIntercept < (0 - $maxIntercept)") -eq 1 ]; then
-  # fall back to Single Point in this case
   echo "yIntercept of $yIntercept < negative maxIntercept of -$maxIntercept, using single point linear" 
   SinglePointCalibration
   echo "x=$x, y=$y, slope=$slope, yIntercept=0" 
@@ -226,9 +246,9 @@ if [ "$calibrationType" == "SinglePoint" ]; then
   if [ $(bc <<< "$slope > $MAXSLOPE") -eq 1 ]; then
     echo "single point slope of $slope > maxSlope of $MAXSLOPE, using $MAXSLOPE" 
     slope=$MAXSLOPE
-  elif [ $(bc <<< "$slope < $MINSLOPE") -eq 1 ]; then
-    echo "single point slope of $slope < minSlope of $MINSLOPE, using $MINSLOPE" 
-    slope=$MINSLOPE
+  elif [ $(bc <<< "$slope < $MINSLOPESINGLE") -eq 1 ]; then
+    echo "single point slope of $slope < minSlope of $MINSLOPESINGLE, using $MINSLOPESINGLE" 
+    slope=$MINSLOPESINGLE
   fi 
 fi
 
