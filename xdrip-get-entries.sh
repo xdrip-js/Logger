@@ -1,128 +1,24 @@
 #!/bin/bash
-#set -x
 
-function Log
+main()
 {
-  echo -e "$(date +'%m/%d %H:%M:%S') $*"
-}
+  Log "Starting xdrip-get-entries.sh"
 
-# Check required environment variables
-function CheckEnvironmentVariables
-{
-  source ~/.bash_profile
-  export API_SECRET
-  export NIGHTSCOUT_HOST
-  if [ "$API_SECRET" = "" ]; then
-     Log "API_SECRET environment variable is not set"
-     Log "Make sure the two lines below are in your ~/.bash_profile as follows:\n"
-     Log "API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxx # where xxxx is your hashed NS API_SECRET"
-     Log "export API_SECRET\n\nexiting\n"
-     exit
-  fi
-  if [ "$NIGHTSCOUT_HOST" = "" ]; then
-     Log "NIGHTSCOUT_HOST environment variable is not set"
-     Log "Make sure the two lines below are in your ~/.bash_profile as follows:\n"
-     Log "NIGHTSCOUT_HOST=https://xxxx # where xxxx is your hashed Nightscout url"
-     Log "export NIGHTSCOUT_HOST\n\nexiting\n"
-     exit
-  fi
-}
+  cd /root/src/xdrip-js-logger
+  mkdir -p old-calibrations
 
-function ClearCalibrationInput()
-{
-  if [ -e ./calibrations.csv ]; then
-    cp ./calibrations.csv "./old-calibrations/calibrations.csv.$(date +%Y%m%d-%H%M%S)" 
-    rm ./calibrations.csv
-  fi
-}
+  glucoseType="unfiltered"
+  noiseSend=0 # default unknown
+  UTC=" -u "
+  lastGlucose=0
+  transmitter=$1
+  meterid=${2:-"000000"}
+  pumpUnits=${3:-"mg/dl"}
 
-# we need to save the last calibration for meterbgid checks, throw out the rest
-function ClearCalibrationInputOne()
-{
-  if [ -e ./calibrations.csv ]; then
-    howManyLines=$(wc -l ./calibrations.csv | awk '{print $1}')
-    if [ $(bc <<< "$howManyLines > 1") -eq 1 ]; then
-      cp ./calibrations.csv "./old-calibrations/calibrations.csv.$(date +%Y%m%d-%H%M%S)"
-      tail -1 ./calibrations.csv > ./calibrations.csv.new
-      rm ./calibrations.csv
-      mv ./calibrations.csv.new ./calibrations.csv
-    fi
-  fi
-}
-
-function ClearCalibrationCache()
-{
-  local cache="calibration-linear.json"
-  if [ -e $cache ]; then
-    cp $cache "./old-calibrations/${cache}.$(date +%Y%m%d-%H%M%S)" 
-    rm $cache 
-  fi
-}
-
-# check UTC to begin with and use UTC flag for any curls
-function CheckUTC()
-{
-  curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[created_at\]\[\$gte\]=$(date -d "2400 hours ago" -Ihours -u)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null  > ./testUTC.json  
-  if [ $? == 0 ]; then
-    createdAt=$(jq ".[0].created_at" ./testUTC.json)
-    if [ $"$createdAt" == "" ]; then
-      Log "You must record a \"Sensor Insert\" in Nightscout before Logger will run" 
-      Log "exiting\n"
-      exit
-    elif [[ $createdAt == *"Z"* ]]; then
-      UTC=" -u "
-      Log "NS is using UTC $UTC"      
-    else
-      UTC=""
-      Log "NS is not using UTC $UTC"      
-    fi
-  fi
-}
-
-# remove old calibration storage when sensor change occurs
-function CheckForSensorChange()
-{
-  # calibrate after 15 minutes of sensor change time entered in NS
-  #
-  curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
-  if [ $? == 0 ]; then
-    Log "sensor change within last 15 minutes - clearing calibration files"
-    ClearCalibrationInput
-    ClearCalibrationCache
-    touch ./last_sensor_change
-    Log "exiting"
-    exit
-  fi
-}
-
-function CheckForLastGlucose()
-{
-  if [ -e "./entry.json" ] ; then
-    lastGlucose=$(cat ./entry.json | jq -M '.[0].glucose')
-    Log "lastGlucose=$lastGlucose"
-    mv ./entry.json ./last-entry.json
-  else
-    Log "prior entry.json not available, lastGlucose=0"
-  fi
-}
-
-Log "Starting xdrip-get-entries.sh"
-
-cd /root/src/xdrip-js-logger
-mkdir -p old-calibrations
-
-glucoseType="unfiltered"
-noiseSend=0 # default unknown
-UTC=" -u "
-lastGlucose=0
-transmitter=$1
-meterid=${2:-"000000"}
-pumpUnits=${3:-"mg/dl"}
-
-CheckEnvironmentVariables
-CheckUTC
-CheckForSensorChange
-CheckForLastGlucose
+  CheckEnvironmentVariables
+  CheckUTC
+  CheckForSensorChange
+  CheckForLastGlucose
 
 
 # FIXME: this was just copied from bellow, but move all the BG retrieval stuff properly here.
@@ -613,6 +509,8 @@ if [ "$mode" == "expired" ]; then
   jq ".[0].noise = $noiseSend" entry-xdrip.json > "$tmp" && mv "$tmp" entry-xdrip.json
 fi
 
+FakeMeter
+
   cp entry.json entry-xdrip.json
 
   Log "Posting glucose record to xdripAPS"
@@ -639,18 +537,129 @@ if [ -e "./treatments-backfill.json" ]; then
   echo
 fi
 
-if [ -e "/usr/local/bin/fakemeter" ]; then
-  export MEDTRONIC_PUMP_ID=`grep serial ~/myopenaps/pump.ini | tr -cd 0-9`
-  export MEDTRONIC_FREQUENCY=`cat ~/myopenaps/monitor/medtronic_frequency.ini`
-  if ! listen -t 4s >& /dev/null ; then 
-    Log "Sending BG of $calibratedBG to pump via meterid $meterid"
-    fakemeter -m $meterid  $calibratedBG 
-  else
-    Log "Timed out trying to send BG of $calibratedBG to pump via meterid $meterid"
-  fi
-fi
-
 bt-device -r $id
 Log "Finished xdrip-get-entries.sh"
 echo
 
+}
+
+function Log
+{
+  echo -e "$(date +'%m/%d %H:%M:%S') $*"
+}
+
+function FakeMeter()
+{
+  if [ -e "/usr/local/bin/fakemeter" ]; then
+    export MEDTRONIC_PUMP_ID=`grep serial ~/myopenaps/pump.ini | tr -cd 0-9`
+    export MEDTRONIC_FREQUENCY=`cat ~/myopenaps/monitor/medtronic_frequency.ini`
+    if ! listen -t 4s >& /dev/null ; then 
+      Log "Sending BG of $calibratedBG to pump via meterid $meterid"
+      fakemeter -m $meterid  $calibratedBG 
+    else
+      Log "Timed out trying to send BG of $calibratedBG to pump via meterid $meterid"
+    fi
+  fi
+}
+
+
+# Check required environment variables
+function CheckEnvironmentVariables
+{
+  source ~/.bash_profile
+  export API_SECRET
+  export NIGHTSCOUT_HOST
+  if [ "$API_SECRET" = "" ]; then
+     Log "API_SECRET environment variable is not set"
+     Log "Make sure the two lines below are in your ~/.bash_profile as follows:\n"
+     Log "API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxx # where xxxx is your hashed NS API_SECRET"
+     Log "export API_SECRET\n\nexiting\n"
+     exit
+  fi
+  if [ "$NIGHTSCOUT_HOST" = "" ]; then
+     Log "NIGHTSCOUT_HOST environment variable is not set"
+     Log "Make sure the two lines below are in your ~/.bash_profile as follows:\n"
+     Log "NIGHTSCOUT_HOST=https://xxxx # where xxxx is your hashed Nightscout url"
+     Log "export NIGHTSCOUT_HOST\n\nexiting\n"
+     exit
+  fi
+}
+
+function ClearCalibrationInput()
+{
+  if [ -e ./calibrations.csv ]; then
+    cp ./calibrations.csv "./old-calibrations/calibrations.csv.$(date +%Y%m%d-%H%M%S)" 
+    rm ./calibrations.csv
+  fi
+}
+
+# we need to save the last calibration for meterbgid checks, throw out the rest
+function ClearCalibrationInputOne()
+{
+  if [ -e ./calibrations.csv ]; then
+    howManyLines=$(wc -l ./calibrations.csv | awk '{print $1}')
+    if [ $(bc <<< "$howManyLines > 1") -eq 1 ]; then
+      cp ./calibrations.csv "./old-calibrations/calibrations.csv.$(date +%Y%m%d-%H%M%S)"
+      tail -1 ./calibrations.csv > ./calibrations.csv.new
+      rm ./calibrations.csv
+      mv ./calibrations.csv.new ./calibrations.csv
+    fi
+  fi
+}
+
+function ClearCalibrationCache()
+{
+  local cache="calibration-linear.json"
+  if [ -e $cache ]; then
+    cp $cache "./old-calibrations/${cache}.$(date +%Y%m%d-%H%M%S)" 
+    rm $cache 
+  fi
+}
+
+# check UTC to begin with and use UTC flag for any curls
+function CheckUTC()
+{
+  curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[created_at\]\[\$gte\]=$(date -d "2400 hours ago" -Ihours -u)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null  > ./testUTC.json  
+  if [ $? == 0 ]; then
+    createdAt=$(jq ".[0].created_at" ./testUTC.json)
+    if [ $"$createdAt" == "" ]; then
+      Log "You must record a \"Sensor Insert\" in Nightscout before Logger will run" 
+      Log "exiting\n"
+      exit
+    elif [[ $createdAt == *"Z"* ]]; then
+      UTC=" -u "
+      Log "NS is using UTC $UTC"      
+    else
+      UTC=""
+      Log "NS is not using UTC $UTC"      
+    fi
+  fi
+}
+
+# remove old calibration storage when sensor change occurs
+# calibrate after 15 minutes of sensor change time entered in NS
+function CheckForSensorChange()
+{
+  curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
+  if [ $? == 0 ]; then
+    Log "sensor change within last 15 minutes - clearing calibration files"
+    ClearCalibrationInput
+    ClearCalibrationCache
+    touch ./last_sensor_change
+    Log "exiting"
+    exit
+  fi
+}
+
+function CheckForLastGlucose()
+{
+  if [ -e "./entry.json" ] ; then
+    lastGlucose=$(cat ./entry.json | jq -M '.[0].glucose')
+    Log "lastGlucose=$lastGlucose"
+    mv ./entry.json ./last-entry.json
+  else
+    Log "prior entry.json not available, lastGlucose=0"
+  fi
+}
+
+main "$@"
