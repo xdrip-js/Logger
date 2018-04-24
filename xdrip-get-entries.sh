@@ -29,7 +29,6 @@ main()
   CallLogger
   CaptureEntryValues
   SetGlucoseType
-  InitializeCalibratedBG
   Log "Mode = $mode"
   if [ "$mode" == "not-expired" ]; then
     InitializeCalibratedBG 
@@ -673,7 +672,6 @@ function  SetGlucoseType()
 
 function  InitializeCalibratedBG()
 {
-    Log "mode = not expired"
     calibratedBG=$glucose
     tmp=$(mktemp)
     jq ".[0].sgv = $glucose" entry.json > "$tmp" && mv "$tmp" entry.json
