@@ -52,7 +52,7 @@ if [ -z $meterbg ]; then
         echo "[{\"created_at\":\"$meterbgid\",\"enteredBy\":\"OpenAPS\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ./calibration-backfill.json
         cat ./calibration-backfill.json
         jq -s add ./calibration-backfill.json ./treatments-backfill.json > ./treatments-backfill.json
-        calibrationJSON="[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\" glucose\": $meterbg}]"
+        calibrationJSON="[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
         Log "calibrationJSON=$calibrationJSON"
       else
         Log "Calibration bg over 7 minutes - not used"
