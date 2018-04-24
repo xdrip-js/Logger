@@ -12,67 +12,25 @@ main()
   UTC=" -u "
   lastGlucose=0
   transmitter=$1
+  id2=$(echo "${transmitter: -2}")
+  id="Dexcom${id2}"
   meterid=${2:-"000000"}
   pumpUnits=${3:-"mg/dl"}
+  mode=${4:-"non-expired"}
+  messages="[]"
+  calibrationJSON=""
+
 
   CheckEnvironmentVariables
   CheckUTC
   CheckForSensorChange
   CheckForLastGlucose
-
-
-# FIXME: this was just copied from bellow, but move all the BG retrieval stuff properly here.
-calibrationJSON="[]"
-## look for a bg check from monitor/calibration.json
-if [ -z $meterbg ]; then
-  CALFILE="/root/myopenaps/monitor/calibration.json"
-  if [ -e $CALFILE ]; then
-    if test  `find $CALFILE -mmin -7`
-    then
-      Log "calibration file $CALFILE contents below"
-      cat $CALFILE
-      echo
-      calDate=$(jq ".[0].date" $CALFILE)
-      # check the date inside to make sure we don't calibrate using old record
-      if [ $(bc <<< "($epochdate - $calDate) < 420") -eq 1 ]; then
-         calDate=$(jq ".[0].date" $CALFILE)
-         meterbg=$(jq ".[0].glucose" $CALFILE)
-         meterbgid=$(jq ".[0].dateString" $CALFILE)
-         meterbgid="${meterbgid%\"}"
-         meterbgid="${meterbgid#\"}"
-         units=$(jq ".[0].units" $CALFILE)
-         if [[ "$units" == *"mmol"* ]]; then
-           meterbg=$(bc <<< "($meterbg *18)/1")
-           Log "converted OpenAPS meterbg from mmol value to $meterbg"
-         fi
-         Log "Calibration of $meterbg from $CALFILE being processed - id = $meterbgid"
-         # put in backfill so that the command line calibration will be sent up to NS 
-         # now (or later if offline)
-        Log "Setting up to send calibration to NS now if online (or later with backfill)"
-        echo "[{\"created_at\":\"$meterbgid\",\"enteredBy\":\"OpenAPS\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ./calibration-backfill.json
-        cat ./calibration-backfill.json
-        jq -s add ./calibration-backfill.json ./treatments-backfill.json > ./treatments-backfill.json
-        calibrationJSON="[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
-        Log "calibrationJSON=$calibrationJSON"
-      else
-        Log "Calibration bg over 7 minutes - not used"
-      fi
-    fi
-    
-    rm $CALFILE
-  fi
-fi
-
-
-
-id2=$(echo "${transmitter: -2}")
-id="Dexcom${id2}"
-Log "Removing existing Dexcom bluetooth connection = ${id}"
-bt-device -r $id
+  CheckForCommandLineCalibration
+  RemoveDexcomBluetoothConnection
 
 Log "Calling xdrip-js ... node logger $transmitter"
-# FIXME: $calibrationJSON contains quotes which need escaping i think
-DEBUG=smp,transmitter,bluetooth-manager node logger $transmitter "${calibrationJSON}"
+messages="[${calibrationJSON}]"
+DEBUG=smp,transmitter,bluetooth-manager node logger $transmitter "${messages}"
 #"[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\" glucose\": $meterbg}]"
 echo
 Log "after xdrip-js bg record below ..."
@@ -83,7 +41,7 @@ if [ -z "${glucose}" ] ; then
   Log "Invalid response from g5 transmitter"
   ls -al ./entry.json
   rm ./entry.json
-  bt-device -r $id
+  RemoveDexcomBluetoothConnection
   exit
 fi
 
@@ -102,17 +60,16 @@ else
   raw=$unfiltered
 fi
 
-mode="non-expired"
 if [ "$mode" == "expired" ]; then
   Log "mode = expired"
 else
+  Log "mode = not expired"
   calibratedBG=$glucose
   tmp=$(mktemp)
   jq ".[0].sgv = $glucose" entry.json > "$tmp" && mv "$tmp" entry.json
 
   tmp=$(mktemp)
   jq ".[0].device = \"${id}\"" entry.json > "$tmp" && mv "$tmp" entry.json
-  Log "mode = not expired"
 fi
 
 if [ ! -f "/var/log/openaps/g5.csv" ]; then
@@ -275,7 +232,7 @@ if [ "$mode" == "expired" ]; then
   else
     # exit until we have a valid calibration record
     Log "no valid calibration record yet, exiting ..."
-    bt-device -r $id
+    RemoveDexcomBluetoothConnection
     exit
   fi
 
@@ -311,7 +268,7 @@ if [ "$mode" == "expired" ]; then
     # Outer calibrated BG boundary checks - exit and don't send these on to Nightscout / openaps
     if [ $(bc <<< "$calibratedBG > 600") -eq 1 -o $(bc <<< "$calibratedBG < 0") -eq 1 ]; then
       Log "Glucose $calibratedBG out of range [0,600] - exiting"
-      bt-device -r $id
+      RemoveDexcomBluetoothConnection
       exit
     fi
 
@@ -537,7 +494,7 @@ if [ -e "./treatments-backfill.json" ]; then
   echo
 fi
 
-bt-device -r $id
+RemoveDexcomBluetoothConnection
 Log "Finished xdrip-get-entries.sh"
 echo
 
@@ -660,6 +617,57 @@ function CheckForLastGlucose()
   else
     Log "prior entry.json not available, lastGlucose=0"
   fi
+}
+
+
+
+function  CheckForCommandLineCalibration()
+{
+# FIXME: this was just copied from below, but move all the BG retrieval stuff properly here.
+## look for a bg check from monitor/calibration.json
+  if [ -z $meterbg ]; then
+    CALFILE="/root/myopenaps/monitor/calibration.json"
+    if [ -e $CALFILE ]; then
+      if test  `find $CALFILE -mmin -7`
+      then
+        Log "calibration file $CALFILE contents below"
+        cat $CALFILE
+        echo
+        calDate=$(jq ".[0].date" $CALFILE)
+        # check the date inside to make sure we don't calibrate using old record
+        if [ $(bc <<< "($epochdate - $calDate) < 420") -eq 1 ]; then
+          calDate=$(jq ".[0].date" $CALFILE)
+          meterbg=$(jq ".[0].glucose" $CALFILE)
+          meterbgid=$(jq ".[0].dateString" $CALFILE)
+          meterbgid="${meterbgid%\"}"
+          meterbgid="${meterbgid#\"}"
+          units=$(jq ".[0].units" $CALFILE)
+          if [[ "$units" == *"mmol"* ]]; then
+            meterbg=$(bc <<< "($meterbg *18)/1")
+            Log "converted OpenAPS meterbg from mmol value to $meterbg"
+          fi
+          Log "Calibration of $meterbg from $CALFILE being processed - id = $meterbgid"
+          # put in backfill so that the command line calibration will be sent up to NS 
+          # now (or later if offline)
+          Log "Setting up to send calibration to NS now if online (or later with backfill)"
+          echo "[{\"created_at\":\"$meterbgid\",\"enteredBy\":\"OpenAPS\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ./calibration-backfill.json
+          cat ./calibration-backfill.json
+          jq -s add ./calibration-backfill.json ./treatments-backfill.json > ./treatments-backfill.json
+          calibrationJSON="[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
+          Log "calibrationJSON=$calibrationJSON"
+        else
+          Log "Calibration bg over 7 minutes - not used"
+        fi
+      fi
+      rm $CALFILE
+    fi
+  fi
+}
+
+function  RemoveDexcomBluetoothConnection()
+{
+  Log "Removing existing Dexcom bluetooth connection = ${id}"
+  bt-device -r $id
 }
 
 main "$@"
