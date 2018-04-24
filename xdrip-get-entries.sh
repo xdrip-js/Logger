@@ -9,37 +9,15 @@ mkdir -p old-calibrations
 glucoseType="unfiltered"
 noiseSend=0 # default unknown
 UTC=" -u "
-
-CheckEnvironmentVariables
-CheckUTC
-
-# remove old calibration storage when sensor change occurs
-# calibrate after 15 minutes of sensor change time entered in NS
-#
-curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
-if [ $? == 0 ]; then
-  Log "sensor change within last 15 minutes - clearing calibration files"
-  ClearCalibrationInput
-  ClearCalibrationCache
-  touch ./last_sensor_change
-  Log "exiting"
-  exit
-fi
-
-
-if [ -e "./entry.json" ] ; then
-  lastGlucose=$(cat ./entry.json | jq -M '.[0].glucose')
-  Log "lastGlucose=$lastGlucose"
-  mv ./entry.json ./last-entry.json
-else
-  Log "prior entry.json not available, setting lastGlucose=0"
-  lastGlucose=0
-fi
-
+lastGlucose=0
 transmitter=$1
 meterid=${2:-"000000"}
 pumpUnits=${3:-"mg/dl"}
 
+CheckEnvironmentVariables
+CheckUTC
+CheckForSensorChange
+CheckForLastGlucose
 
 
 # FIXME: this was just copied from bellow, but move all the BG retrieval stuff properly here.
@@ -646,5 +624,32 @@ function CheckUTC()
       UTC=""
       Log "NS is not using UTC $UTC"      
     fi
+  fi
+}
+
+# remove old calibration storage when sensor change occurs
+function CheckForSensorChange()
+{
+  # calibrate after 15 minutes of sensor change time entered in NS
+  #
+  curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
+  if [ $? == 0 ]; then
+    Log "sensor change within last 15 minutes - clearing calibration files"
+    ClearCalibrationInput
+    ClearCalibrationCache
+    touch ./last_sensor_change
+    Log "exiting"
+    exit
+  fi
+}
+
+function CheckForLastGlucose()
+{
+  if [ -e "./entry.json" ] ; then
+    lastGlucose=$(cat ./entry.json | jq -M '.[0].glucose')
+    Log "lastGlucose=$lastGlucose"
+    mv ./entry.json ./last-entry.json
+  else
+    Log "prior entry.json not available, lastGlucose=0"
   fi
 }
