@@ -7,6 +7,33 @@ const messages =  JSON.parse(process.argv[3] || '[]');
 console.log('messages to send: ' + JSON.stringify(messages));
 //messages.push({date: Date.now(), type: "CalibrateSensor", glucose})
 //const transmitter = new Transmitter(id); 
+//
+
+function SensorStateString(state) {
+  switch (state) {	
+     case 0x01:	
+       return "Stopped";	
+     case 0x02:	
+       return "Warmup";	
+     case 0x04:	
+       return "First calibration";	
+     case 0x05:	
+       return "Second calibration";	
+     case 0x06:	
+       return "OK";	
+     case 0x07:	
+       return "Need calibration";	
+     case 0x0a:	
+       return "Enter new BG meter value";	
+     case 0x0b:	
+       return "Failed sensor";	
+     case 0x12:	
+       return "???";	
+     default:	
+       return state ? "Unknown: 0x" + state.toString(16) : '--';	
+  }
+}
+
 const transmitter = new Transmitter(id, () => messages); 
 transmitter.on('glucose', glucose => {
   //console.log('got glucose: ' + glucose.glucose);
@@ -26,7 +53,7 @@ transmitter.on('glucose', glucose => {
       'rssi': "100", // TODO: consider reading this on connection and reporting
       'noise': "1",
       'trend': glucose.trend,
-      'state': glucose.state, // FIXME: make state a readable string
+      'state': SensorStateString(glucose.state), 
       'glucose': Math.round(glucose.glucose)
     }];
     const data = JSON.stringify(entry);
