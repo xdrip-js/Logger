@@ -116,7 +116,7 @@ echo "Removing existing Dexcom bluetooth connection = ${id}"
 bt-device -r $id
 
 echo "Calling xdrip-js ... node logger $transmitter"
-DEBUG=smp,transmitter,bluetooth-manager timeout 360s node logger $transmitter
+DEBUG=smp,transmitter,bluetooth-manager node logger $transmitter
 echo
 echo "after xdrip-js bg record below ..."
 cat ./entry.json
@@ -504,6 +504,8 @@ if [ $(bc -l <<< "$noiseSend == 0") -eq 1 ]; then
   if [ -e "./calc-noise" ]; then
     # use the go-based version
     echo "calculating noise using go-based version"
+    # remove issue where jq returns scientific notation, convert to decimal
+    noise=$(awk -v noise="$noise" 'BEGIN { printf("%.2f", noise) }' </dev/null)
     ./calc-noise ./noise-input41.csv ./noise.json
   else 
     echo "calculating noise using bash-based version"
