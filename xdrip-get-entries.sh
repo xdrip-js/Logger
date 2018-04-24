@@ -16,10 +16,9 @@ main()
   id="Dexcom${id2}"
   meterid=${2:-"000000"}
   pumpUnits=${3:-"mg/dl"}
-  mode=${4:-"non-expired"}
+  mode=${4:-"expired"}
   messages="[]"
   calibrationJSON=""
-
 
   CheckEnvironmentVariables
   CheckUTC
@@ -27,55 +26,16 @@ main()
   CheckForLastGlucose
   CheckForCommandLineCalibration
   RemoveDexcomBluetoothConnection
-
-Log "Calling xdrip-js ... node logger $transmitter"
-messages="[${calibrationJSON}]"
-DEBUG=smp,transmitter,bluetooth-manager node logger $transmitter "${messages}"
-#"[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\" glucose\": $meterbg}]"
-echo
-Log "after xdrip-js bg record below ..."
-cat ./entry.json
-glucose=$(cat ./entry.json | jq -M '.[0].glucose')
-
-if [ -z "${glucose}" ] ; then
-  Log "Invalid response from g5 transmitter"
-  ls -al ./entry.json
-  rm ./entry.json
-  RemoveDexcomBluetoothConnection
-  exit
-fi
-
-# capture raw values for use and for log to csv file 
-unfiltered=$(cat ./entry.json | jq -M '.[0].unfiltered')
-filtered=$(cat ./entry.json | jq -M '.[0].filtered')
-
-# get dates for use in filenames and json entries
-datetime=$(date +"%Y-%m-%d %H:%M")
-epochdate=$(date +'%s')
-
-Log "Using glucoseType of $glucoseType"
-if [ "glucoseType" == "filtered" ]; then
-  raw=$filtered
-else
-  raw=$unfiltered
-fi
-
-if [ "$mode" == "expired" ]; then
-  Log "mode = expired"
-else
-  Log "mode = not expired"
-  calibratedBG=$glucose
-  tmp=$(mktemp)
-  jq ".[0].sgv = $glucose" entry.json > "$tmp" && mv "$tmp" entry.json
-
-  tmp=$(mktemp)
-  jq ".[0].device = \"${id}\"" entry.json > "$tmp" && mv "$tmp" entry.json
-fi
-
-if [ ! -f "/var/log/openaps/g5.csv" ]; then
-  echo "epochdate,datetime,unfiltered,filtered,direction,calibratedBG,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend" > /var/log/openaps/g5.csv
-fi
-echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend}" >> /var/log/openaps/g5.csv
+  CallLogger
+  CaptureEntryValues
+  SetGlucoseType
+  InitializeCalibratedBG
+  Log "Mode = $mode"
+  if [ "$mode" == "not-expired" ]; then
+    InitializeCalibratedBG 
+    LogG5Csv
+  fi
+  SetEntryDevice
 
 if [ "$mode" == "expired" ]; then
 # begin calibration logic - look for calibration from NS, use existing calibration or none
@@ -669,5 +629,69 @@ function  RemoveDexcomBluetoothConnection()
   Log "Removing existing Dexcom bluetooth connection = ${id}"
   bt-device -r $id
 }
+
+function  CallLogger()
+{
+  Log "Calling xdrip-js ... node logger $transmitter"
+  messages="[${calibrationJSON}]"
+  DEBUG=smp,transmitter,bluetooth-manager node logger $transmitter "${messages}"
+  #"[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\" glucose\": $meterbg}]"
+  echo
+  Log "after xdrip-js bg record below ..."
+  cat ./entry.json
+  glucose=$(cat ./entry.json | jq -M '.[0].glucose')
+
+  if [ -z "${glucose}" ] ; then
+    Log "Invalid response from g5 transmitter"
+    ls -al ./entry.json
+    rm ./entry.json
+    RemoveDexcomBluetoothConnection
+    exit
+  fi
+}
+
+function  CaptureEntryValues()
+{
+  # capture raw values for use and for log to csv file 
+  unfiltered=$(cat ./entry.json | jq -M '.[0].unfiltered')
+  filtered=$(cat ./entry.json | jq -M '.[0].filtered')
+
+  # get dates for use in filenames and json entries
+  datetime=$(date +"%Y-%m-%d %H:%M")
+  epochdate=$(date +'%s')
+}
+
+function  SetGlucoseType()
+{
+  Log "Using glucoseType of $glucoseType"
+  if [ "glucoseType" == "filtered" ]; then
+    raw=$filtered
+  else
+    raw=$unfiltered
+  fi
+}
+
+function  InitializeCalibratedBG()
+{
+    Log "mode = not expired"
+    calibratedBG=$glucose
+    tmp=$(mktemp)
+    jq ".[0].sgv = $glucose" entry.json > "$tmp" && mv "$tmp" entry.json
+}
+
+function SetEntryDevice()
+{
+  tmp=$(mktemp)
+  jq ".[0].device = \"${id}\"" entry.json > "$tmp" && mv "$tmp" entry.json
+}
+
+function LogG5Csv()
+{
+  if [ ! -f "/var/log/openaps/g5.csv" ]; then
+    echo "epochdate,datetime,unfiltered,filtered,direction,calibratedBG,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend" > /var/log/openaps/g5.csv
+  fi
+  echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend}" >> /var/log/openaps/g5.csv
+}
+
 
 main "$@"
