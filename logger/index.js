@@ -9,6 +9,21 @@ console.log('messages to send: ' + JSON.stringify(messages));
 //const transmitter = new Transmitter(id); 
 //
 
+function TransmitterStatusString(status) {
+ switch (status) {
+   case null:
+    return '--';
+   case 0x00:
+     return "OK";
+   case 0x81:
+     return "Low battery";
+   case 0x83:
+     return "Bricked";
+   default:
+     return status ? "Unknown: 0x" + status.toString(16) : '--';
+   }
+}
+
 function SensorStateString(state) {
   switch (state) {	
      case 0x01:	
@@ -54,6 +69,7 @@ transmitter.on('glucose', glucose => {
       'noise': "1",
       'trend': glucose.trend,
       'state': SensorStateString(glucose.state), 
+      'status': TransmitterStatusString(glucose.status), 
       'glucose': Math.round(glucose.glucose)
     }];
     const data = JSON.stringify(entry);
