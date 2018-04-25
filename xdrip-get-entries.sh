@@ -39,12 +39,12 @@ main()
 # if tx state or status changed, then post a note to NS
 if [ "$status" != "$lastStatus" ]; then
   echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Note\",\"notes\":\"$status\",\"duration\":30}]" > ./status-change.json
-./post-ns.sh ./status-change.json treatments && (echo; log "Upload to NightScout of transmitter status change worked") || (echo; log "Upload to NS of transmitter status change did not work")
+#./post-ns.sh ./status-change.json treatments && (echo; log "Upload to NightScout of transmitter status change worked") || (echo; log "Upload to NS of transmitter status change did not work")
 fi
 
 if [ "$state" != "$lastState" ]; then
   echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Note\",\"notes\":\"$state\",\"duration\":30}]" > ./state-change.json
-./post-ns.sh ./state-change.json treatments && (echo; log "Upload to NightScout of sensor state change worked") || (echo; log "Upload to NS of sensor state change did not work")
+#./post-ns.sh ./state-change.json treatments && (echo; log "Upload to NightScout of sensor state change worked") || (echo; log "Upload to NS of sensor state change did not work")
 fi
 
 if [ "$mode" == "expired" ]; then
