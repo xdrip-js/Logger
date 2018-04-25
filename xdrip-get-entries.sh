@@ -31,10 +31,21 @@ main()
   set_glucose_type
   log "Mode = $mode"
   if [ "$mode" == "not-expired" ]; then
-    InitializeCalibratedBG 
+    initialize_calibrate_bg 
     log_g5_csv
   fi
-  SetEntryDevice
+  set_entry_device_id
+
+# if tx state or status changed, then post a note to NS
+if [ "$status" != "$lastStatus" ]; then
+  echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Note\",\"notes\":\"$status\",\"duration\":30}]" > ./status-change.json
+./post-ns.sh ./status-change.json treatments && (echo; log "Upload to NightScout of transmitter status change worked") || (echo; log "Upload to NS of transmitter status change did not work")
+fi
+
+if [ "$state" != "$lastState" ]; then
+  echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Note\",\"notes\":\"$state\",\"duration\":30}]" > ./state-change.json
+./post-ns.sh ./state-change.json treatments && (echo; log "Upload to NightScout of sensor state change worked") || (echo; log "Upload to NS of sensor state change did not work")
+fi
 
 if [ "$mode" == "expired" ]; then
 # begin calibration logic - look for calibration from NS, use existing calibration or none
@@ -85,7 +96,7 @@ if [ "$mode" == "expired" ]; then
            # put in backfill so that the command line calibration will be sent up to NS 
            # now (or later if offline)
           log "Setting up to send calibration to NS now if online (or later with backfill)"
-          echo "[{\"created_at\":\"$meterbgid\",\"enteredBy\":\"OpenAPS\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ./calibration-backfill.json
+          echo "[{\"created_at\":\"$meterbgid\",\"enteredBy\":\"Logger\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ./calibration-backfill.json
           cat ./calibration-backfill.json
           jq -s add ./calibration-backfill.json ./treatments-backfill.json > ./treatments-backfill.json
         else
@@ -611,7 +622,7 @@ function  check_cmd_line_calibration()
           # put in backfill so that the command line calibration will be sent up to NS 
           # now (or later if offline)
           log "Setting up to send calibration to NS now if online (or later with backfill)"
-          echo "[{\"created_at\":\"$meterbgid\",\"enteredBy\":\"OpenAPS\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ./calibration-backfill.json
+          echo "[{\"created_at\":\"$meterbgid\",\"enteredBy\":\"Logger\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ./calibration-backfill.json
           cat ./calibration-backfill.json
           jq -s add ./calibration-backfill.json ./treatments-backfill.json > ./treatments-backfill.json
           calibrationJSON="[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
@@ -628,7 +639,7 @@ function  check_cmd_line_calibration()
 function  remove_dexcom_bt_pair()
 {
   log "Removing existing Dexcom bluetooth connection = ${id}"
-  bt-device -r $id
+  bt-device -r $id 2> /dev/null
 }
 
 function  call_logger()
@@ -658,7 +669,12 @@ function  capture_entry_values()
   unfiltered=$(cat ./entry.json | jq -M '.[0].unfiltered')
   filtered=$(cat ./entry.json | jq -M '.[0].filtered')
   state=$(cat ./entry.json | jq -M '.[0].state')
+  state="${state%\"}"
+  state="${state#\"}"
+
   status=$(cat ./entry.json | jq -M '.[0].status')
+  status="${status%\"}"
+  status="${status#\"}"
   log "Sensor state = $state" 
   log "Transmitter status = $status" 
 
@@ -677,14 +693,14 @@ function  set_glucose_type()
   fi
 }
 
-function  InitializeCalibratedBG()
+function  initialize_calibrate_bg()
 {
     calibratedBG=$glucose
     tmp=$(mktemp)
     jq ".[0].sgv = $glucose" entry.json > "$tmp" && mv "$tmp" entry.json
 }
 
-function SetEntryDevice()
+function set_entry_device_id()
 {
   tmp=$(mktemp)
   jq ".[0].device = \"${id}\"" entry.json > "$tmp" && mv "$tmp" entry.json
