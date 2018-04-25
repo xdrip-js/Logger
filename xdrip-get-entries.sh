@@ -29,6 +29,8 @@ main()
   call_logger
   capture_entry_values
   set_glucose_type
+  set_mode
+
   log "Mode = $mode"
   if [ "$mode" == "not-expired" ]; then
     initialize_calibrate_bg 
@@ -38,13 +40,13 @@ main()
 
 # if tx state or status changed, then post a note to NS
 if [ "$status" != "$lastStatus" ]; then
-  echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Note\",\"notes\":\"$status\",\"duration\":30}]" > ./status-change.json
-#./post-ns.sh ./status-change.json treatments && (echo; log "Upload to NightScout of transmitter status change worked") || (echo; log "Upload to NS of transmitter status change did not work")
+  echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Note\",\"notes\":\"Tx=$status\",\"duration\":60}]" > ./status-change.json
+./post-ns.sh ./status-change.json treatments && (echo; log "Upload to NightScout of transmitter status change worked") || (echo; log "Upload to NS of transmitter status change did not work")
 fi
 
 if [ "$state" != "$lastState" ]; then
-  echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Note\",\"notes\":\"$state\",\"duration\":30}]" > ./state-change.json
-#./post-ns.sh ./state-change.json treatments && (echo; log "Upload to NightScout of sensor state change worked") || (echo; log "Upload to NS of sensor state change did not work")
+  echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Note\",\"notes\":\"Sensor=$state\",\"duration\":60}]" > ./state-change.json
+./post-ns.sh ./state-change.json treatments && (echo; log "Upload to NightScout of sensor state change worked") || (echo; log "Upload to NS of sensor state change did not work")
 fi
 
 if [ "$mode" == "expired" ]; then
@@ -580,14 +582,18 @@ function check_sensor_change()
 
 function check_last_entry_values()
 {
-  if [ -e "./entry.json" ] ; then
-    lastGlucose=$(cat ./entry.json | jq -M '.[0].glucose')
-    lastState=$(cat ./entry.json | jq -M '.[0].state')
-    lastStatus=$(cat ./entry.json | jq -M '.[0].status')
+  # TODO: check file stamp for > x for last-entry.json and ignore lastGlucose if older than x minutes
+  if [ -e "./last-entry.json" ] ; then
+    lastGlucose=$(cat ./last-entry.json | jq -M '.[0].glucose')
+    lastState=$(cat ./last-entry.json | jq -M '.[0].state')
+    lastStatus=$(cat ./last-entry.json | jq -M '.[0].status')
+    lastStatus="${lastStatus%\"}"
+    lastStatus="${lastStatus#\"}"
+    lastState="${lastState%\"}"
+    lastState="${lastState#\"}"
     log "lastGlucose=$lastGlucose, lastStatus=$lastStatus, lastState=$lastState"
-    mv ./entry.json ./last-entry.json
   else
-    log "prior entry.json not available, lastGlucose=0"
+    log "./last-entry.json not available, lastGlucose=0"
   fi
 }
 
@@ -655,7 +661,7 @@ function  call_logger()
   glucose=$(cat ./entry.json | jq -M '.[0].glucose')
 
   if [ -z "${glucose}" ] ; then
-    log "Invalid response from g5 transmitter"
+    log "Exit - Invalid response from g5 transmitter"
     ls -al ./entry.json
     rm ./entry.json
     remove_dexcom_bt_pair
@@ -681,6 +687,7 @@ function  capture_entry_values()
   # get dates for use in filenames and json entries
   datetime=$(date +"%Y-%m-%d %H:%M")
   epochdate=$(date +'%s')
+  cp ./entry.json ./last-entry.json
 }
 
 function  set_glucose_type()
@@ -714,5 +721,17 @@ function log_g5_csv()
   echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend}" >> /var/log/openaps/g5.csv
 }
 
+function set_mode()
+{
+  mode="expired"
+  if [[ "$status" == "OK" || "$status" == "Low battery" ]]; then 
+    mode="not-expired"
+    if [[ "$state" == "Stopped" || "$state" == "Failed Sensor" || "$state" == "???" ]]; then
+      mode="off"
+    elif [[ "$state" == "Warmup" ]]; then
+      mode="expired"
+    fi
+  fi
+}
 
 main "$@"
