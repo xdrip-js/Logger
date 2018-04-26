@@ -38,6 +38,12 @@ main()
   check_cmd_line_calibration
   check_pump_history_calibration
   check_ns_calibration
+  if [ -n $meterbg ]; then 
+    if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
+      calibrationJSON="[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
+      log "calibrationJSON=$calibrationJSON"
+    fi
+  fi
 
   remove_dexcom_bt_pair
   compile_messages
@@ -549,8 +555,6 @@ function  check_cmd_line_calibration()
           echo "[{\"created_at\":\"$meterbgid\",\"enteredBy\":\"Logger\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ./calibration-backfill.json
           cat ./calibration-backfill.json
           jq -s add ./calibration-backfill.json ./treatments-backfill.json > ./treatments-backfill.json
-          calibrationJSON="[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
-          log "calibrationJSON=$calibrationJSON"
         else
           log "Calibration bg over 7 minutes - not used"
         fi
@@ -700,6 +704,8 @@ function set_mode()
       mode="expired"
     fi
   fi
+  # temporary to test expired mode
+  #mode="expired"
 }
 
 # if tx state or status changed, then post a note to NS
@@ -733,6 +739,7 @@ function check_pump_history_calibration()
   fi
   echo
   log "meterbg from pumphistory: $meterbg"
+  calDate=$epochdate # TODO: use pump history date
 }
 
 function check_ns_calibration()
@@ -763,6 +770,7 @@ function check_ns_calibration()
       rm $METERBG_NS_RAW
     fi
     log "meterbg from nightscout: $meterbg"
+    calDate=$epochdate # TODO: use NS BG Check date
   fi
 }
 
