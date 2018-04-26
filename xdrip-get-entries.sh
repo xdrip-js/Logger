@@ -44,6 +44,16 @@ main()
       log "calibrationJSON=$calibrationJSON"
     fi
   fi
+  
+  if [ -e /root/myopenaps/monitor/g5-stop.json ]; then
+    stopJSON=$(cat /root/myopenaps/monitor/g5-stop.json)
+    log "stopJSON=$stopJSON"
+  fi
+
+  if [ -e /root/myopenaps/monitor/g5-start.json ]; then
+    stopJSON=$(cat /root/myopenaps/monitor/g5-start.json)
+    log "startJSON=$startJSON"
+  fi
 
   remove_dexcom_bt_pair
   compile_messages
