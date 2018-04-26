@@ -6,6 +6,7 @@ main()
 
   cd /root/src/xdrip-js-logger
   mkdir -p old-calibrations
+  rm -f ./entry.json
 
   glucoseType="unfiltered"
   noiseSend=0 # default unknown
@@ -661,7 +662,9 @@ function compile_messages()
   echo "${startJSON}" > $tmp_start
   echo "${resetJSON}" > $tmp_reset
 
-  messages=$(jq -c -s add $tmp_calibrate $tmp_stop $tmp_start $tmp_reset)
+
+  messages="[]"
+  # $(jq -c -s add $tmp_calibrate $tmp_stop $tmp_start $tmp_reset)
 
   rm $tmp_calibrate
   rm $tmp_stop
