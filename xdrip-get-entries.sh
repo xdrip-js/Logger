@@ -8,26 +8,30 @@ main()
   mkdir -p old-calibrations
   rm -f ./entry.json
 
+# Cmd line args - transmitter $1 is 6 character tx serial number
+  transmitter=$1
+  meterid=${2:-"000000"}
+  pumpUnits=${3:-"mg/dl"}
+
+  id2=$(echo "${transmitter: -2}")
+  id="Dexcom${id2}"
   glucoseType="unfiltered"
   noiseSend=0 # default unknown
   UTC=" -u "
   lastGlucose=0
-  transmitter=$1
-  id2=$(echo "${transmitter: -2}")
-  id="Dexcom${id2}"
-  meterid=${2:-"000000"}
-  pumpUnits=${3:-"mg/dl"}
-#  mode=${4:-"expired"}
   messages="[]"
   calibrationJSON=""
   epochdate=$(date +'%s')
 
+  initialize_messages
   check_environment
   check_utc
   check_sensor_change
   check_last_entry_values
   check_cmd_line_calibration
   remove_dexcom_bt_pair
+  compile_messages
+  log "Logger g5 tx messages = $messages"
   call_logger
   capture_entry_values
   set_glucose_type
@@ -650,33 +654,59 @@ function  remove_dexcom_bt_pair()
   bt-device -r $id 2> /dev/null
 }
 
+function initialize_messages()
+{
+  calibrationJSON=""
+  stopJSON=""
+  startJSON=""
+  resetJSON=""
+}
+
 function compile_messages()
 {
-  tmp_calibrate=$(mktemp)
-  tmp_stop=$(mktemp)
-  tmp_start=$(mktemp)
-  tmp_reset=$(mktemp)
-
-  echo "${calibrationJSON}" > $tmp_calibrate
-  echo "${stopJSON}" > $tmp_stop
-  echo "${startJSON}" > $tmp_start
-  echo "${resetJSON}" > $tmp_reset
-
-
-  messages="[]"
-  # $(jq -c -s add $tmp_calibrate $tmp_stop $tmp_start $tmp_reset)
-
-  rm $tmp_calibrate
-  rm $tmp_stop
-  rm $tmp_start
-  rm $tmp_reset
+  files=""
+  mfile="./messages.json"
+  touch $mfile
+  cp ${mfile} "${mfile}.last"
+  rm -f $mfile
+  touch $mfile
+  
+  if [ "${calibrationJSON}" != "" ]; then
+    tmp=$(mktemp)
+    echo "${calibrationJSON}" > $tmp
+    files="$tmp"
+  fi
+  
+  if [ "${stopJSON}" != "" ]; then
+    tmp=$(mktemp)
+    echo "${stopJSON}" > $tmp
+    files="$files $tmp"
+  fi
+  
+  if [ "${startJSON}" != "" ]; then
+    tmp=$(mktemp)
+    echo "${startJSON}" > $tmp
+    files="$files $tmp"
+  fi
+  
+  if [ "${resetJSON}" != "" ]; then
+    tmp=$(mktemp)
+    echo "${resetJSON}" > $tmp
+    files="$files $tmp"
+  fi
+  
+  if [ "$files" != "" ]; then
+    jq -c -s add $files > $mfile
+    rm -f $files 
+  fi
+  
+  messages=$(cat $mfile)
 }
+
 
 function  call_logger()
 {
   log "Calling xdrip-js ... node logger $transmitter"
-  compile_messages
-  log "messages = $messages"
   DEBUG=smp,transmitter,bluetooth-manager node logger $transmitter "${messages}"
   #"[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\" glucose\": $meterbg}]"
   echo
