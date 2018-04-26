@@ -18,7 +18,7 @@ function TransmitterStatusString(status) {
    case 0x81:
      return "Low battery";
    case 0x83:
-     return "Bricked";
+     return "Expired";
    default:
      return status ? "Unknown: 0x" + status.toString(16) : '--';
    }
