@@ -88,6 +88,9 @@ main()
 
   apply_lsr_calibration # only call for mode=expired
 
+  # here maybe
+ cp entry.json entry-xdrip.json
+
   process_delta # call for all modes 
 
   calculate_noise # only call for mode=expired
@@ -98,7 +101,6 @@ main()
 
   fake_meter
 
-  cp entry.json entry-xdrip.json
 
   log "Posting glucose record to xdripAPS"
 ./post-xdripAPS.sh ./entry-xdrip.json
@@ -452,7 +454,7 @@ function set_mode()
 # if tx state or status changed, then post a note to NS
 function process_announcements()
 {
-  log "process_announcements: state=$state $status=$status"
+  log "process_announcements: state=$state status=$status"
   if [ "$status" != "$lastStatus" ]; then
     echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Tx $status\"}]" > ./status-change.json
   ./post-ns.sh ./status-change.json treatments && (echo; log "Upload to NightScout of transmitter status change worked") || (echo; log "Upload to NS of transmitter status change did not work")
