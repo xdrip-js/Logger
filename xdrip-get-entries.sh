@@ -44,16 +44,9 @@ main()
   fi
   set_entry_device_id
 
-# if tx state or status changed, then post a note to NS
-if [ "$status" != "$lastStatus" ]; then
-  echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Note\",\"notes\":\"Tx=$status\",\"duration\":60}]" > ./status-change.json
-./post-ns.sh ./status-change.json treatments && (echo; log "Upload to NightScout of transmitter status change worked") || (echo; log "Upload to NS of transmitter status change did not work")
-fi
+# last thing to do - after posting glucose records
+  process_announcements
 
-if [ "$state" != "$lastState" ]; then
-  echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Note\",\"notes\":\"Sensor=$state\",\"duration\":60}]" > ./state-change.json
-./post-ns.sh ./state-change.json treatments && (echo; log "Upload to NightScout of sensor state change worked") || (echo; log "Upload to NS of sensor state change did not work")
-fi
 
 if [ "$mode" == "expired" ]; then
 # begin calibration logic - look for calibration from NS, use existing calibration or none
@@ -786,6 +779,20 @@ function set_mode()
     elif [[ "$state" == "Warmup" ]]; then
       mode="expired"
     fi
+  fi
+}
+
+# if tx state or status changed, then post a note to NS
+function process_announcements()
+{
+  if [ "$status" != "$lastStatus" ]; then
+    echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Tx $status\"}]" > ./status-change.json
+  ./post-ns.sh ./status-change.json treatments && (echo; log "Upload to NightScout of transmitter status change worked") || (echo; log "Upload to NS of transmitter status change did not work")
+  fi
+
+  if [ "$state" != "$lastState" ]; then
+    echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Sensor $state\"}]" > ./state-change.json
+  ./post-ns.sh ./state-change.json treatments && (echo; log "Upload to NightScout of sensor state change worked") || (echo; log "Upload to NS of sensor state change did not work")
   fi
 }
 
