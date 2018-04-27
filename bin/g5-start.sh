@@ -3,7 +3,7 @@
 
 ago=$1
 
-MESSAGE="/root/myopenaps/monitor/g5-start.json"
+MESSAGE="/root/myopenaps/monitor/g55-start.json"
 if [ -n "$ago" ]; then
   if [ "$ago" == "onehour" ]; then
     epochdate=$(date +'%s%3N' -d '1 hour ago')
