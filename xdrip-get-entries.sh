@@ -32,7 +32,7 @@ main()
   check_utc
   check_sensor_change
   # uncomment until I can fix it
-  #check_sensor_start
+  check_sensor_start
   check_last_entry_values
 
 # begin calibration logic - look for calibration from NS, use existing calibration or none
@@ -230,7 +230,7 @@ function check_sensor_start()
   curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Sensor.Start" 2>/dev/null > $file
   if [ $? == 0 ]; then
     createdAt=$(jq ".[0].created_at" $file)
-    if [ ${#createdAt} -ge 4 ]; then
+    if [ ${#createdAt} -ge 7 ]; then
       createdAt="${createdAt%\"}"
       createdAt="${createdAt#\"}"
   
