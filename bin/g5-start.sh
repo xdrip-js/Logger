@@ -1,15 +1,11 @@
 #!/bin/bash
-#{date: Date.now(), type: "StopSensor"}
 
-ago=$1
+# optional parameter $1 to specify how many hours ago for sensor insert/start
+hoursago=$1
 
-MESSAGE="/root/myopenaps/monitor/g55-start.json"
-if [ -n "$ago" ]; then
-  if [ "$ago" == "onehour" ]; then
-    epochdate=$(date +'%s%3N' -d '1 hour ago')
-  elif [ "$ago" == "twohour" ]; then
-    epochdate=$(date +'%s%3N' -d '2 hour ago')
-  fi
+MESSAGE="/root/myopenaps/monitor/g5-start.json"
+if [ -n "$hoursago" ]; then
+  epochdate=$(date +'%s%3N' -d "$hoursago hour ago")
 else
   epochdate=$(date +'%s%3N')
 fi

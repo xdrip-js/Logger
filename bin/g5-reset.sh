@@ -9,7 +9,6 @@ read -p "Are you sure? (y/n)" -n 1 -r
 echo    
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-    # do dangerous stuff
   echo "[{\"date\":\"${epochdate}\",\"type\":\"ResetSensor\"}]" >  $MESSAGE
   cat $MESSAGE
   echo
