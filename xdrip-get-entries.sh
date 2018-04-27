@@ -227,21 +227,31 @@ function check_sensor_start()
 
   file="./nightscout_sensor_start_treatment.json"
   rm -f $file
-  curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Sensor.Start" 2>/dev/null > $file
+  curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "3 hours ago" -Ihours $UTC)&find\[eventType\]\[\$regex\]=Sensor.Start" 2>/dev/null > $file
   if [ $? == 0 ]; then
-    createdAt=$(jq ".[0].created_at" $file)
-    if [ ${#createdAt} -ge 7 ]; then
+    len=$(jq '. | length' $file)
+    index=$(bc <<< "$len - 1")
+
+    if [ $(bc <<< "$index >= 0") -eq 1 ]; then
+      createdAt=$(jq ".[$index].created_at" $file)
       createdAt="${createdAt%\"}"
       createdAt="${createdAt#\"}"
-  
-      start_date=$(date "+%s%3N" -d "$createdAt") 
-      # comment out below line for testing sensor start without actually sending tx message
-      startJSON="[{\"date\":\"${start_date}\",\"type\":\"StartSensor\"}]"
-      log "sensor start message retrieved from Nightscout - startdate = $createdAt"
-      # clear in this case? not sure
-      #ClearCalibrationInput 
-      #ClearCalibrationCache
-      #touch ./last_sensor_change
+      if [ ${#createdAt} -ge 8 ]; then
+        touch ./nightscout-treatments.log
+        if ! cat ./nightscout-treatments.log | egrep "$createdAt"; then
+          start_date=$(date "+%s%3N" -d "$createdAt")
+          echo "Processing sensor start retrieved from Nightscout - startdate = $createdAt"
+          # comment out below line for testing sensor start without actually sending tx message
+          startJSON="[{\"date\":\"${start_date}\",\"type\":\"StartSensor\"}]"
+          echo "startJSON = $startJSON"
+          # below done so that next time the egrep returns positive for this specific message and the log reads right
+          echo "Already Processed Sensor Start Message from Nightscout at $createdAt" >> ./nightscout-treatments.log
+          # clear in this case? not sure
+          #ClearCalibrationInput
+          #ClearCalibrationCache
+          #touch ./last_sensor_change
+        fi
+      fi
     fi
   fi
 }
