@@ -31,7 +31,8 @@ main()
   check_environment
   check_utc
   check_sensor_change
-  check_sensor_start
+  # uncomment until I can fix it
+  #check_sensor_start
   check_last_entry_values
 
 # begin calibration logic - look for calibration from NS, use existing calibration or none
