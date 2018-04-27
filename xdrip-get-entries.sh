@@ -38,27 +38,7 @@ main()
   check_cmd_line_calibration
   check_pump_history_calibration
   check_ns_calibration
-  if [ -n $meterbg ]; then 
-    if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
-      calibrationJSON="[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
-      log "calibrationJSON=$calibrationJSON"
-    fi
-  fi
-  
-  file="/root/myopenaps/monitor/g5-stop.json"
-  if [ -e "$file" ]; then
-    stopJSON=$(cat $file)
-    log "stopJSON=$stopJSON"
-    rm -f $file
-  fi
-
-  file="/root/myopenaps/monitor/g5-start.json"
-  if [ -e "$file" ]; then
-    stopJSON=$(cat $file)
-    log "stopJSON=$stopJSON"
-    rm -f $file
-    log "startJSON=$startJSON"
-  fi
+  check_messages
 
   remove_dexcom_bt_pair
   compile_messages
@@ -519,7 +499,7 @@ function check_ns_calibration()
       rm $METERBG_NS_RAW
     fi
     log "meterbg from nightscout: $meterbg"
-    calDate=$epochdate # TODO: use NS BG Check date
+    calDate=$(date +'%s%3N') # TODO: use NS BG Check date
   fi
 }
 
@@ -822,6 +802,37 @@ function calculate_noise()
 
   tmp=$(mktemp)
   jq ".[0].noise = $noiseSend" entry-xdrip.json > "$tmp" && mv "$tmp" entry-xdrip.json
+}
+
+function check_messages()
+{
+  if [ -n $meterbg ]; then 
+    if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
+      calibrationJSON="[{\"date\": ${calDate}, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
+      log "calibrationJSON=$calibrationJSON"
+    fi
+  fi
+  
+  file="/root/myopenaps/monitor/g5-stop.json"
+  if [ -e "$file" ]; then
+    stopJSON=$(cat $file)
+    log "stopJSON=$stopJSON"
+    rm -f $file
+  fi
+
+  file="/root/myopenaps/monitor/g5-start.json"
+  if [ -e "$file" ]; then
+    startJSON=$(cat $file)
+    log "startJSON=$startJSON"
+    rm -f $file
+  fi
+
+  file="/root/myopenaps/monitor/g5-reset.json"
+  if [ -e "$file" ]; then
+    resetJSON=$(cat $file)
+    log "resetJSON=$resetJSON"
+    rm -f $file
+  fi
 }
 
 main "$@"
