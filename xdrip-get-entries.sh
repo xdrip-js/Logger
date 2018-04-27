@@ -31,6 +31,7 @@ main()
   check_environment
   check_utc
   check_sensor_change
+  check_sensor_start
   check_last_entry_values
 
 # begin calibration logic - look for calibration from NS, use existing calibration or none
@@ -202,7 +203,7 @@ function check_utc()
   curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[created_at\]\[\$gte\]=$(date -d "2400 hours ago" -Ihours -u)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null  > ./testUTC.json  
   if [ $? == 0 ]; then
     createdAt=$(jq ".[0].created_at" ./testUTC.json)
-    if [ $"$createdAt" == "" ]; then
+    if [ ${#createdAt} -le 4 ]; then
       log "You must record a \"Sensor Insert\" in Nightscout before Logger will run" 
       log "exiting\n"
       exit
@@ -212,6 +213,34 @@ function check_utc()
     else
       UTC=""
       log "NS is not using UTC $UTC"      
+    fi
+  fi
+}
+
+function check_sensor_start()
+{
+  if [ "$mode" == "expired" ];then
+    # can't start sensor on an expired tx
+    return
+  fi
+
+  file="./nightscout_sensor_start_treatment.json"
+  rm -f $file
+  curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "7 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Sensor.Start" 2>/dev/null > $file
+  if [ $? == 0 ]; then
+    createdAt=$(jq ".[0].created_at" $file)
+    if [ ${#createdAt} -ge 4 ]; then
+      createdAt="${createdAt%\"}"
+      createdAt="${createdAt#\"}"
+  
+      start_date=$(date "+%s%3N" -d "$createdAt") 
+      # comment out below line for testing sensor start without actually sending tx message
+      startJSON="[{\"date\":\"${start_date}\",\"type\":\"StartSensor\"}]"
+      log "sensor start message retrieved from Nightscout - startdate = $createdAt"
+      # clear in this case? not sure
+      #ClearCalibrationInput 
+      #ClearCalibrationCache
+      #touch ./last_sensor_change
     fi
   fi
 }
@@ -427,12 +456,14 @@ function set_mode()
   if [[ "$status" == "OK" || "$status" == "Low battery" ]]; then 
     mode="not-expired"
     if [[ "$state" == "Stopped" || "$state" == "Failed Sensor" || "$state" == "???" ]]; then
-      mode="off"
+      mode="off" #TODO: handle off mode
     elif [[ "$state" == "Warmup" ]]; then
-      mode="expired"
+      #mode="expired" 
+      #TODO: handle warm up
+      mode="not-expired" 
     fi
   fi
-  # temporary to test expired mode
+  # to hard-code or test expired mode, uncomment below line
   #mode="expired"
 }
 
