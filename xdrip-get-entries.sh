@@ -45,13 +45,18 @@ main()
     fi
   fi
   
-  if [ -e /root/myopenaps/monitor/g5-stop.json ]; then
-    stopJSON=$(cat /root/myopenaps/monitor/g5-stop.json)
+  file="/root/myopenaps/monitor/g5-stop.json"
+  if [ -e "$file" ]; then
+    stopJSON=$(cat $file)
     log "stopJSON=$stopJSON"
+    rm -f $file
   fi
 
-  if [ -e /root/myopenaps/monitor/g5-start.json ]; then
-    stopJSON=$(cat /root/myopenaps/monitor/g5-start.json)
+  file="/root/myopenaps/monitor/g5-start.json"
+  if [ -e "$file" ]; then
+    stopJSON=$(cat $file)
+    log "stopJSON=$stopJSON"
+    rm -f $file
     log "startJSON=$startJSON"
   fi
 
