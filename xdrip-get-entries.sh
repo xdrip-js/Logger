@@ -31,7 +31,7 @@ main()
   check_environment
   check_utc
   check_sensor_change
-  # uncomment until I can fix it
+  check_battery_status
   check_sensor_start
   check_last_entry_values
 
@@ -218,6 +218,28 @@ function check_utc()
   fi
 }
 
+function check_battery_status()
+ {
+   battery_check="No"
+ 
+   if [ -e ./g5-battery.json ]; then
+     if test  `find ./g5-battery.json -mmin -720`
+     then
+       battery_check="Yes"
+     fi
+   else
+       touch ./g5-battery.json
+       battery_check="Yes"
+   fi
+     
+   if [ "$battery_check" == "Yes" ]; then
+       touch ./g5-battery.json
+       battery_date=$(date +'%s%3N')
+       batteryJSON="[{\"date\": ${battery_date}, \"type\": \"BatteryStatus\"}]"
+       log "Sending Message to Transmitter to request battery status"
+   fi
+ }
+
 function check_sensor_start()
 {
   if [ "$mode" == "expired" ];then
@@ -343,6 +365,7 @@ function initialize_messages()
   calibrationJSON=""
   stopJSON=""
   startJSON=""
+  batteryJSON=""
   resetJSON=""
 }
 
@@ -370,6 +393,12 @@ function compile_messages()
   if [ "${startJSON}" != "" ]; then
     tmp=$(mktemp)
     echo "${startJSON}" > $tmp
+    files="$files $tmp"
+  fi
+
+  if [ "${batteryJSON}" != "" ]; then
+    tmp=$(mktemp)
+    echo "${batteryJSON}" > $tmp
     files="$files $tmp"
   fi
   
