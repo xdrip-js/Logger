@@ -31,6 +31,8 @@ main()
   check_environment
   check_utc
   check_sensor_change
+  # uncomment until I can fix it
+  check_sensor_start
   check_last_entry_values
 
 # begin calibration logic - look for calibration from NS, use existing calibration or none
@@ -38,27 +40,7 @@ main()
   check_cmd_line_calibration
   check_pump_history_calibration
   check_ns_calibration
-  if [ -n $meterbg ]; then 
-    if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
-      calibrationJSON="[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
-      log "calibrationJSON=$calibrationJSON"
-    fi
-  fi
-  
-  file="/root/myopenaps/monitor/g5-stop.json"
-  if [ -e "$file" ]; then
-    stopJSON=$(cat $file)
-    log "stopJSON=$stopJSON"
-    rm -f $file
-  fi
-
-  file="/root/myopenaps/monitor/g5-start.json"
-  if [ -e "$file" ]; then
-    stopJSON=$(cat $file)
-    log "stopJSON=$stopJSON"
-    rm -f $file
-    log "startJSON=$startJSON"
-  fi
+  check_messages
 
   remove_dexcom_bt_pair
   compile_messages
@@ -222,7 +204,7 @@ function check_utc()
   curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[created_at\]\[\$gte\]=$(date -d "2400 hours ago" -Ihours -u)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null  > ./testUTC.json  
   if [ $? == 0 ]; then
     createdAt=$(jq ".[0].created_at" ./testUTC.json)
-    if [ $"$createdAt" == "" ]; then
+    if [ ${#createdAt} -le 4 ]; then
       log "You must record a \"Sensor Insert\" in Nightscout before Logger will run" 
       log "exiting\n"
       exit
@@ -232,6 +214,44 @@ function check_utc()
     else
       UTC=""
       log "NS is not using UTC $UTC"      
+    fi
+  fi
+}
+
+function check_sensor_start()
+{
+  if [ "$mode" == "expired" ];then
+    # can't start sensor on an expired tx
+    return
+  fi
+
+  file="./nightscout_sensor_start_treatment.json"
+  rm -f $file
+  curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "3 hours ago" -Ihours $UTC)&find\[eventType\]\[\$regex\]=Sensor.Start" 2>/dev/null > $file
+  if [ $? == 0 ]; then
+    len=$(jq '. | length' $file)
+    index=$(bc <<< "$len - 1")
+
+    if [ $(bc <<< "$index >= 0") -eq 1 ]; then
+      createdAt=$(jq ".[$index].created_at" $file)
+      createdAt="${createdAt%\"}"
+      createdAt="${createdAt#\"}"
+      if [ ${#createdAt} -ge 8 ]; then
+        touch ./nightscout-treatments.log
+        if ! cat ./nightscout-treatments.log | egrep "$createdAt"; then
+          start_date=$(date "+%s%3N" -d "$createdAt")
+          echo "Processing sensor start retrieved from Nightscout - startdate = $createdAt"
+          # comment out below line for testing sensor start without actually sending tx message
+          startJSON="[{\"date\":\"${start_date}\",\"type\":\"StartSensor\"}]"
+          echo "startJSON = $startJSON"
+          # below done so that next time the egrep returns positive for this specific message and the log reads right
+          echo "Already Processed Sensor Start Message from Nightscout at $createdAt" >> ./nightscout-treatments.log
+          # clear in this case? not sure
+          #ClearCalibrationInput
+          #ClearCalibrationCache
+          #touch ./last_sensor_change
+        fi
+      fi
     fi
   fi
 }
@@ -447,12 +467,14 @@ function set_mode()
   if [[ "$status" == "OK" || "$status" == "Low battery" ]]; then 
     mode="not-expired"
     if [[ "$state" == "Stopped" || "$state" == "Failed Sensor" || "$state" == "???" ]]; then
-      mode="off"
+      mode="off" #TODO: handle off mode
     elif [[ "$state" == "Warmup" ]]; then
-      mode="expired"
+      #mode="expired" 
+      #TODO: handle warm up
+      mode="not-expired" 
     fi
   fi
-  # temporary to test expired mode
+  # to hard-code or test expired mode, uncomment below line
   #mode="expired"
 }
 
@@ -519,7 +541,7 @@ function check_ns_calibration()
       rm $METERBG_NS_RAW
     fi
     log "meterbg from nightscout: $meterbg"
-    calDate=$epochdate # TODO: use NS BG Check date
+    calDate=$(date +'%s%3N') # TODO: use NS BG Check date
   fi
 }
 
@@ -822,6 +844,37 @@ function calculate_noise()
 
   tmp=$(mktemp)
   jq ".[0].noise = $noiseSend" entry-xdrip.json > "$tmp" && mv "$tmp" entry-xdrip.json
+}
+
+function check_messages()
+{
+  if [ -n $meterbg ]; then 
+    if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
+      calibrationJSON="[{\"date\": ${calDate}, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
+      log "calibrationJSON=$calibrationJSON"
+    fi
+  fi
+  
+  file="/root/myopenaps/monitor/g5-stop.json"
+  if [ -e "$file" ]; then
+    stopJSON=$(cat $file)
+    log "stopJSON=$stopJSON"
+    rm -f $file
+  fi
+
+  file="/root/myopenaps/monitor/g5-start.json"
+  if [ -e "$file" ]; then
+    startJSON=$(cat $file)
+    log "startJSON=$startJSON"
+    rm -f $file
+  fi
+
+  file="/root/myopenaps/monitor/g5-reset.json"
+  if [ -e "$file" ]; then
+    resetJSON=$(cat $file)
+    log "resetJSON=$resetJSON"
+    rm -f $file
+  fi
 }
 
 main "$@"
