@@ -221,19 +221,20 @@ function check_utc()
 function check_battery_status()
  {
    battery_check="No"
+   file="./g5-battery.json"
  
-   if [ -e ./g5-battery.json ]; then
-     if test  `find ./g5-battery.json -mmin -720`
+   if [ -e $file ]; then
+     if test  `find $file -mmin +720`
      then
        battery_check="Yes"
      fi
    else
-       touch ./g5-battery.json
+       touch $file 
        battery_check="Yes"
    fi
      
    if [ "$battery_check" == "Yes" ]; then
-       touch ./g5-battery.json
+       touch $file 
        battery_date=$(date +'%s%3N')
        batteryJSON="[{\"date\": ${battery_date}, \"type\": \"BatteryStatus\"}]"
        log "Sending Message to Transmitter to request battery status"
