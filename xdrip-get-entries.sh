@@ -52,7 +52,6 @@ main()
   log "Mode = $mode"
   if [ "$mode" == "not-expired" ]; then
     initialize_calibrate_bg 
-    log_g5_csv
   fi
   set_entry_device_id
 
@@ -62,62 +61,38 @@ main()
     calculate_calibrations
   fi
 
-  # check if sensor changed in last 12 hours.
-  # If so, clear calibration inputs and only calibrate using single point calibration
-  # do not keep the calibration records within the first 12 hours as they might skew LSR
-  if [ -e ./last_sensor_change ]; then
-    if test  `find ./last_sensor_change -mmin -720`
-    then
-      log "sensor change within last 12 hours - will use single pt calibration"
-      ClearCalibrationInputOne
-    fi
+  check_recent_sensor_insert
+
+
+  if [ "$mode" == expired ]; then
+    apply_lsr_calibration 
   fi
 
-  apply_lsr_calibration # only call for mode=expired
-
-  # here maybe
- cp entry.json entry-xdrip.json
+  # necessary for not-expired mode - ok for both modes 
+  cp entry.json entry-xdrip.json
 
   process_delta # call for all modes 
 
-  calculate_noise # only call for mode=expired
-
-  if [ "$mode" == "expired" ]; then
-    log_g5_csv
+  if [ "$mode" == expired ]; then
+    calculate_noise 
   fi
 
   fake_meter
 
+  log "Posting glucose record to xdripAPS / OpenAPS"
+  ./post-xdripAPS.sh ./entry-xdrip.json
 
-  log "Posting glucose record to xdripAPS"
-./post-xdripAPS.sh ./entry-xdrip.json
+  post-nightscout-with-backfill
 
-if [ -e "./entry-backfill.json" ] ; then
-  # In this case backfill records not yet sent to Nightscout
-  jq -s add ./entry-xdrip.json ./entry-backfill.json > ./entry-ns.json
-  cp ./entry-ns.json ./entry-backfill.json
-  log "entry-backfill.json exists, so setting up for backfill"
-else
-  log "entry-backfill.json does not exist so no backfill"
-  cp ./entry-xdrip.json ./entry-ns.json
-fi
+  if [ "$mode" == "not-expired" ]; then
+    log "Calling expired tx lsr/noise calcs (after posting) -allows mode switches / comparisons" 
+    apply_lsr_calibration 
+    calculate_noise
+    calculate_calibrations
+  fi
 
+  log_g5_csv
 
-log "Posting blood glucose to NightScout"
-./post-ns.sh ./entry-ns.json && (echo; log "Upload to NightScout of xdrip entry worked ... removing ./entry-backfill.json"; rm -f ./entry-backfill.json) || (echo; log "Upload to NS of xdrip entry did not work ... saving for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile"; cp ./entry-ns.json ./entry-backfill.json)
-echo
-
-if [ -e "./treatments-backfill.json" ]; then
-  log "Posting treatments to NightScout"
-  ./post-ns.sh ./treatments-backfill.json treatments && (echo; log "Upload to NightScout of xdrip treatments worked ... removing ./treatments-backfill.json"; rm -f ./treatments-backfill.json) || (echo; log "Upload to NS of xdrip entry did not work ... saving treatments for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile")
-  echo
-fi
-
-if [ "$mode" == "expired" ]; then
-  calculate_calibrations
-fi
-
-# last thing to do - after posting glucose records
   process_announcements
 
   remove_dexcom_bt_pair
@@ -614,9 +589,6 @@ function calculate_calibrations()
 # expired mode only
 function apply_lsr_calibration()
 {
-  if [ "$mode" != "expired" ]; then
-    return
-  fi
   if [ -e ./calibration-linear.json ]; then
     slope=`jq -M '.[0] .slope' ./calibration-linear.json` 
     yIntercept=`jq -M '.[0] .yIntercept' ./calibration-linear.json` 
@@ -907,4 +879,43 @@ function check_messages()
   fi
 }
 
+function check_recent_sensor_insert()
+{
+  # check if sensor inserted in last 12 hours.
+  # If so, clear calibration inputs and only calibrate using single point calibration
+  # do not keep the calibration records within the first 12 hours as they might skew LSR
+  if [ -e ./last_sensor_change ]; then
+    if test  `find ./last_sensor_change -mmin -720`
+    then
+      log "sensor change within last 12 hours - will use single pt calibration"
+      ClearCalibrationInputOne
+    fi
+  fi
+}
+
+function  post-nightscout-with-backfill()
+{
+  if [ -e "./entry-backfill.json" ] ; then
+    # In this case backfill records not yet sent to Nightscout
+    jq -s add ./entry-xdrip.json ./entry-backfill.json > ./entry-ns.json
+    cp ./entry-ns.json ./entry-backfill.json
+    log "entry-backfill.json exists, so setting up for backfill"
+  else
+    log "entry-backfill.json does not exist so no backfill"
+    cp ./entry-xdrip.json ./entry-ns.json
+  fi
+
+
+  log "Posting blood glucose to NightScout"
+  ./post-ns.sh ./entry-ns.json && (echo; log "Upload to NightScout of xdrip entry worked ... removing ./entry-backfill.json"; rm -f ./entry-backfill.json) || (echo; log "Upload to NS of xdrip entry did not work ... saving for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile"; cp ./entry-ns.json ./entry-backfill.json)
+  echo
+
+  if [ -e "./treatments-backfill.json" ]; then
+    log "Posting treatments to NightScout"
+    ./post-ns.sh ./treatments-backfill.json treatments && (echo; log "Upload to NightScout of xdrip treatments worked ... removing ./treatments-backfill.json"; rm -f ./treatments-backfill.json) || (echo; log "Upload to NS of xdrip entry did not work ... saving treatments for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile")
+    echo
+  fi
+}
+
 main "$@"
+
