@@ -107,8 +107,8 @@ function SensorStateString(state) {
 const transmitter = new Transmitter(id, () => messages); 
 transmitter.on('glucose', glucose => {
   //console.log('got glucose: ' + glucose.glucose);
-  lastGlucose = glucose;
   var d= new Date(glucose.readDate);
+  //console.log(glucose)
   var fs = require('fs');
   const entry = [{
       'device': 'DexcomR4',
@@ -143,4 +143,34 @@ transmitter.on('glucose', glucose => {
     });
 });
 
+
+transmitter.on('batteryStatus', data => {
+  const util = require('util')
+  console.log('got batteryStatus message inside logger msg: ' + data);
+  console.log(util.inspect(data, false, null))
+
+//  status: 0,
+//  voltagea: 313,
+//  voltageb: 299,
+//  resist: 848,
+//  runtime: 5,
+//  temperature: 34 
+
+  var fs = require('fs');
+  const battery = JSON.stringify(data);
+  fs.writeFile("g5-battery.json", battery, function(err) {
+  if(err) {
+      console.log("Error while writing g5-battery.json");
+      console.log(err);
+      }
+  });
+});
+
 transmitter.on('disconnect', process.exit);
+
+transmitter.on('messageProcessed', data => {
+  const util = require('util')
+  console.log('got message inside logger msg: ' + data);
+  console.log(util.inspect(data, false, null))
+});
+
