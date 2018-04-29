@@ -24,6 +24,7 @@ main()
   epochdate=$(date +'%s')
   ns_url="${NIGHTSCOUT_HOST}"
   METERBG_NS_RAW="meterbg_ns_raw.json"
+  battery_check="No" # default - however it will be changed to Yes every 12 hours
 
   rm -f $METERBG_NS_RAW # clear any old meterbg curl responses
 
@@ -31,7 +32,7 @@ main()
   check_environment
   check_utc
   check_sensor_change
-  check_battery_status
+  check_send_battery_status
   check_sensor_start
   check_last_entry_values
 
@@ -90,6 +91,8 @@ main()
     calculate_noise
     calculate_calibrations
   fi
+
+  check_battery_status
 
   log_g5_csv
 
@@ -193,10 +196,39 @@ function check_utc()
   fi
 }
 
+function log_g5_status_csv()
+{
+  file="/var/log/openaps/g5-status.csv"
+  if [ ! -f $file ]; then
+    echo "epochdate,datetime,status,voltagea,voltageb,resist,runtime,temperature" > $file 
+  fi
+  echo "${epochdate},${datetime},${g5_status},${voltagea},${voltageb},${resist},${runtime} days,${temperature} celcuis" >> $file 
+}
+
+#called after a battery status update was sent and logger got a response
 function check_battery_status()
+{
+
+   if [ "$battery_check" == "Yes" ]; then
+     file="/root/myopenaps/monitor/g5-battery.json"
+     g5_status=$(jq ".status" $file)
+     voltagea=$(jq ".voltagea" $file)
+     voltageb=$(jq ".voltageb" $file)
+     resist=$(jq ".resist" $file)
+     runtime=$(jq ".runtime" $file)
+     temperature=$(jq ".temperature" $file)
+     battery_msg="g5_status=$g5_status, voltagea=$voltagea, voltageb=$voltageb, resist=$resist, runtime=$runtime days, temp=$temperature celcius"
+    
+     echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Note\",\"notes\":\"Battery $battery_msg\"}]" > ./g5-battery-status.json
+     ./post-ns.sh ./g5-battery-status.json treatments && (echo; log "Upload to NightScout of battery status change worked") || (echo; log "Upload to NS of battery status change did not work")
+     log_g5_status_csv
+
+   fi
+}
+
+function check_send_battery_status()
  {
-   battery_check="No"
-   file="./g5-battery.json"
+   file="/root/myopenaps/monitor/g5-battery.json"
  
    if [ -e $file ]; then
      if test  `find $file -mmin +720`
@@ -457,6 +489,7 @@ function set_entry_device_id()
   tmp=$(mktemp)
   jq ".[0].device = \"${id}\"" entry.json > "$tmp" && mv "$tmp" entry.json
 }
+
 
 function log_g5_csv()
 {
