@@ -782,10 +782,6 @@ function process_delta()
 
 function calculate_noise()
 {
-  if [ "$mode" != "expired" ]; then
-    return
-  fi
-
   echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ./noise-input.csv
 
   # calculate the noise and position it for updating the entry sent to NS and xdripAPS
