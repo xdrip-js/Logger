@@ -87,6 +87,7 @@ main()
   ./post-xdripAPS.sh ./entry-xdrip.json
 
   post-nightscout-with-backfill
+  cp ./entry-xdrip.json ./last-entry.json
 
   if [ "$mode" == "not-expired" ]; then
     log "Calling expired tx lsr calcs (after posting) -allows mode switches / comparisons" 
@@ -307,7 +308,7 @@ function check_last_entry_values()
 {
   # TODO: check file stamp for > x for last-entry.json and ignore lastGlucose if older than x minutes
   if [ -e "./last-entry.json" ] ; then
-    lastGlucose=$(cat ./last-entry.json | jq -M '.[0].glucose')
+    lastGlucose=$(cat ./last-entry.json | jq -M '.[0].sgv')
     lastState=$(cat ./last-entry.json | jq -M '.[0].state')
     lastStatus=$(cat ./last-entry.json | jq -M '.[0].status')
     lastStatus="${lastStatus%\"}"
@@ -709,7 +710,7 @@ function process_delta()
   else
     dg=$(bc <<< "$calibratedBG - $lastGlucose")
   fi
-  log "lastGlucose=$lastGlucose, dg=$dg"
+  log "calibratedBG=$calibratedBG, lastGlucose=$lastGlucose, dg=$dg"
 
   # begin try out averaging last two entries ...
   da=$dg
@@ -717,14 +718,16 @@ function process_delta()
     da=$(bc <<< "0 - $da")
   fi
 
-  if [ "$da" -lt "45" -a "$da" -gt "15" ]; then
-    if [ "$mode" == "expired" ]; then
-      log "Before Average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, calibratedBG=$calibratedBG"
-      calibratedBG=$(bc <<< "($calibratedBG + $lastGlucose)/2")
-      dg=$(bc <<< "$calibratedBG - $lastGlucose")
-      log "After average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, calibratedBG=${calibratedBG}"
-    fi
-  fi
+# not needed given how OpenAPS processes
+#
+#  if [ "$da" -lt "45" -a "$da" -gt "15" ]; then
+#    if [ "$mode" == "expired" ]; then
+#      log "Before Average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, calibratedBG=$calibratedBG"
+#      calibratedBG=$(bc <<< "($calibratedBG + $lastGlucose)/2")
+#      dg=$(bc <<< "$calibratedBG - $lastGlucose")
+#      log "After average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, calibratedBG=${calibratedBG}"
+#    fi
+#  fi
   # end average last two entries if noise
 
 
@@ -958,9 +961,11 @@ function check_last_glucose_time_smart_sleep()
     seconds_since_last_entry=$(bc <<< "$epochdate - $age")
     echo "Time since last glucose entry in seconds = $seconds_since_last_entry seconds"
     sleep_time=$(bc <<< "240 - $seconds_since_last_entry") 
-    echo "Waiting $sleep_time seconds because glucose records only happen every 5 minutes"
-    echo "     After this wait, messages will be retrieved closer to the glucose entry time"
-    sleep $sleep_time
+    if [ $(bc <<< "$sleep_time > 0") -eq 1 ]; then
+      echo "Waiting $sleep_time seconds because glucose records only happen every 5 minutes"
+      echo "     After this wait, messages will be retrieved closer to the glucose entry time"
+      sleep $sleep_time
+    fi
   else
     echo "More than 4 minutes since last glucose entry, continue processing without waiting"
   fi

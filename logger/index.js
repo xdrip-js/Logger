@@ -123,7 +123,7 @@ transmitter.on('glucose', glucose => {
       'type': 'sgv',
       'filtered': Math.round(glucose.filtered),
       'unfiltered': Math.round(glucose.unfiltered),
-      'rssi': "100", // TODO: consider reading this on connection and reporting
+      'rssi': glucose.rssi, 
       'noise': "1",
       'trend': glucose.trend,
       'state': SensorStateString(glucose.state), 
