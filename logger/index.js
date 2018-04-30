@@ -1,4 +1,5 @@
 const Transmitter = require('xdrip-js');
+const util = require('util')
 
 const id = process.argv[2];
 // FIXME, process.argv[3] should probably just be a file containing an array of messages to send the transmitter instead of a json string.
@@ -105,10 +106,12 @@ function SensorStateString(state) {
 }
 
 const transmitter = new Transmitter(id, () => messages); 
+
 transmitter.on('glucose', glucose => {
   //console.log('got glucose: ' + glucose.glucose);
   var d= new Date(glucose.readDate);
-  //console.log(glucose)
+
+  console.log(util.inspect(glucose, false, null))
   var fs = require('fs');
   const entry = [{
       'device': 'DexcomR4',
@@ -158,7 +161,7 @@ transmitter.on('batteryStatus', data => {
 
   var fs = require('fs');
   const battery = JSON.stringify(data);
-  fs.writeFile("g5-battery.json", battery, function(err) {
+  fs.writeFile("/root/myopenaps/monitor/g5-battery.json", battery, function(err) {
   if(err) {
       console.log("Error while writing g5-battery.json");
       console.log(err);
@@ -169,7 +172,6 @@ transmitter.on('batteryStatus', data => {
 transmitter.on('disconnect', process.exit);
 
 transmitter.on('messageProcessed', data => {
-  const util = require('util')
   console.log('got message inside logger msg: ' + data);
   console.log(util.inspect(data, false, null))
 });

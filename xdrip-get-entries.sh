@@ -6,7 +6,6 @@ main()
 
   cd /root/src/xdrip-js-logger
   mkdir -p old-calibrations
-  rm -f ./entry.json
 
 # Cmd line args - transmitter $1 is 6 character tx serial number
   transmitter=$1
@@ -26,11 +25,17 @@ main()
   METERBG_NS_RAW="meterbg_ns_raw.json"
   battery_check="No" # default - however it will be changed to Yes every 12 hours
 
-  rm -f $METERBG_NS_RAW # clear any old meterbg curl responses
 
   initialize_messages
   check_environment
   check_utc
+
+  check_last_glucose_time_smart_sleep
+
+  # clear out prior curl or tx responses
+  rm -f $METERBG_NS_RAW 
+  rm -f ./entry.json
+
   check_sensor_change
   check_send_battery_status
   check_sensor_start
@@ -51,7 +56,8 @@ main()
   set_mode
 
   log "Mode = $mode"
-  if [ "$mode" == "not-expired" ]; then
+  # not sure if we need a "dual" mode
+  if [[ "$mode" == "not-expired" || $"$mode" == "dual" ]]; then
     initialize_calibrate_bg 
   fi
   set_entry_device_id
@@ -73,10 +79,7 @@ main()
   cp entry.json entry-xdrip.json
 
   process_delta # call for all modes 
-
-  if [ "$mode" == expired ]; then
-    calculate_noise 
-  fi
+  calculate_noise # necessary for all modes
 
   fake_meter
 
@@ -86,10 +89,9 @@ main()
   post-nightscout-with-backfill
 
   if [ "$mode" == "not-expired" ]; then
-    log "Calling expired tx lsr/noise calcs (after posting) -allows mode switches / comparisons" 
-    apply_lsr_calibration 
-    calculate_noise
+    log "Calling expired tx lsr calcs (after posting) -allows mode switches / comparisons" 
     calculate_calibrations
+    apply_lsr_calibration 
   fi
 
   check_battery_status
@@ -443,6 +445,8 @@ function  call_logger()
     rm ./entry.json
     remove_dexcom_bt_pair
     exit
+# EYF here
+#  elif
   fi
 }
 
@@ -494,9 +498,9 @@ function set_entry_device_id()
 function log_g5_csv()
 {
   if [ ! -f "/var/log/openaps/g5.csv" ]; then
-    echo "epochdate,datetime,unfiltered,filtered,direction,calibratedBG,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend" > /var/log/openaps/g5.csv
+    echo "epochdate,datetime,unfiltered,filtered,direction,calibratedBG-lsr,g5-glucose,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend,mode" > /var/log/openaps/g5.csv
   fi
-  echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend}" >> /var/log/openaps/g5.csv
+  echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${glucose},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend},${mode}" >> /var/log/openaps/g5.csv
 }
 
 function set_mode()
@@ -513,7 +517,7 @@ function set_mode()
     fi
   fi
   # to hard-code or test expired mode, uncomment below line
-  #mode="expired"
+  mode="expired"
 }
 
 # if tx state or status changed, then post a note to NS
@@ -945,6 +949,23 @@ function  post-nightscout-with-backfill()
     echo
   fi
 }
+
+function check_last_glucose_time_smart_sleep()
+{
+  file="./entry.json"
+  if [ -e $file ]; then
+    age=$(date -r $file +'%s')
+    seconds_since_last_entry=$(bc <<< "$epochdate - $age")
+    echo "Time since last glucose entry in seconds = $seconds_since_last_entry seconds"
+    sleep_time=$(bc <<< "240 - $seconds_since_last_entry") 
+    echo "Waiting $sleep_time seconds because glucose records only happen every 5 minutes"
+    echo "     After this wait, messages will be retrieved closer to the glucose entry time"
+    sleep $sleep_time
+  else
+    echo "More than 4 minutes since last glucose entry, continue processing without waiting"
+  fi
+}
+
 
 main "$@"
 
