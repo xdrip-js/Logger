@@ -83,8 +83,10 @@ main()
 
   fake_meter
 
-  log "Posting glucose record to xdripAPS / OpenAPS"
-  ./post-xdripAPS.sh ./entry-xdrip.json
+  if [ "$mode" != "Stopped" ]; then
+    log "Posting glucose record to xdripAPS / OpenAPS"
+    ./post-xdripAPS.sh ./entry-xdrip.json
+  fi
 
   post-nightscout-with-backfill
   cp ./entry-xdrip.json ./last-entry.json
@@ -448,8 +450,6 @@ function  call_logger()
     rm ./entry.json
     remove_dexcom_bt_pair
     exit
-# EYF here
-#  elif
   fi
 }
 
@@ -484,6 +484,31 @@ function  set_glucose_type()
   fi
 }
 
+function set_mode()
+{
+  mode="expired"
+  if [[ "$status" == "OK" || "$status" == "Low battery" ]]; then 
+    mode="not-expired"
+    if [[ "$state" == "Stopped" ]]; then
+      mode="Stopped" 
+    elif [[ "$state" == "Warmup" ]]; then
+      mode="not-expired" 
+    fi
+  fi
+
+  if [ "$mode" == "not-expired" ]; then
+    if [ $(bc <<< "$glucose > 0") ]; then 
+      :
+      # this means we got an internal tx calibrated glucose
+    else
+      # fallback to try to use unfiltered in this case
+      mode="expired"
+    fi
+  fi
+  # to hard-code or test expired mode, uncomment below line
+  #mode="expired"
+}
+
 function  initialize_calibrate_bg()
 {
     calibratedBG=$glucose
@@ -511,35 +536,25 @@ function log_g5_csv()
   echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${glucose},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend},${mode},${unfiltered_div_1000},${filtered_div_1000},${noise_percentage}" >> $file 
 }
 
-function set_mode()
-{
-  mode="expired"
-  if [[ "$status" == "OK" || "$status" == "Low battery" ]]; then 
-    mode="not-expired"
-    if [[ "$state" == "Stopped" || "$state" == "Failed Sensor" || "$state" == "???" ]]; then
-      mode="off" #TODO: handle off mode
-    elif [[ "$state" == "Warmup" ]]; then
-      #mode="expired" 
-      #TODO: handle warm up
-      mode="not-expired" 
-    fi
-  fi
-  # to hard-code or test expired mode, uncomment below line
-  mode="expired"
-}
 
 # if tx state or status changed, then post a note to NS
 function process_announcements()
 {
-  log "process_announcements: state=$state status=$status"
-  if [ "$status" != "$lastStatus" ]; then
-    echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Tx $status\"}]" > ./status-change.json
-  ./post-ns.sh ./status-change.json treatments && (echo; log "Upload to NightScout of transmitter status change worked") || (echo; log "Upload to NS of transmitter status change did not work")
-  fi
+  if [ "$mode" == "Stopped" ]; then
+    log "Not posting glucose to Nightscout or OpenAPS - sensor state is Stopped, unfiltered/1000=$unfiltered_div_1000"
+    echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Sensor Stopped, unfiltered=$unfiltered_div_1000\"}]" > ./status-change.json
+    ./post-ns.sh ./status-change.json treatments && (echo; log "Upload to NightScout of sensor Stopped status change worked") || (echo; log "Upload to NS of transmitter sensor Stopped did not work")
+  else
+    log "process_announcements: state=$state status=$status"
+    if [ "$status" != "$lastStatus" ]; then
+      echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Tx $status\"}]" > ./status-change.json
+      ./post-ns.sh ./status-change.json treatments && (echo; log "Upload to NightScout of transmitter status change worked") || (echo; log "Upload to NS of transmitter status change did not work")
+    fi
 
-  if [ "$state" != "$lastState" ]; then
-    echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Sensor $state\"}]" > ./state-change.json
-  ./post-ns.sh ./state-change.json treatments && (echo; log "Upload to NightScout of sensor state change worked") || (echo; log "Upload to NS of sensor state change did not work")
+    if [ "$state" != "$lastState" ]; then
+      echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Sensor $state\"}]" > ./state-change.json
+      ./post-ns.sh ./state-change.json treatments && (echo; log "Upload to NightScout of sensor state change worked") || (echo; log "Upload to NS of sensor state change did not work")
+    fi
   fi
 }
 
@@ -938,6 +953,10 @@ function check_recent_sensor_insert()
 
 function  post-nightscout-with-backfill()
 {
+  if [ "$mode" == "Stopped" ]; then
+    # don't post glucose to NS
+    return
+  fi
   if [ -e "./entry-backfill.json" ] ; then
     # In this case backfill records not yet sent to Nightscout
     jq -s add ./entry-xdrip.json ./entry-backfill.json > ./entry-ns.json
