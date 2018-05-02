@@ -500,10 +500,15 @@ function set_entry_device_id()
 
 function log_g5_csv()
 {
-  if [ ! -f "/var/log/openaps/g5.csv" ]; then
-    echo "epochdate,datetime,unfiltered,filtered,direction,calibratedBG-lsr,g5-glucose,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend,mode" > /var/log/openaps/g5.csv
+  file="/var/log/openaps/g5.csv"
+  unfiltered_div_1000=$(bc <<< "$unfiltered / 1000")
+  filtered_div_1000=$(bc <<< "$filtered / 1000")
+  noise_percentage=$(bc <<< "$noise * 100")
+
+  if [ ! -f $file ]; then
+    echo "epochdate,datetime,unfiltered,filtered,direction,calibratedBG-lsr,g5-glucose,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend,mode,unfilt/1000,filt/1000,noise*100" > $file 
   fi
-  echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${glucose},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend},${mode}" >> /var/log/openaps/g5.csv
+  echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${glucose},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend},${mode},${unfiltered_div_1000},${filtered_div_1000},${noise_percentage}" >> $file 
 }
 
 function set_mode()
