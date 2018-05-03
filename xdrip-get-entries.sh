@@ -979,6 +979,23 @@ function  post-nightscout-with-backfill()
   fi
 }
 
+function wait_with_echo()
+{
+  total_wait_remaining=$1
+  waited_so_far=0
+  
+  while [ $(bc <<< "$total_wait_remaining >= 10") -eq 1 ]    
+  do
+    echo -n "."
+    sleep 10 
+    total_wait_remaining=$(bc <<< "$total_wait_remaining - 10")
+  done
+
+  if [ $(bc <<< "$total_wait_remaining >= 1") -eq 1 ]; then    
+    sleep $total_wait_remaining 
+  fi
+}
+
 function check_last_glucose_time_smart_sleep()
 {
   file="./entry.json"
@@ -990,7 +1007,7 @@ function check_last_glucose_time_smart_sleep()
     if [ $(bc <<< "$sleep_time > 0") -eq 1 ]; then
       echo "Waiting $sleep_time seconds because glucose records only happen every 5 minutes"
       echo "     After this wait, messages will be retrieved closer to the glucose entry time"
-      sleep $sleep_time
+      wait_with_echo $sleep_time
     fi
   else
     echo "More than 4 minutes since last glucose entry, continue processing without waiting"
