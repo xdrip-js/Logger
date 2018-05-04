@@ -215,7 +215,7 @@ function check_battery_status()
 {
 
    if [ "$battery_check" == "Yes" ]; then
-     file="/root/myopenaps/monitor/g5-battery.json"
+     file="${HOME}/myopenaps/monitor/g5-battery.json"
      g5_status=$(jq ".status" $file)
      voltagea=$(jq ".voltagea" $file)
      voltageb=$(jq ".voltageb" $file)
@@ -233,7 +233,7 @@ function check_battery_status()
 
 function check_send_battery_status()
  {
-   file="/root/myopenaps/monitor/g5-battery.json"
+   file="${HOME}/myopenaps/monitor/g5-battery.json"
  
    if [ -e $file ]; then
      if test  `find $file -mmin +720`
@@ -327,10 +327,9 @@ function check_last_entry_values()
 
 function  check_cmd_line_calibration()
 {
-# FIXME: this was just copied from below, but move all the BG retrieval stuff properly here.
 ## look for a bg check from monitor/calibration.json
   if [ -z $meterbg ]; then
-    CALFILE="/root/myopenaps/monitor/calibration.json"
+    CALFILE="${HOME}/myopenaps/monitor/calibration.json"
     if [ -e $CALFILE ]; then
       if test  `find $CALFILE -mmin -7`
       then
@@ -915,21 +914,21 @@ function check_messages()
     fi
   fi
   
-  file="/root/myopenaps/monitor/g5-stop.json"
+  file="${HOME}/myopenaps/monitor/g5-stop.json"
   if [ -e "$file" ]; then
     stopJSON=$(cat $file)
     log "stopJSON=$stopJSON"
     rm -f $file
   fi
 
-  file="/root/myopenaps/monitor/g5-start.json"
+  file="${HOME}/myopenaps/monitor/g5-start.json"
   if [ -e "$file" ]; then
     startJSON=$(cat $file)
     log "startJSON=$startJSON"
     rm -f $file
   fi
 
-  file="/root/myopenaps/monitor/g5-reset.json"
+  file="${HOME}/myopenaps/monitor/g5-reset.json"
   if [ -e "$file" ]; then
     resetJSON=$(cat $file)
     log "resetJSON=$resetJSON"
@@ -994,6 +993,8 @@ function wait_with_echo()
   if [ $(bc <<< "$total_wait_remaining >= 1") -eq 1 ]; then    
     sleep $total_wait_remaining 
   fi
+  echo
+  log "Wait complete"
 }
 
 function check_last_glucose_time_smart_sleep()
@@ -1002,15 +1003,14 @@ function check_last_glucose_time_smart_sleep()
   if [ -e $file ]; then
     age=$(date -r $file +'%s')
     seconds_since_last_entry=$(bc <<< "$epochdate - $age")
-    echo "Time since last glucose entry in seconds = $seconds_since_last_entry seconds"
+    log "Time since last glucose entry in seconds = $seconds_since_last_entry seconds"
     sleep_time=$(bc <<< "240 - $seconds_since_last_entry") 
     if [ $(bc <<< "$sleep_time > 0") -eq 1 ]; then
-      echo "Waiting $sleep_time seconds because glucose records only happen every 5 minutes"
-      echo "     After this wait, messages will be retrieved closer to the glucose entry time"
+      log "Waiting $sleep_time seconds because glucose records only happen every 5 minutes"
       wait_with_echo $sleep_time
     fi
   else
-    echo "More than 4 minutes since last glucose entry, continue processing without waiting"
+    log "More than 4 minutes since last glucose entry, continue processing without waiting"
   fi
 }
 
