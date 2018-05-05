@@ -16,6 +16,7 @@ install_sh_bin "g5-stop"
 install_sh_bin "g5-start"
 install_sh_bin "g5-battery"
 install_sh_bin "g5-reset"
+install_sh_bin "g5-calc-calibration"
 
 #CALIBRATE="/usr/local/bin/calibrate"
 #rm -f $CALIBRATE 

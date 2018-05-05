@@ -633,7 +633,7 @@ function calculate_calibrations()
 	    log "Raw/unfiltered compared to meterbg is $meterbg_raw_delta > 70, ignoring calibration"
           else
             echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid,$filtered,$unfiltered" >> ${LDIR}/calibrations.csv
-            ./calc-calibration.sh ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
+            /usr/local/bin/g5-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
             maxDelta=60
             calibrationDone=1
             cat ${LDIR}/calibrations.csv
