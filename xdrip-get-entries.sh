@@ -790,9 +790,9 @@ function process_delta()
     #  glucosejqstr="'[ .[] | select(.dateString > \"$after\") ]'"
     epms15=$(bc -l <<< "$epochdate *1000  - 900000")
     glucosejqstr="'[ .[] | select(.date > $epms15) ]'"
-    bash -c "jq -c $glucosejqstr ~/myopenaps/monitor/glucose.json" > last15minutes.json
-    last3=( $(jq -r ".[].glucose" last15minutes.json) )
-    date3=( $(jq -r ".[].date" last15minutes.json) )
+    bash -c "jq -c $glucosejqstr ~/myopenaps/monitor/glucose.json" > ${LDIR}/last15minutes.json
+    last3=( $(jq -r ".[].glucose" ${LDIR}/last15minutes.json) )
+    date3=( $(jq -r ".[].date" ${LDIR}/last15minutes.json) )
     #log ${last3[@]}
 
     usedRecords=${#last3[@]}
@@ -853,19 +853,14 @@ function calculate_noise()
   if [ $(bc -l <<< "$noiseSend == 0") -eq 1 ]; then
     # means that noise was not already set before
     # get last 41 minutes (approx 7 BG's) from monitor/glucose to better support multiple rigs
-    # 
-    #  tail -8 ${LDIR}/noise-input.csv > ${LDIR}/noise-input12.csv
-    #
     # be able to support multiple rigs running openaps / Logger at same time. 
-    #  after=$(date -d "41 minutes ago" -Iminutes)
     epms15=$(bc -l <<< "$epochdate *1000  - 41*60000")
     glucosejqstr="'[ .[] | select(.date > $epms15) ]'"
-    #  glucosejqstr="'[ .[] | select(.dateString > \"$after\") ]'"
-    bash -c "jq -c $glucosejqstr ~/myopenaps/monitor/glucose.json" > last41minutes.json
-    date41=( $(jq -r ".[].date" last41minutes.json) )
-    gluc41=( $(jq -r ".[].glucose" last41minutes.json) )
-    unf41=( $(jq -r ".[].unfiltered" last41minutes.json) )
-    fil41=( $(jq -r ".[].filtered" last41minutes.json) )
+    bash -c "jq -c $glucosejqstr ~/myopenaps/monitor/glucose.json" > ${LDIR}/last41minutes.json
+    date41=( $(jq -r ".[].date" ${LDIR}/last41minutes.json) )
+    gluc41=( $(jq -r ".[].glucose" ${LDIR}/last41minutes.json) )
+    unf41=( $(jq -r ".[].unfiltered" ${LDIR}/last41minutes.json) )
+    fil41=( $(jq -r ".[].filtered" ${LDIR}/last41minutes.json) )
 
     usedRecords=${#gluc41[@]}
     log "usedRecords=$usedRecords last 41 minutes = ${gluc41[@]}"
