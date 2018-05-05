@@ -4,10 +4,10 @@ main()
 {
   log "Starting xdrip-get-entries.sh"
 
-  cd /root/src/xdrip-js-logger
-  mkdir -p old-calibrations
+#  cd /root/src/xdrip-js-logger
   LDIR="${HOME}/myopenaps/monitor/logger"
   mkdir -p ${LDIR}
+  mkdir -p ${LDIR}/old-calibrations
 
 # Cmd line args - transmitter $1 is 6 character tx serial number
   transmitter=$1
