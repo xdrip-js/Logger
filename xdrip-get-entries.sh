@@ -536,7 +536,7 @@ function log_g5_csv()
   if [ ! -f $file ]; then
     echo "epochdate,datetime,unfiltered,filtered,direction,calibratedBG-lsr,g5-glucose,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend,mode,unfilt/1000,filt/1000,noise*100,sensitivity" > $file 
   fi
-  echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${glucose},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend},${mode},${unfiltered_div_1000},${filtered_div_1000},${noise_percentage},{$sensitivity}" >> $file 
+  echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${glucose},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend},${mode},${unfiltered_div_1000},${filtered_div_1000},${noise_percentage},${sensitivity}" >> $file 
 }
 
 
