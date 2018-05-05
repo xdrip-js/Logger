@@ -913,21 +913,21 @@ function check_messages()
     fi
   fi
   
-  file="${HOME}/myopenaps/monitor/g5-stop.json"
+  file="${LDIR}/g5-stop.json"
   if [ -e "$file" ]; then
     stopJSON=$(cat $file)
     log "stopJSON=$stopJSON"
     rm -f $file
   fi
 
-  file="${HOME}/myopenaps/monitor/g5-start.json"
+  file="${LDIR}/g5-start.json"
   if [ -e "$file" ]; then
     startJSON=$(cat $file)
     log "startJSON=$startJSON"
     rm -f $file
   fi
 
-  file="${HOME}/myopenaps/monitor/g5-reset.json"
+  file="${LDIR}/g5-reset.json"
   if [ -e "$file" ]; then
     resetJSON=$(cat $file)
     log "resetJSON=$resetJSON"
