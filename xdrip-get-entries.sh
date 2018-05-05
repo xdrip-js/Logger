@@ -219,7 +219,7 @@ function check_battery_status()
 {
 
    if [ "$battery_check" == "Yes" ]; then
-     file="${HOME}/myopenaps/monitor/g5-battery.json"
+     file="${LDIR}/g5-battery.json"
      g5_status=$(jq ".status" $file)
      voltagea=$(jq ".voltagea" $file)
      voltageb=$(jq ".voltageb" $file)
@@ -237,7 +237,7 @@ function check_battery_status()
 
 function check_send_battery_status()
  {
-   file="${HOME}/myopenaps/monitor/g5-battery.json"
+   file="${LDIR}/g5-battery.json"
  
    if [ -e $file ]; then
      if test  `find $file -mmin +720`
@@ -331,9 +331,9 @@ function check_last_entry_values()
 
 function  check_cmd_line_calibration()
 {
-## look for a bg check from monitor/calibration.json
+## look for a bg check from ${LDIR}/calibration.json
   if [ -z $meterbg ]; then
-    CALFILE="${HOME}/myopenaps/monitor/calibration.json"
+    CALFILE="${LDIR}/calibration.json"
     if [ -e $CALFILE ]; then
       if test  `find $CALFILE -mmin -7`
       then
@@ -367,7 +367,7 @@ function  check_cmd_line_calibration()
       rm $CALFILE
     fi
   fi
-  log "meterbg from monitor/calibration.json: $meterbg"
+  log "meterbg from ${LDIR}/calibration.json: $meterbg"
 }
 
 function  remove_dexcom_bt_pair()
