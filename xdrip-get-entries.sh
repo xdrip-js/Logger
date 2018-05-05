@@ -2,9 +2,9 @@
 
 main()
 {
-  log "Starting xdrip-get-entries.sh"
+  log "Starting Logger"
 
-#  cd /root/src/xdrip-js-logger
+  cd /root/src/xdrip-js-logger
   LDIR="${HOME}/myopenaps/monitor/logger"
   mkdir -p ${LDIR}
   mkdir -p ${LDIR}/old-calibrations
@@ -108,7 +108,7 @@ main()
   process_announcements
 
   remove_dexcom_bt_pair
-  log "Finished xdrip-get-entries.sh"
+  log "Completed Logger"
   echo
 }
 
