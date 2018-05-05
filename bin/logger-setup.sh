@@ -24,9 +24,13 @@ RESET="/usr/local/bin/g5-reset"
 rm -f $RESET 
 ln -s /root/src/xdrip-js-logger/bin/g5-reset.sh $RESET
 
+mkdir -p ${HOME}/myopenaps/monitor/logger
+
 if type "go" > /dev/null; then
   echo "building calc-noise.go"
   go build calc-noise.go
   ls -al calc-noise
 fi
+
+
 
