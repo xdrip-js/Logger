@@ -23,7 +23,7 @@ install_sh_bin "g5-reset"
 
 LOGGER="/usr/local/bin/Logger"
 rm -f $LOGGER 
-ln -s ${HOME}/src/xdrip-js-logger/bin/xdrip-get-entries.sh $LOGGER
+ln -s ${HOME}/src/xdrip-js-logger/xdrip-get-entries.sh $LOGGER
 
 
 if [ -e "/usr/local/go/bin/go" ]; then
