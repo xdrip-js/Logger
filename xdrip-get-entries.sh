@@ -500,7 +500,7 @@ function set_mode()
   fi
 
   if [ "$mode" == "not-expired" ]; then
-    if [[ $(bc <<< "$glucose > 0") && "$glucose" != "null" ]]; then 
+    if [[ $(bc <<< "$glucose > 0") -eq 1 && "$glucose" != "null" ]]; then 
       :
       # this means we got an internal tx calibrated glucose
     else
