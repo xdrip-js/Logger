@@ -137,7 +137,7 @@ transmitter.on('glucose', glucose => {
       console.log("Error - bad glucose data, not processing");
       process.exit();
     }
-    fs.writeFile("entry.json", data, function(err) {
+    fs.writeFile("/root/myopenaps/monitor/logger/entry.json", data, function(err) {
     if(err) {
         console.log("Error while writing entry-test.json");
         console.log(err);
