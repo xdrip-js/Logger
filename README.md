@@ -1,6 +1,6 @@
 # xdrip-js-logger - the xdrip-js One-Shot Mode Logger.
 
-Logger connects to the g5 transmitter, waits for the first bg, logs a json entry record, then exits. Doing it one-shot at a time seems to make xdrip-js more reliable in some cases. xdrip-get-entries.sh is a wrapper shell script that is called from cron every minute. Current xdrip-js-logger (Logger) features:
+Logger connects to the g5 transmitter, waits for the first bg, logs a json entry record, then exits. Doing it one-shot at a time seems to make xdrip-js more reliable in some cases. Logger is a wrapper shell script that is called from cron every minute. Current xdrip-js-logger (Logger) features:
 
 * Preparation and sending of the blood glucose data to Nightscout and to OpenAPS.
 * Offline mode - Logger runs on the rig and sends bg data directly to openaps through via xdripAPS. Logger queues up NS updates while internet is down and fills in the gaps when internet is restored.
@@ -56,7 +56,7 @@ sudo apt-get install bluez-tools
 
 Add cron job entry (replace "40SNU6" with your g5 transmitter id in both places below) ...
 ```
-* * * * * cd /root/src/xdrip-js-logger && ps aux | grep -v grep | grep -q '40SNU6' || ./xdrip-get-entries.sh 40SNU6 | tee -a /var/log/openaps/xdrip-js-loop.log
+* * * * * cd /root/src/xdrip-js-logger && ps aux | grep -v grep | grep -q '40SNU6' || /usr/local/bin/Logger 40SNU6 | tee -a /var/log/openaps/logger-loop.log
 ```
 
 
