@@ -89,7 +89,7 @@ main()
 
   if [ "$mode" != "Stopped" ]; then
     log "Posting glucose record to xdripAPS / OpenAPS"
-    ./post-xdripAPS.sh ${LDIR}/entry-xdrip.json
+    /usr/local/bin/g5-post-xdrip ${LDIR}/entry-xdrip.json
   fi
 
   post-nightscout-with-backfill

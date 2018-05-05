@@ -19,6 +19,7 @@ install_sh_bin "g5-reset"
 install_sh_bin "g5-calc-calibration"
 install_sh_bin "g5-calc-noise"
 install_sh_bin "g5-post-ns"
+install_sh_bin "g5-post-xdrip"
 
 #CALIBRATE="/usr/local/bin/calibrate"
 #rm -f $CALIBRATE 
