@@ -881,7 +881,7 @@ function calculate_noise()
       ./calc-noise ${LDIR}/noise-input41.csv ${LDIR}/noise.json
     else 
       log "calculating noise using bash-based version"
-      ./calc-noise.sh ${LDIR}/noise-input41.csv ${LDIR}/noise.json
+      /usr/local/bin/calc-noise ${LDIR}/noise-input41.csv ${LDIR}/noise.json
     fi
 
     if [ -e ${LDIR}/noise.json ]; then

@@ -17,6 +17,7 @@ install_sh_bin "g5-start"
 install_sh_bin "g5-battery"
 install_sh_bin "g5-reset"
 install_sh_bin "g5-calc-calibration"
+install_sh_bin "g5-calc-noise"
 
 #CALIBRATE="/usr/local/bin/calibrate"
 #rm -f $CALIBRATE 
