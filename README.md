@@ -1,9 +1,15 @@
 # xdrip-js-logger - the xdrip-js One-Shot Mode Logger.
 
-Logger connects to the g5 transmitter, waits for the first bg, logs a json entry record, then exits. Doing it one-shot at a time seems to make xdrip-js more reliable in some cases. Logger is a wrapper shell script that is called from cron every minute. Current xdrip-js-logger (Logger) features:
+Logger connects to the g5 transmitter, waits for the first bg, logs a json entry record, then exits. Doing it one-shot at a time seems to make xdrip-js more reliable in some cases. Logger is a wrapper shell script that is called from cron every minute. Current Logger features:
 
 * Preparation and sending of the blood glucose data to Nightscout and to OpenAPS.
 * Offline mode - Logger runs on the rig and sends bg data directly to openaps through via xdripAPS. Logger queues up NS updates while internet is down and fills in the gaps when internet is restored.
+* Reset Transmitter - Use the following command, wait > 10 minutes, and your expired transmitter is new again! Careful, though it will reset everything on your transmitter including your current session. Note this feature is only available via the command line.
+```g5-reset```
+* Stop Sensor - Use the following command, wait > 5 minutes, and your current sensor session will stop. Use  this command before changing out your sensor so that Logger will stop sending glucose information temporarily (while the sensor is stopped) This feature is also available via the command line only.
+```g5-stop```
+* Start Sensor - Use the following command, wait > 5 minutes, and your sensor session will start. Use  this command after inserting your sensor so that Logger will start the process for sending glucose information. This feature is also available via the command line and you can also do it via Nightscout as a BG Treatment, entry type of Sensor Start.
+```g5-start```
 * Calibration via linear least squares regression (LSR) (similar to xdrip plus)
   * Calibrations must be input into Nightscout as BG Check treatments.
   * Logger will not calculate or send any BG data out unless at least one  calibration has been done in Nightscout.
