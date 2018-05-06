@@ -873,19 +873,20 @@ function calculate_noise()
     done
     echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ${LDIR}/noise-input41.csv
 
-    if [ -e "${LDIR}/calc-noise" ]; then
+    if [ -e "/usr/local/bin/g5-calc-noise-go" ]; then
       # use the go-based version
+      noise_cmd="/usr/local/bin/g5-calc-noise-go"
       log "calculating noise using go-based version"
-      # remove issue where jq returns scientific notation, convert to decimal
-      noise=$(awk -v noise="$noise" 'BEGIN { printf("%.2f", noise) }' </dev/null)
-      ./calc-noise ${LDIR}/noise-input41.csv ${LDIR}/noise.json
     else 
+      noise_cmd="/usr/local/bin/g5-calc-noise"
       log "calculating noise using bash-based version"
-      /usr/local/bin/calc-noise ${LDIR}/noise-input41.csv ${LDIR}/noise.json
     fi
+    $noise_cmd ${LDIR}/noise-input41.csv ${LDIR}/noise.json
 
     if [ -e ${LDIR}/noise.json ]; then
       noise=`jq -M '.[0] .noise' ${LDIR}/noise.json` 
+      # remove issue where jq returns scientific notation, convert to decimal
+      noise=$(awk -v noise="$noise" 'BEGIN { printf("%.2f", noise) }' </dev/null)
       log "Raw noise of $noise will be used to determine noiseSend value."
     fi
 
