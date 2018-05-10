@@ -467,6 +467,7 @@ function  capture_entry_values()
   state=$(cat ${LDIR}/entry.json | jq -M '.[0].state')
   state="${state%\"}"
   state="${state#\"}"
+  rssi=$(cat ${LDIR}/entry.json | jq -M '.[0].rssi')
 
   status=$(cat ${LDIR}/entry.json | jq -M '.[0].status')
   status="${status%\"}"
@@ -512,7 +513,7 @@ function set_mode()
     fi
   fi
   # to hard-code or test expired mode, uncomment below line
-  #mode="expired"
+  mode="expired"
 }
 
 function  initialize_calibrate_bg()
@@ -537,9 +538,9 @@ function log_g5_csv()
   noise_percentage=$(bc <<< "$noise * 100")
 
   if [ ! -f $file ]; then
-    echo "epochdate,datetime,unfiltered,filtered,direction,calibratedBG-lsr,g5-glucose,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend,mode,unfilt/1000,filt/1000,noise*100,sensitivity" > $file 
+    echo "epochdate,datetime,unfiltered,filtered,direction,calibratedBG-lsr,g5-glucose,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend,mode,unfilt/1000,filt/1000,noise*100,sensitivity,rssi" > $file 
   fi
-  echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${glucose},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend},${mode},${unfiltered_div_1000},${filtered_div_1000},${noise_percentage},${sensitivity}" >> $file 
+  echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${glucose},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend},${mode},${unfiltered_div_1000},${filtered_div_1000},${noise_percentage},${sensitivity},${rssi}" >> $file 
 }
 
 
@@ -1019,7 +1020,7 @@ function check_last_glucose_time_smart_sleep()
 
 function check_sensitivity()
 {
-  sensitivty=$(jq .ratio ${HOME}/myopenaps/settings/autosens.json)
+  sensitivity=$(jq .ratio ${HOME}/myopenaps/settings/autosens.json)
 }
 
 main "$@"
