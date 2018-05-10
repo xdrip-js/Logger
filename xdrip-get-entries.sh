@@ -498,6 +498,7 @@ function set_mode()
     mode="not-expired"
     if [[ "$state" == "Stopped" ]]; then
       mode="Stopped" 
+      mode="expired"
     elif [[ "$state" == "Warmup" ]]; then
       mode="not-expired" 
     fi
@@ -513,7 +514,7 @@ function set_mode()
     fi
   fi
   # to hard-code or test expired mode, uncomment below line
-  mode="expired"
+  #mode="expired"
 }
 
 function  initialize_calibrate_bg()
