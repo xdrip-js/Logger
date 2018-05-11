@@ -15,7 +15,7 @@ function build_go_exe()
   EXE=$1
   echo "building ${EXE}"
   cd ${HOME}/src/xdrip-js-logger/cmd/${EXE}
-  go build
+  /usr/local/go/bin/go build
   if [ -e ${EXE} ]; then
     echo "${EXE} build successful"
   else
