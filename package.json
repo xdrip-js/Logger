@@ -7,18 +7,10 @@
   "scripts": {
     "test": "make test",
     "setup": "./bin/logger-setup.sh",
-    "global-install": "npm install && sudo npm install -g && sudo npm link && sudo npm link xdrip-js-logger && ./bin/logger-setup.sh "
+    "global-install": "npm install && ./bin/logger-setup.sh"
   },
   "dependencies": {
-    "xdrip-js": "efidoman/xdrip-js-fidoman#dev"
-  },
-  "bin": {
-    "xdrip-get-entries": "./xdrip-get-entries.sh",
-    "post-xdripAPS": "./post-xdripAPS.sh",
-    "post-ns": "./post-ns.sh",
-    "calc-calibration": "./calc-calibration.sh",
-    "calibrate": "./bin/calibrate.sh",
-    "calc-calibration": "./calc-noise.sh"
+    "xdrip-js": "thebookins/xdrip-js#dev"
   },
     "repository": {
     "type": "git",
