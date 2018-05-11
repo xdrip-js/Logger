@@ -225,7 +225,7 @@ func main() {
 		if _, err := fmt.Sscan(record[0], unfiltered); err != nil {
 			fmt.Printf("%T, %v\n", unfiltered, unfiltered)
 		}
-		tdate = append(xdate, epochdate)
+		tdate = append(tdate, epochdate)
 		yarr = append(yarr, bg)
                 xarr = append(xarr, unfiltered)
 		lineCount += 1

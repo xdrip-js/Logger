@@ -1,4 +1,5 @@
 const Transmitter = require('xdrip-js');
+const util = require('util')
 
 const id = process.argv[2];
 // FIXME, process.argv[3] should probably just be a file containing an array of messages to send the transmitter instead of a json string.
@@ -105,10 +106,12 @@ function SensorStateString(state) {
 }
 
 const transmitter = new Transmitter(id, () => messages); 
+
 transmitter.on('glucose', glucose => {
   //console.log('got glucose: ' + glucose.glucose);
-  lastGlucose = glucose;
   var d= new Date(glucose.readDate);
+
+  console.log(util.inspect(glucose, false, null))
   var fs = require('fs');
   const entry = [{
       'device': 'DexcomR4',
@@ -120,7 +123,7 @@ transmitter.on('glucose', glucose => {
       'type': 'sgv',
       'filtered': Math.round(glucose.filtered),
       'unfiltered': Math.round(glucose.unfiltered),
-      'rssi': "100", // TODO: consider reading this on connection and reporting
+      'rssi': glucose.rssi, 
       'noise': "1",
       'trend': glucose.trend,
       'state': SensorStateString(glucose.state), 
@@ -134,7 +137,7 @@ transmitter.on('glucose', glucose => {
       console.log("Error - bad glucose data, not processing");
       process.exit();
     }
-    fs.writeFile("entry.json", data, function(err) {
+    fs.writeFile("/root/myopenaps/monitor/logger/entry.json", data, function(err) {
     if(err) {
         console.log("Error while writing entry-test.json");
         console.log(err);
@@ -143,4 +146,33 @@ transmitter.on('glucose', glucose => {
     });
 });
 
+
+transmitter.on('batteryStatus', data => {
+  const util = require('util')
+  console.log('got batteryStatus message inside logger msg: ' + data);
+  console.log(util.inspect(data, false, null))
+
+//  status: 0,
+//  voltagea: 313,
+//  voltageb: 299,
+//  resist: 848,
+//  runtime: 5,
+//  temperature: 34 
+
+  var fs = require('fs');
+  const battery = JSON.stringify(data);
+  fs.writeFile("/root/myopenaps/monitor/g5-battery.json", battery, function(err) {
+  if(err) {
+      console.log("Error while writing g5-battery.json");
+      console.log(err);
+      }
+  });
+});
+
 transmitter.on('disconnect', process.exit);
+
+transmitter.on('messageProcessed', data => {
+  console.log('got message inside logger msg: ' + data);
+  console.log(util.inspect(data, false, null))
+});
+
