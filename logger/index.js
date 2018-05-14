@@ -161,7 +161,7 @@ transmitter.on('batteryStatus', data => {
 
   var fs = require('fs');
   const battery = JSON.stringify(data);
-  fs.writeFile("/root/myopenaps/monitor/g5-battery.json", battery, function(err) {
+  fs.writeFile("/root/myopenaps/monitor/logger/g5-battery.json", battery, function(err) {
   if(err) {
       console.log("Error while writing g5-battery.json");
       console.log(err);

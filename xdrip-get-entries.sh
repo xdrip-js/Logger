@@ -70,6 +70,7 @@ main()
 
   #call after posting to NS OpenAPS for not-expired mode
   if [ "$mode" == "expired" ]; then
+    check_variation
     calculate_calibrations
   fi
 
@@ -584,6 +585,17 @@ function check_pump_history_calibration()
   calDate=$epochdate # TODO: use pump history date
 }
 
+function check_variation()
+{
+  variation=$(bc <<< "($filtered - $unfiltered) * 100 / $filtered")
+  if [ $(bc <<< "$variation > 10") -eq 1 -o $(bc <<< "$variation < -10") -eq 1 ]; then
+    log "would not allow meter calibration - filtered/unfiltered variation of $variation exceeds 10%"
+    meterbg=""
+  else
+    log "filtered/unfiltered variation ok for meter calibration, $variation"
+  fi
+}
+
 function check_ns_calibration()
 {
   if [ -z $meterbg ]; then
@@ -713,20 +725,18 @@ function apply_lsr_calibration()
       remove_dexcom_bt_pair
       exit
     fi
+  fi
 
-    # Inner Calibrated BG boundary checks for case > 400
-    if [ $(bc <<< "$calibratedBG > 400") -eq 1 ]; then
-      log "Glucose $calibratedBG over 400 - setting noise level Heavy"
-      log "BG value will show in Nightscout but Openaps will not use it for looping"
-      noiseSend=4
-    fi
+  # Inner Calibrated BG boundary checks for case > 400
+  if [ $(bc <<< "$calibratedBG > 400") -eq 1 ]; then
+    log "Glucose $calibratedBG over 400; BG value of HI will show in Nightscout"
+    calibratedBG=401
+  fi
 
-    # Inner Calibrated BG boundary checks for case < 40
-    if [ $(bc <<< "$calibratedBG < 40") -eq 1 ]; then
-      log "Glucose $calibratedBG < 40 - setting noise level Light"
-      log "BG value will show in Nightscout and Openaps will conservatively use it for looping"
-      noiseSend=2
-    fi
+  # Inner Calibrated BG boundary checks for case < 40
+  if [ $(bc <<< "$calibratedBG < 40") -eq 1 ]; then
+    log "Glucose $calibratedBG < 40; BG value of LO will show in Nightscout"
+    calibratedBG=39
   fi
 }
 
