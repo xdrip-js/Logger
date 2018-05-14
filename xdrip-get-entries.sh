@@ -736,7 +736,7 @@ function apply_lsr_calibration()
   # Inner Calibrated BG boundary checks for case < 40
   if [ $(bc <<< "$calibratedBG < 40") -eq 1 ]; then
     log "Glucose $calibratedBG < 40; BG value of LO will show in Nightscout"
-    calibratedBG=1
+    calibratedBG=39
   fi
 }
 
