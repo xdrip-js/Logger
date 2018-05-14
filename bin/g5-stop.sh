@@ -1,10 +1,10 @@
 #!/bin/bash
-# optional parameter $1 to specify how many hours ago for sensor insert/start
-hoursago=$1
+# optional parameter $1 to specify how many minutes ago for sensor insert/start
+minutesago=$1
 MESSAGE="${HOME}/myopenaps/monitor/logger/g5-stop.json"
 
-if [ -n "$hoursago" ]; then
-  epochdate=$(date +'%s%3N' -d "$hoursago hour ago")
+if [ -n "$minutesago" ]; then
+  epochdate=$(date +'%s%3N' -d "$minutessago minutes ago")
 else
   epochdate=$(date +'%s%3N')
 fi
