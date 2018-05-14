@@ -221,7 +221,7 @@ function check_battery_status()
 {
 
    if [ "$battery_check" == "Yes" ]; then
-     file="${LDIR}/../g5-battery.json"
+     file="${LDIR}/g5-battery.json"
      g5_status=$(jq ".status" $file)
      voltagea=$(jq ".voltagea" $file)
      voltageb=$(jq ".voltageb" $file)
@@ -239,7 +239,7 @@ function check_battery_status()
 
 function check_send_battery_status()
  {
-   file="${LDIR}/../g5-battery.json"
+   file="${LDIR}/g5-battery.json"
  
    if [ -e $file ]; then
      if test  `find $file -mmin +720`
