@@ -582,7 +582,7 @@ function check_pump_history_calibration()
   fi
   echo
   log "meterbg from pumphistory: $meterbg"
-  calDate=$epochdate # TODO: use pump history date
+  calDate=$(date +'%s%3N') # TODO: use pump history date
 }
 
 function check_variation()
