@@ -513,7 +513,7 @@ function set_mode()
     fi
   fi
   # to hard-code or test expired mode, uncomment below line
-  mode="expired"
+  #mode="expired"
 }
 
 function  initialize_calibrate_bg()
