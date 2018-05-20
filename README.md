@@ -68,7 +68,7 @@ sudo apt-get install bluez-tools
 
 Add cron job entry (replace "40SNU6" with your g5 transmitter id in both places below) ...
 ```
-* * * * * cd /root/src/xdrip-js-logger && ps aux | grep -v grep | grep -q '40SNU6' || /usr/local/bin/Logger 40SNU6 | tee -a /var/log/openaps/logger-loop.log
+* * * * * cd /root/src/xdrip-js-logger && ps aux | grep -v grep | grep -q '40SNU6' || /usr/local/bin/Logger 40SNU6 >> /var/log/openaps/logger-loop.log 2>&1
 ```
 
 
