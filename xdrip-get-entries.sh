@@ -591,7 +591,6 @@ function check_variation()
   if [ $(bc <<< "$variation > 10") -eq 1 -o $(bc <<< "$variation < -10") -eq 1 ]; then
     log "would not allow meter calibration - filtered/unfiltered variation of $variation exceeds 10%"
     meterbg=""
-    noiseSend=2 # set noise to light so SMB will not be used during this noisy scenario
   else
     log "filtered/unfiltered variation ok for meter calibration, $variation"
   fi
