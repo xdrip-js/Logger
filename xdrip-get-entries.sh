@@ -513,7 +513,7 @@ function set_mode()
     fi
   fi
   # to hard-code or test expired mode, uncomment below line
-  #mode="expired"
+  mode="expired"
 }
 
 function  initialize_calibrate_bg()
@@ -904,9 +904,9 @@ function calculate_noise()
       log "Raw noise of $noise will be used to determine noiseSend value."
     fi
 
-    if [ $(bc -l <<< "$noise < 0.35") -eq 1 ]; then
+    if [ $(bc -l <<< "$noise < 0.45") -eq 1 ]; then
       noiseSend=1  # Clean
-    elif [ $(bc -l <<< "$noise < 0.5") -eq 1 ]; then
+    elif [ $(bc -l <<< "$noise < 0.55") -eq 1 ]; then
       noiseSend=2  # Light
     elif [ $(bc -l <<< "$noise < 0.7") -eq 1 ]; then
       noiseSend=3  # Medium
