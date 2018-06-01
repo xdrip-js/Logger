@@ -82,27 +82,27 @@ tail -f /var/log/openaps/logger-loop.log
 
 Insert the new Dexcom g5 sensor. Notify Logger of this insertion by using one of the two methods below:
 
-	Nightscout Treatment CGM Sensor Insert 
-	 or
-	Run ```g5-insert``` from the command line
+Nightscout Treatment CGM Sensor Insert 
+  or
+Run ```g5-insert``` from the command line
 
 Start the new Dexcom g5 sensor by using one of the two methods below:
 
-	Nightscout Treatment CGM Sensor Start 
-	  or
-	Run ```g5-start``` from the command line
+Nightscout Treatment CGM Sensor Start 
+  or
+Run ```g5-start``` from the command line
 
-	Within 15 minutes, the sensor state should show "Warmup" in Nightscout and in the Logger log. At this point, you have 2 options:
+Within 15 minutes, the sensor state should show "Warmup" in Nightscout and in the Logger log. At this point, you have 2 options:
 	
-	Prefered: Wait to calibrate until the 2 hour warmup period is complete and the sensor state in NS shows "First Calibration".
+Prefered: Wait to calibrate until the 2 hour warmup period is complete and the sensor state in NS shows "First Calibration".
 		  Calibrate again once the sensor state in NS shows "Second Calibration"
 
-	Not Prefered / Advanced mode: Calibrate after > 15 minutes since CGM start.
+Not Prefered / Advanced mode: Calibrate after > 15 minutes since CGM start.
 
 Calibrate by using one of the two methods below:
 
-	Nightscout Treatment BG Check and put calibrated glucose in the Glucose Reading field
-	  or
-	Run ```g5-calibrate <bg>``` from the command line
+Nightscout Treatment BG Check and put calibrated glucose in the Glucose Reading field
+  or
+Run ```g5-calibrate <bg>``` from the command line
 
 After calibration(s), you should see BG values in Nightscout and in the log.
