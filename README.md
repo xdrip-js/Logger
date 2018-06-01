@@ -76,7 +76,9 @@ First, make sure you've checked the Prerequisites above and completed the Instal
 
 Review the Logger logfile to ensure the proccess is proceeding without errors. Run the following command on the rig and keep it running for debugging purposes for the first time you go through the procedures below:
 
-	```tail -f /var/log/openaps/logger-loop.log```
+```
+tail -f /var/log/openaps/logger-loop.log
+```
 
 Insert the new Dexcom g5 sensor. Notify Logger of this insertion by using one of the two methods below:
 
