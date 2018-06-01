@@ -91,6 +91,6 @@ Prefered: Wait to calibrate until the 2 hour warmup period is complete and the s
 
 Not Prefered / Advanced mode: Calibrate after > 15 minutes since CGM start.
 
-Calibrate by using one of the two methods (Nightscout Treatment BG Check and put calibrated glucose in the Glucose Reading field) or (run ```g5-calibrate bgvalue``` from the command line)
+Calibrate by using one of the two methods (Nightscout Treatment BG Check and put calibrated glucose in the Glucose Reading field) or (run ```calibrate bgvalue``` from the command line)
 
 After calibration(s), you should see BG values in Nightscout and in the log.
