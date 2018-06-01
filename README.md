@@ -79,8 +79,8 @@ Review the Logger logfile to ensure the proccess is proceeding without errors. R
 
 Insert the new Dexcom g5 sensor. Notify Logger of this insertion by one of two methods below:
 
-	* Nightscout Treatment CGM Sensor Insert 
-	* Run ```g5-insert``` from the command line
+	Nightscout Treatment CGM Sensor Insert 
+	Run ```g5-insert``` from the command line
 
 Start the new Dexcom g5 sensor by one of the two methods below:
 	- Nightscout Treatment CGM Sensor Start 
