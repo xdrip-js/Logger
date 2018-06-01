@@ -64,7 +64,7 @@ git clone https://github.com/efidoman/xdrip-js-logger.git
 cd xdrip-js-logger
 sudo npm run global-install
 sudo apt-get install bluez-tools
-```start
+```
 
 Add cron job entry (replace "40SNU6" with your g5 transmitter id in both places below) ...
 ```
@@ -80,11 +80,7 @@ Review the Logger logfile to ensure the proccess is proceeding without errors. R
 tail -f /var/log/openaps/logger-loop.log
 ```
 
-Insert the new Dexcom g5 sensor. Notify Logger of this insertion by using one of the two methods below:
-
-Nightscout Treatment CGM Sensor Insert 
-  or
-Run ```g5-insert``` from the command line
+Insert the new Dexcom g5 sensor. Notify Logger of this insertion by using one of the two methods (Nightscout Treatment CGM Sensor Insert) or run ```g5-insert``` from the command line
 
 Start the new Dexcom g5 sensor by using one of the two methods (Nightscout Treatment CGM Sensor Start) or (run ```g5-start``` from the command line)
 
