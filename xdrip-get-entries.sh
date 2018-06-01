@@ -513,7 +513,7 @@ function set_mode()
     fi
   fi
   # to hard-code or test expired mode, uncomment below line
-  mode="expired"
+  #mode="expired"
 }
 
 function  initialize_calibrate_bg()
@@ -644,12 +644,12 @@ function calculate_calibrations()
           if [ $(bc -l <<< "$meterbg_raw_delta < 0") -eq 1 ]; then
 	    meterbg_raw_delta=$(bc -l <<< "0 - $meterbg_raw_delta")
           fi
-          if [ $(bc -l <<< "$meterbg_raw_delta > 70") -eq 1 ]; then
+          if [ $(bc -l <<< "$meterbg_raw_delta > 80") -eq 1 ]; then
 	    log "Raw/unfiltered compared to meterbg is $meterbg_raw_delta > 70, ignoring calibration"
           else
             echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid,$filtered,$unfiltered" >> ${LDIR}/calibrations.csv
             /usr/local/bin/g5-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
-            maxDelta=60
+            maxDelta=70
             calibrationDone=1
             cat ${LDIR}/calibrations.csv
             cat ${LDIR}/calibration-linear.json
@@ -915,6 +915,7 @@ function calculate_noise()
   fi
 
   tmp=$(mktemp)
+  noiseSend=1
   jq ".[0].noise = $noiseSend" ${LDIR}/entry-xdrip.json > "$tmp" && mv "$tmp" ${LDIR}/entry-xdrip.json
 }
 
