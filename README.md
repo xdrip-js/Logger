@@ -64,7 +64,7 @@ git clone https://github.com/efidoman/xdrip-js-logger.git
 cd xdrip-js-logger
 sudo npm run global-install
 sudo apt-get install bluez-tools
-```
+```start
 
 Add cron job entry (replace "40SNU6" with your g5 transmitter id in both places below) ...
 ```
@@ -86,11 +86,7 @@ Nightscout Treatment CGM Sensor Insert
   or
 Run ```g5-insert``` from the command line
 
-Start the new Dexcom g5 sensor by using one of the two methods below:
-
-Nightscout Treatment CGM Sensor Start 
-  or
-Run ```g5-start``` from the command line
+Start the new Dexcom g5 sensor by using one of the two methods (Nightscout Treatment CGM Sensor Start) or (run ```g5-start``` from the command line)
 
 Within 15 minutes, the sensor state should show "Warmup" in Nightscout and in the Logger log. At this point, you have 2 options:
 	
@@ -99,10 +95,6 @@ Prefered: Wait to calibrate until the 2 hour warmup period is complete and the s
 
 Not Prefered / Advanced mode: Calibrate after > 15 minutes since CGM start.
 
-Calibrate by using one of the two methods below:
-
-Nightscout Treatment BG Check and put calibrated glucose in the Glucose Reading field
-  or
-Run ```g5-calibrate <bg>``` from the command line
+Calibrate by using one of the two methods (Nightscout Treatment BG Check and put calibrated glucose in the Glucose Reading field) or (run ```g5-calibrate bgvalue``` from the command line)
 
 After calibration(s), you should see BG values in Nightscout and in the log.
