@@ -1,6 +1,6 @@
-# xdrip-js-logger - the xdrip-js One-Shot Mode Logger.
+# xdrip-js-logger - Bash (shell) based Dexcom g5 glucose pre-processor for OpenAPS
 
-Logger connects to the g5 transmitter, waits for the first bg, logs a json entry record, then exits. Doing it one-shot at a time seems to make xdrip-js more reliable in some cases. Logger is a wrapper shell script that is called from cron every minute. Current Logger features:
+Logger connects to the g5 transmitter, waits for the first bg, logs a json entry record, then exits. Doing it one-shot at a time seems to make xdrip-js more reliable in some cases. Logger is a wrapper shell script that is called from cron every minute. The user interface is a mixture between unix command line scripts and NightScout. The current Logger features are below:
 
 * Preparation and sending of the blood glucose data to Nightscout and to OpenAPS.
 * Offline mode - Logger runs on the rig and sends bg data directly to openaps through via xdripAPS. Logger queues up NS updates while internet is down and fills in the gaps when internet is restored.
