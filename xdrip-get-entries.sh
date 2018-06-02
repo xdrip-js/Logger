@@ -11,8 +11,9 @@ main()
 
 # Cmd line args - transmitter $1 is 6 character tx serial number
   transmitter=$1
-  meterid=${2:-"000000"}
+  cmd_line_mode=${2:-""}
   pumpUnits=${3:-"mg/dl"}
+  meterid=${4:-"000000"}
 
   id2=$(echo "${transmitter: -2}")
   id="Dexcom${id2}"
@@ -61,8 +62,7 @@ main()
   set_mode
 
   log "Mode = $mode"
-  # not sure if we need a "dual" mode
-  if [[ "$mode" == "not-expired" || $"$mode" == "dual" ]]; then
+  if [[ "$mode" == "not-expired" ]]; then
     initialize_calibrate_bg 
   fi
   set_entry_device_id
@@ -511,6 +511,9 @@ function set_mode()
       # fallback to try to use unfiltered in this case
       mode="expired"
     fi
+  fi
+  if [[ "$cmd_line_mode" == "expired" ]]; then
+    mode="expired"
   fi
   # to hard-code or test expired mode, uncomment below line
   #mode="expired"
