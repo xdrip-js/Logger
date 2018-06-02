@@ -918,7 +918,7 @@ function calculate_noise()
   fi
 
   tmp=$(mktemp)
-  noiseSend=1
+  #noiseSend=1
   jq ".[0].noise = $noiseSend" ${LDIR}/entry-xdrip.json > "$tmp" && mv "$tmp" ${LDIR}/entry-xdrip.json
 }
 
