@@ -28,6 +28,7 @@ mkdir -p ${HOME}/myopenaps/monitor/logger
 
 root_dir=${HOME}/src/xdrip-js-logger
 link_install ${root_dir}/bin/calibrate.sh calibrate
+link_install ${root_dir}/bin/calibrate.sh g5-calibrate
 link_install ${root_dir}/bin/g5-noise.sh g5-noise
 link_install ${root_dir}/bin/g5-stop.sh g5-stop
 link_install ${root_dir}/bin/g5-start.sh g5-start

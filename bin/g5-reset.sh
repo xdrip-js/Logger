@@ -10,7 +10,7 @@ read -p "Are you sure? (y/n)" -n 1 -r
 echo    
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-  echo "[{\"date\":\"${epochdate}\",\"type\":\"ResetSensor\"}]" >  $MESSAGE
+  echo "[{\"date\":\"${epochdate}\",\"type\":\"ResetTx\"}]" >  $MESSAGE
   cat $MESSAGE
   echo
   echo "ResetTx message sent to Logger"
