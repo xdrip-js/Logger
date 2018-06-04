@@ -72,7 +72,7 @@ node -v
 ## Installation 
 ```
 cd ~/src
-git clone https://github.com/efidoman/xdrip-js-logger.git
+git clone https://github.com/xdrip-js/Logger.git
 cd xdrip-js-logger
 sudo npm run global-install
 sudo apt-get install bluez-tools
