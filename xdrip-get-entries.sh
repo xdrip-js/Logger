@@ -338,6 +338,7 @@ function  check_cmd_line_calibration()
   if [ $found_meterbg == false ]; then
     CALFILE="${LDIR}/calibration.json"
     if [ -e $CALFILE ]; then
+      epochdatems=$(date +'%s%3N')
       if test  `find $CALFILE -mmin -7`
       then
         log "calibration file $CALFILE contents below"
@@ -345,7 +346,7 @@ function  check_cmd_line_calibration()
         echo
         calDate=$(jq ".[0].date" $CALFILE)
         # check the date inside to make sure we don't calibrate using old record
-        if [ $(bc <<< "($epochdate - $calDate) < 420") -eq 1 ]; then
+        if [ $(bc <<< "($epochdatems - $calDate)/1000 < 420") -eq 1 ]; then
           calDate=$(jq ".[0].date" $CALFILE)
           meterbg=$(jq ".[0].glucose" $CALFILE)
           meterbgid=$(jq ".[0].dateString" $CALFILE)

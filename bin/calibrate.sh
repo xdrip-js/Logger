@@ -11,7 +11,7 @@ TEST=${3:-""}       # arg 3 if "test" then test mode
 
 CALIBRATION="${HOME}/myopenaps/monitor/logger/calibration.json"
 dateString=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
-epochdate=$(date +'%s')
+epochdate=$(date +'%s%3N')
 UUID=$(cat /proc/sys/kernel/random/uuid)
 UUID=$(echo "${UUID//-}")
 
