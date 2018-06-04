@@ -48,7 +48,7 @@ NIGHTSCOUT_HOST=https://yyyyyyy.herokuapp.com
 export NIGHTSCOUT_HOST
 ```
 
-For the edison, the version of Node that ships with jubilinux is old (v0.10.something). Here are the instructions for updating Node:
+For the edison/explorer board (jubilinux), the version of Node that ships with jubilinux is old (v0.10.something). Here are the instructions for updating the edison/explorer rig's Node:
 ```
 sudo apt-get remove nodered -y
 sudo apt-get remove nodejs nodejs-legacy -y
@@ -57,7 +57,19 @@ sudo curl -sL https://deb.nodesource.com/setup_6.x | sudo bash -
 sudo apt-get install nodejs -y
 ```
 
-## Installation
+If you are using the RPI zero hat, the version of Node that ships with jubilinux also needs updating. Here are the instructions for updating the rpi zero hat's Node:
+```
+mkdir node && cd node
+wget https://nodejs.org/dist/v8.10.0/node-v8.10.0-linux-armv6l.tar.xz
+tar -xf node-v8.10.0-linux-armv6l.tar.xz
+cd *6l
+sudo cp -R * /usr/local/
+# add /usr/local/bin to PATH env variable in .bash_profile
+node -v
+# should show 8.10.0 at this point
+```
+
+## Installation 
 ```
 cd ~/src
 git clone https://github.com/efidoman/xdrip-js-logger.git
