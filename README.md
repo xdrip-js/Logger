@@ -26,10 +26,10 @@ g5-start
 # Warning! 
 
 Logger LSR calibration is a new feature as of Feb/2018. Only those who closely monitor and check blood glucose and regularly review the Logger logfiles should use this program at this time.
-* /var/log/openaps/xdrip-js-loop.log
+* /var/log/openaps/logger-loop.log
 * /var/log/openaps/g5.csv
-* /root/src/xdrip-js-logger/calibrations.csv - the current list of calibrations (unfiltered, BG check, datetime, BG Check ID)
-* /root/src/xdrip-js-logger/calibration-linear.json - the current calibration values (slope, yIntercept). Please note that other fields in this file are for informational purposes at this time. Unfiltered values from the g5 are on a 1,000 scale which explains why slope and yIntercept are 1,000 greater than glucose values.
+* /root/myopenaps/monitor/logger/calibrations.csv - the current list of calibrations (unfiltered, BG check, datetime, BG Check ID)
+* /root/myopenaps/monitor/logger/calibration-linear.json - the current calibration values (slope, yIntercept). Please note that other fields in this file are for informational purposes at this time. Unfiltered values from the g5 are on a 1,000 scale which explains why slope and yIntercept are 1,000 greater than glucose values.
 
 [![Join the chat at https://gitter.im/thebookins/xdrip-js](https://badges.gitter.im/thebookins/xdrip-js.svg)](https://gitter.im/thebookins/xdrip-js?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
@@ -106,3 +106,8 @@ Not Prefered / Advanced mode: Calibrate after > 15 minutes since CGM start.
 Calibrate by using one of the two methods (Nightscout Treatment BG Check and put calibrated glucose in the Glucose Reading field) or (run ```calibrate bgvalue``` from the command line)
 
 After calibration(s), you should see BG values in Nightscout and in the log.
+
+## Troubleshooting 
+
+If both unfiltered and filtered values are showing up as 0 in the Logger logfile, then you may be able to solve the problem by doing a ```g5-reset```. Note: This will reset the session and you will lose any transmitter stored calibrations so this technique is probably best used when unfiltered is 0 upon new sensor insertion.
+
