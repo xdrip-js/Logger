@@ -79,10 +79,10 @@ Add cron job entry (replace "40SNU6" with your g5 transmitter id in both places 
 
 ## Command line parameters to Logger are as follows:
 
-Arg 1 = 6 character tx serial number (i.e. 40SNU6)
-Arg 2 = Optional - if you specify "expired" then mode is hard-coded to expired tx mode and it uses local LSR calibration always.
-Arg 3 = Optional - pumpUnits default is "mg/dl"
-Arg 4 = Optional - meterid for fakemeter sending glucose records to pump, default is "000000"
+	Arg 1 = 6 character tx serial number (i.e. 40SNU6)
+	Arg 2 = Optional - if you specify "expired" then mode is hard-coded to expired tx mode and it uses local LSR calibration always.
+	Arg 3 = Optional - pumpUnits default is "mg/dl"
+	Arg 4 = Optional - meterid for fakemeter sending glucose records to pump, default is "000000"
 
 ## Getting Started
 First, make sure you've checked the Prerequisites above and completed the Installation steps. Afterwords, perform the following steps:
