@@ -49,6 +49,7 @@ main()
 
 # begin calibration logic - look for calibration from NS, use existing calibration or none
   maxDelta=30
+  found_meterbg=false
   check_cmd_line_calibration
   check_pump_history_calibration
   check_ns_calibration
@@ -334,7 +335,7 @@ function check_last_entry_values()
 function  check_cmd_line_calibration()
 {
 ## look for a bg check from ${LDIR}/calibration.json
-  if [ -z $meterbg ]; then
+  if [ $found_meterbg == false ]; then
     CALFILE="${LDIR}/calibration.json"
     if [ -e $CALFILE ]; then
       if test  `find $CALFILE -mmin -7`
@@ -356,6 +357,7 @@ function  check_cmd_line_calibration()
             log "converted OpenAPS meterbg from mmol value to $meterbg"
           fi
           log "Calibration of $meterbg from $CALFILE being processed - id = $meterbgid"
+	  found_meterbg=true
           # put in backfill so that the command line calibration will be sent up to NS 
           # now (or later if offline)
           log "Setting up to send calibration to NS now if online (or later with backfill)"
@@ -368,8 +370,8 @@ function  check_cmd_line_calibration()
       fi
       rm $CALFILE
     fi
+    log "meterbg from ${LDIR}/calibration.json: $meterbg"
   fi
-  log "meterbg from ${LDIR}/calibration.json: $meterbg"
 }
 
 function  remove_dexcom_bt_pair()
@@ -570,22 +572,27 @@ function process_announcements()
 
 function check_pump_history_calibration()
 {
-  # look for a bg check from pumphistory (direct from meter->openaps):
-  # note: pumphistory may not be loaded by openaps very timely...
-  meterbgafter=$(date -d "9 minutes ago" -Iminutes)
-  meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\")'"
-  bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json" > $METERBG_NS_RAW
-  meterbg=$(bash -c "jq .amount $METERBG_NS_RAW")
-  meterbgid=$(bash -c "jq .timestamp $METERBG_NS_RAW")
-  # meter BG from pumphistory doesn't support mmol yet - has no units...
-  # using arg3 if mmol then convert it
-  if [[ "$pumpUnits" == *"mmol"* ]]; then
-    meterbg=$(bc <<< "($meterbg *18)/1")
-    log "converted pump history meterbg from mmol value to $meterbg"
+  if [ $found_meterbg == false ]; then
+    # look for a bg check from pumphistory (direct from meter->openaps):
+    # note: pumphistory may not be loaded by openaps very timely...
+    meterbgafter=$(date -d "9 minutes ago" -Iminutes)
+    meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\")'"
+    bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json" > $METERBG_NS_RAW
+    meterbg=$(bash -c "jq .amount $METERBG_NS_RAW")
+    meterbgid=$(bash -c "jq .timestamp $METERBG_NS_RAW")
+    # meter BG from pumphistory doesn't support mmol yet - has no units...
+    # using arg3 if mmol then convert it
+    if [[ "$pumpUnits" == *"mmol"* ]]; then
+      meterbg=$(bc <<< "($meterbg *18)/1")
+      log "converted pump history meterbg from mmol value to $meterbg"
+    fi
+    echo
+    if [[ -n "$meterbg" && "$meterbg" != "" ]]; then  
+      log "meterbg from pumphistory: $meterbg"
+      found_meterbg=true
+    fi
+    calDate=$(date +'%s%3N') # TODO: use pump history date
   fi
-  echo
-  log "meterbg from pumphistory: $meterbg"
-  calDate=$(date +'%s%3N') # TODO: use pump history date
 }
 
 function check_variation()
@@ -601,7 +608,7 @@ function check_variation()
 
 function check_ns_calibration()
 {
-  if [ -z $meterbg ]; then
+  if [ $found_meterbg == false ]; then
     # can't use the Sensor insert UTC determination for BG since they can
     # be entered in either UTC or local time depending on how they were entered.
     curl --compressed -m 30 "${ns_url}/api/v1/treatments.json?find\[eventType\]\[\$regex\]=Check&count=1" 2>/dev/null > $METERBG_NS_RAW
@@ -627,6 +634,7 @@ function check_ns_calibration()
       rm $METERBG_NS_RAW
     fi
     log "meterbg from nightscout: $meterbg"
+    found_meterbg=true
     calDate=$(date +'%s%3N') # TODO: use NS BG Check date
   fi
 }
