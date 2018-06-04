@@ -11,10 +11,10 @@ Logger connects to the g5 transmitter, waits for the first bg, logs a json entry
 * Start Sensor - Use the following command, wait > 5 minutes, and your sensor session will start. Use  this command after inserting your sensor so that Logger will start the process for sending glucose information. This feature is also available via the command line and you can also do it via Nightscout as a BG Treatment, entry type of Sensor Start.  ```g5-start```
 
 * Calibration via linear least squares regression (LSR) (similar to xdrip plus)
-  * Calibrations must be input into Nightscout as BG Check treatments.
+  * Calibrations must be input into Nightscout as BG Check treatments or command line ```calibrate bg_value```.
   * Logger will not calculate or send any BG data out unless at least one  calibration has been done in Nightscout.
   * LSR calibration only comes into play after 3 or more calibrations. When there one or two calibrations, single point linear calibration is used.
-  * The calibration cache will be cleared for the first 15 minutes after a Nightscout "CGM Sensor Insert" treatment has been posted.
+  * The calibration cache will be cleared for the first 15 minutes after a Nightscout "CGM Sensor Insert" has been posted as Nightscout treatment.
   * After 15 minutes, BG data will only be sent out after at least one calibration has been documented in Nightscout.
 
 # Warning! 
@@ -74,8 +74,15 @@ sudo apt-get install bluez-tools
 
 Add cron job entry (replace "40SNU6" with your g5 transmitter id in both places below) ...
 ```
-* * * * * cd /root/src/xdrip-js-logger && ps aux | grep -v grep | grep -q '40SNU6' || /usr/local/bin/Logger 40SNU6 >> /var/log/openaps/logger-loop.log 2>&1
+* * * * * ps aux | grep -v grep | grep -q '40SNU6' || /usr/local/bin/Logger 40SNU6 >> /var/log/openaps/logger-loop.log 2>&1
 ```
+
+## Command line parameters to Logger are as follows:
+
+Arg 1 = 6 character tx serial number (i.e. 40SNU6)
+Arg 2 = Optional - if you specify "expired" then mode is hard-coded to expired tx mode and it uses local LSR calibration always.
+Arg 3 = Optional - pumpUnits default is "mg/dl"
+Arg 4 = Optional - meterid for fakemeter sending glucose records to pump, default is "000000"
 
 ## Getting Started
 First, make sure you've checked the Prerequisites above and completed the Installation steps. Afterwords, perform the following steps:
