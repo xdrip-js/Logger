@@ -77,7 +77,7 @@ Add cron job entry (replace "40SNU6" with your g5 transmitter id in both places 
 * * * * * ps aux | grep -v grep | grep -q '40SNU6' || /usr/local/bin/Logger 40SNU6 >> /var/log/openaps/logger-loop.log 2>&1
 ```
 
-## Command line parameters to Logger are as follows:
+## Logger Command Line Arguments:
 
 	Arg 1 = 6 character tx serial number (i.e. 40SNU6)
 	Arg 2 = Optional - if you specify "expired" then mode is hard-coded to expired tx mode and it uses local LSR calibration always.
