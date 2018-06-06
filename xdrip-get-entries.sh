@@ -4,7 +4,6 @@ main()
 {
   log "Starting Logger"
 
-  cd /root/src/xdrip-js-logger
   LDIR="${HOME}/myopenaps/monitor/logger"
   mkdir -p ${LDIR}
   mkdir -p ${LDIR}/old-calibrations
