@@ -72,14 +72,14 @@ sudo npm run global-install
 sudo apt-get install bluez-tools
 ```
 
-Add cron job entry (replace "40SNU6" with your g5 transmitter id in both places below) ...
+Add cron job entry (replace "403BX6" with your g5 transmitter id in both places below) ...
 ```
-* * * * * ps aux | grep -v grep | grep -q '40SNU6' || /usr/local/bin/Logger 40SNU6 >> /var/log/openaps/logger-loop.log 2>&1
+* * * * * cd /root/src/Logger && ps aux | grep -v grep | grep -q '403BX6' || /usr/local/bin/Logger 403BX6 >> /var/log/openaps/logger-loop.log 2>&1
 ```
 
 ## Logger Command Line Arguments:
 
-	Arg 1 = 6 character tx serial number (i.e. 40SNU6)
+	Arg 1 = 6 character tx serial number (i.e. 403BX6)
 	Arg 2 = Optional - if you specify "expired" then mode is hard-coded to expired tx mode and it uses local LSR calibration always.
 	Arg 3 = Optional - pumpUnits default is "mg/dl"
 	Arg 4 = Optional - meterid for fakemeter sending glucose records to pump, default is "000000"
