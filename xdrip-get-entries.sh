@@ -1028,9 +1028,10 @@ function check_last_glucose_time_smart_sleep()
   if [ -e $file ]; then
     age=$(date -r $file +'%s')
     seconds_since_last_entry=$(bc <<< "$epochdate - $age")
+    log "check_last_glucose_time - epochdate=$epochdate,  age=$age"
     log "Time since last glucose entry in seconds = $seconds_since_last_entry seconds"
     sleep_time=$(bc <<< "240 - $seconds_since_last_entry") 
-    if [ $(bc <<< "$sleep_time > 0") -eq 1 ]; then
+    if [ $(bc <<< "$sleep_time > 0") -eq 1 -a $(bc <<< "$sleep_time < 240") -eq 1 ]; then
       log "Waiting $sleep_time seconds because glucose records only happen every 5 minutes"
       wait_with_echo $sleep_time
     fi
