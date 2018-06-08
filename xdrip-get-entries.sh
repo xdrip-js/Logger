@@ -1026,9 +1026,9 @@ function check_last_glucose_time_smart_sleep()
 {
   file="${LDIR}/entry.json"
   if [ -e $file ]; then
-    age=$(date -r $file +'%s')
-    seconds_since_last_entry=$(bc <<< "$epochdate - $age")
-    log "check_last_glucose_time - epochdate=$epochdate,  age=$age"
+    entry_timestamp=$(date -r $file +'%s')
+    seconds_since_last_entry=$(bc <<< "$epochdate - $entry_timestamp")
+    log "check_last_glucose_time - epochdate=$epochdate,  entry_timestamp=$entry_timestamp"
     log "Time since last glucose entry in seconds = $seconds_since_last_entry seconds"
     sleep_time=$(bc <<< "240 - $seconds_since_last_entry") 
     if [ $(bc <<< "$sleep_time > 0") -eq 1 -a $(bc <<< "$sleep_time < 240") -eq 1 ]; then
