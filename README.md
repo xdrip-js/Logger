@@ -17,6 +17,8 @@ Logger connects to the g5 transmitter, waits for the first bg, logs a json entry
   * The calibration cache will be cleared for the first 15 minutes after a Nightscout "CGM Sensor Insert" has been posted as Nightscout treatment.
   * After 15 minutes, BG data will only be sent out after at least one calibration has been documented in Nightscout.
 
+* fakemeter - Additional offline ability where Logger sends the blood glucose to the pump. To enable, simply go into the pump and add a meter with id 000000 through the Utilities -> Meter Options menu 
+
 # Warning! 
 
 Logger LSR calibration is a new feature as of Feb/2018. Only those who closely monitor and check blood glucose and regularly review the Logger logfiles should use this program at this time.

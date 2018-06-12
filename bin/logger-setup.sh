@@ -33,6 +33,7 @@ link_install ${root_dir}/bin/g5-noise.sh g5-noise
 link_install ${root_dir}/bin/g5-stop.sh g5-stop
 link_install ${root_dir}/bin/g5-start.sh g5-start
 link_install ${root_dir}/bin/g5-battery.sh g5-battery
+link_install ${root_dir}/bin/g5-insert.sh  g5-insert
 link_install ${root_dir}/bin/g5-reset.sh  g5-reset
 link_install ${root_dir}/bin/g5-calc-calibration.sh g5-calc-calibration
 link_install ${root_dir}/bin/g5-calc-noise.sh g5-calc-noise
