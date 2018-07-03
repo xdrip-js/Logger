@@ -12,7 +12,7 @@ function ClearCalibrationInput()
   fi
 }
 
-ClearCalibrationInput()
+ClearCalibrationInput
 echo "Logger calibration files cleared."
 echo "Wait at least 15 minutes and then calibrate"
 #TODO - add NS Sensor Insert record
