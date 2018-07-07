@@ -78,6 +78,7 @@ main()
 
 
   if [ "$mode" == expired ]; then
+    readLastStatus
     apply_lsr_calibration 
   fi
 
@@ -107,11 +108,31 @@ main()
 
   log_g5_csv
 
+  if [ "$mode" == "expired" ]; then
+    saveLastStatus
+  fi
   process_announcements
 
   remove_dexcom_bt_pair
   log "Completed Logger"
   echo
+}
+
+function readLastStatus
+{
+  #echo "[{state:\"${state}\", status:\"${status}\"}]" > ${LDIR}/lastStatus.json
+  echo ""
+    state=$(cat ${LDIR}/lastStatus.json | jq -M '.[0].state')
+    status=$(cat ${LDIR}/lastStatus.json | jq -M '.[0].status')
+    status="${status%\"}"
+    status="${status#\"}"
+    state="${state%\"}"
+    state="${state#\"}"
+}
+
+function saveLastStatus
+{
+  echo "[{state:\"${state}\", status:\"${status}\"}]" > ${LDIR}/lastStatus.json
 }
 
 function log
@@ -557,6 +578,12 @@ function process_announcements()
     echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Sensor Stopped, unfiltered=$unfiltered_div_1000\"}]" > ${LDIR}/status-change.json
     /usr/local/bin/g5-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of sensor Stopped status change worked") || (echo; log "Upload to NS of transmitter sensor Stopped did not work")
   else
+    if [ "$mode" == "expired" ]; then
+      state="expired" 
+      lastState="expired"
+      status="Ok"
+      lastStatus="Ok"
+    fi
     log "process_announcements: state=$state status=$status"
     if [ "$status" != "$lastStatus" ]; then
       echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Tx $status\"}]" > ${LDIR}/status-change.json
@@ -691,7 +718,10 @@ function apply_lsr_calibration()
 
     if [ "$calibrationDone" == "1" ];then
       # new calibration record log it to NS
-      echo "[{\"device\":\"$transmitter\",\"type\":\"cal\",\"date\":$epochdate,\"scale\":1,\"intercept\":$yIntercept,\"slope\":$slope}]" > ${LDIR}cal.json 
+      slope_div_1000=$(bc -l <<< "$slope / 1000")
+      yIntercept_div_1000=$(bc -l <<< "$yIntercept / 1000")
+      rig="openaps://$(hostname)"
+      echo "[{\"device\":\"$rig\",\"type\":\"cal\",\"date\":$epochdate,\"scale\":1,\"intercept\":$yIntercept_div_1000,\"slope\":$slope_div_1000}]" > ${LDIR}/cal.json 
       log "Posting cal record to NightScout"
       /usr/local/bin/g5-post-ns ${LDIR}/cal.json && (echo; log "Upload to NightScout of cal record entry worked";) || (echo; log "Upload to NS of cal record did not work")
     fi
