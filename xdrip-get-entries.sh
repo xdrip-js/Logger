@@ -23,6 +23,8 @@ main()
   messages="[]"
   calibrationJSON=""
   epochdate=$(date +'%s')
+  epochdatems=$(date +'%s%3N')
+  dateString=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
   ns_url="${NIGHTSCOUT_HOST}"
   METERBG_NS_RAW="meterbg_ns_raw.json"
   battery_check="No" # default - however it will be changed to Yes every 12 hours
@@ -57,6 +59,7 @@ main()
   remove_dexcom_bt_pair
   compile_messages
   call_logger
+  epochdate=$(date +'%s')
   capture_entry_values
   set_glucose_type
   set_mode
@@ -65,7 +68,7 @@ main()
   if [[ "$mode" == "not-expired" ]]; then
     initialize_calibrate_bg 
   fi
-  set_entry_device_id
+  set_entry_fields
 
 
   check_variation
@@ -132,7 +135,7 @@ function readLastStatus
 
 function saveLastStatus
 {
-  echo "[{state:\"${state}\", status:\"${status}\"}]" > ${LDIR}/lastStatus.json
+  echo "[{\"state\":\"${state}\", \"status\":\"${status}\"}]" > ${LDIR}/lastStatus.json
 }
 
 function log
@@ -486,6 +489,11 @@ function  capture_entry_values()
   # capture raw values for use and for log to csv file 
   unfiltered=$(cat ${LDIR}/entry.json | jq -M '.[0].unfiltered')
   filtered=$(cat ${LDIR}/entry.json | jq -M '.[0].filtered')
+
+  # convert raw data to scale of 1 vs 1000x
+  unfiltered=$(bc -l <<< "scale=3; $unfiltered / 1000")
+  filtered=$(bc -l <<< "scale=3; $filtered / 1000")
+  
   state=$(cat ${LDIR}/entry.json | jq -M '.[0].state')
   state="${state%\"}"
   state="${state#\"}"
@@ -549,24 +557,26 @@ function  initialize_calibrate_bg()
     jq ".[0].sgv = $glucose" ${LDIR}/entry.json > "$tmp" && mv "$tmp" ${LDIR}/entry.json
 }
 
-function set_entry_device_id()
+function set_entry_fields()
 {
   tmp=$(mktemp)
   jq ".[0].device = \"${id}\"" ${LDIR}/entry.json > "$tmp" && mv "$tmp" ${LDIR}/entry.json
+  tmp=$(mktemp)
+  jq ".[0].filtered = ${filtered}" ${LDIR}/entry.json > "$tmp" && mv "$tmp" ${LDIR}/entry.json
+  tmp=$(mktemp)
+  jq ".[0].unfiltered = ${unfiltered}" ${LDIR}/entry.json > "$tmp" && mv "$tmp" ${LDIR}/entry.json
 }
 
 
 function log_g5_csv()
 {
   file="/var/log/openaps/g5.csv"
-  unfiltered_div_1000=$(bc <<< "$unfiltered / 1000")
-  filtered_div_1000=$(bc <<< "$filtered / 1000")
   noise_percentage=$(bc <<< "$noise * 100")
 
   if [ ! -f $file ]; then
-    echo "epochdate,datetime,unfiltered,filtered,direction,calibratedBG-lsr,g5-glucose,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend,mode,unfilt/1000,filt/1000,noise*100,sensitivity,rssi" > $file 
+    echo "epochdate,datetime,unfiltered,filtered,direction,calibratedBG-lsr,g5-glucose,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend,mode,noise*100,sensitivity,rssi" > $file 
   fi
-  echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${glucose},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend},${mode},${unfiltered_div_1000},${filtered_div_1000},${noise_percentage},${sensitivity},${rssi}" >> $file 
+  echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${glucose},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend},${mode},${noise_percentage},${sensitivity},${rssi}" >> $file 
 }
 
 
@@ -574,8 +584,8 @@ function log_g5_csv()
 function process_announcements()
 {
   if [ "$mode" == "Stopped" ]; then
-    log "Not posting glucose to Nightscout or OpenAPS - sensor state is Stopped, unfiltered/1000=$unfiltered_div_1000"
-    echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Sensor Stopped, unfiltered=$unfiltered_div_1000\"}]" > ${LDIR}/status-change.json
+    log "Not posting glucose to Nightscout or OpenAPS - sensor state is Stopped, unfiltered=$unfiltered"
+    echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Sensor Stopped, unfiltered=$unfiltered\"}]" > ${LDIR}/status-change.json
     /usr/local/bin/g5-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of sensor Stopped status change worked") || (echo; log "Upload to NS of transmitter sensor Stopped did not work")
   else
     if [ "$mode" == "expired" ]; then
@@ -676,18 +686,18 @@ function calculate_calibrations()
         # only do this once for a single calibration check for duplicate BG check record ID
         if ! cat ${LDIR}/calibrations.csv | egrep "$meterbgid"; then 
           # safety check to make sure we don't have wide variance between the meterbg and the unfiltered/raw value
-          # Use 1000 as slope for safety in this check
-          meterbg_raw_delta=$(bc -l <<< "$meterbg - $raw/1000")
+          # Use 1 as slope for safety in this check
+          meterbg_raw_delta=$(bc -l <<< "$meterbg - $raw/1")
           # calculate absolute value
           if [ $(bc -l <<< "$meterbg_raw_delta < 0") -eq 1 ]; then
 	    meterbg_raw_delta=$(bc -l <<< "0 - $meterbg_raw_delta")
           fi
           if [ $(bc -l <<< "$meterbg_raw_delta > 80") -eq 1 ]; then
-	    log "Raw/unfiltered compared to meterbg is $meterbg_raw_delta > 70, ignoring calibration"
+	    log "Raw/unfiltered compared to meterbg is $meterbg_raw_delta > 80, ignoring calibration"
           else
             echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid,$filtered,$unfiltered" >> ${LDIR}/calibrations.csv
             /usr/local/bin/g5-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
-            maxDelta=70
+            maxDelta=80
             calibrationDone=1
             cat ${LDIR}/calibrations.csv
             cat ${LDIR}/calibration-linear.json
@@ -717,12 +727,13 @@ function apply_lsr_calibration()
     rSquared=`jq -M '.[0] .rSquared' ${LDIR}/calibration-linear.json` 
 
     if [ "$calibrationDone" == "1" ];then
-      # new calibration record log it to NS
-      slope_div_1000=$(bc -l <<< "$slope / 1000")
-      yIntercept_div_1000=$(bc -l <<< "$yIntercept / 1000")
-      rig="openaps://$(hostname)"
-      echo "[{\"device\":\"$rig\",\"type\":\"cal\",\"date\":$epochdate,\"scale\":1,\"intercept\":$yIntercept_div_1000,\"slope\":$slope_div_1000}]" > ${LDIR}/cal.json 
       log "Posting cal record to NightScout"
+      # new calibration record log it to NS
+      #slope_div_1000=$(bc -l <<< "scale=2; $slope / 1000")
+      #yIntercept_div_1000=$(bc -l <<< "scale=2; $yIntercept / 1000")
+      rig="openaps://$(hostname)"
+
+      echo "[{\"device\":\"$rig\",\"type\":\"cal\",\"date\":$epochdatems,\"dateString\":\"$dateString\", \"scale\":1,\"intercept\":$yIntercept,\"slope\":$slope}]" > ${LDIR}/cal.json 
       /usr/local/bin/g5-post-ns ${LDIR}/cal.json && (echo; log "Upload to NightScout of cal record entry worked";) || (echo; log "Upload to NS of cal record did not work")
     fi
   else
