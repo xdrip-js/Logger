@@ -946,6 +946,9 @@ function calculate_noise()
       noise_cmd="/usr/local/bin/g5-calc-noise"
       log "calculating noise using bash-based version"
     fi
+    # TODO: fix go-based version
+    noise_cmd="/usr/local/bin/g5-calc-noise"
+
     $noise_cmd ${LDIR}/noise-input41.csv ${LDIR}/noise.json
 
     if [ -e ${LDIR}/noise.json ]; then
