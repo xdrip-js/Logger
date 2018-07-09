@@ -941,15 +941,16 @@ function calculate_noise()
     if [ -e "/usr/local/bin/g5-calc-noise-go" ]; then
       # use the go-based version
       noise_cmd="/usr/local/bin/g5-calc-noise-go"
-      log "calculating noise using go-based version"
+      #log "calculating noise using go-based version"
     else 
       noise_cmd="/usr/local/bin/g5-calc-noise"
-      log "calculating noise using bash-based version"
+      #log "calculating noise using bash-based version"
     fi
     # TODO: fix go-based version
+    # TODO: resolve issue with input41.csv
     noise_cmd="/usr/local/bin/g5-calc-noise"
-
-    $noise_cmd ${LDIR}/noise-input41.csv ${LDIR}/noise.json
+    log "calculating noise using bash-based version"
+    $noise_cmd 
 
     if [ -e ${LDIR}/noise.json ]; then
       noise=`jq -M '.[0] .noise' ${LDIR}/noise.json` 
