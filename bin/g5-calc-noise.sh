@@ -40,6 +40,7 @@ fi
 if [ $(bc <<< "$n < $MINRECORDS") -eq 1 ]; then
   # set noise = 0 - unknown
   noise=0
+	echo "noise = 0 no records"
   ReportNoiseAndExit
 fi
 
@@ -65,13 +66,13 @@ do
   # higher priority to the latest BG's
   y2y1Delta=$(bc -l  <<< "(${yarr[$i]} - ${yarr[$i-1]}) * (1 +  $i/($n * 4))")
   x2x1Delta=$(bc  <<< "${xarr[$i]} - ${xarr[$i-1]}")
-  #echo "x delta=$x2x1Delta, y delta=$y2y1Delta" 
+  echo "x delta=$x2x1Delta, y delta=$y2y1Delta" 
   if [ $(bc <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$y2y1Delta < 0") -eq 1 ]; then
     # for this single point, bg switched from positive delta to negative, increase noise impact  
     # this will not effect noise to much for a normal peak, but will increase the overall noise value
     # in the case that the trend goes up/down multiple times such as the bounciness of a dying sensor's signal 
     y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.3")
-  elif [ $(bc <<< "$lastDelta < 0") -eq 1 -a $(bc <<< "$y2y1Delta > 0") -eq 1 ]; then
+  elif [ $(bc -l <<< "$lastDelta < 0") -eq 1 -a $(bc -l <<< "$y2y1Delta > 0") -eq 1 ]; then
     # switched from negative delta to positive, increase noise impact 
     # in this case count the noise a bit more because it could indicate a big "false" swing upwards which could
     # be troublesome if it is a false swing upwards and a loop algorithm takes it into account as "clean"
@@ -79,8 +80,8 @@ do
   fi
   lastDelta=$y2y1Delta
 
-  #echo "yDelta=$y2y1Delta, xDelta=$x2x1Delta"
-  sod=$(bc  <<< "$sod + sqrt(($x2x1Delta)^2 + ($y2y1Delta)^2)")
+  echo "yDelta=$y2y1Delta, xDelta=$x2x1Delta"
+  sod=$(bc  -l <<< "$sod + sqrt(($x2x1Delta)^2 + ($y2y1Delta)^2)")
 done  
 
 overallDistance=$(bc -l <<< "sqrt((${yarr[$n-1]} - ${yarr[0]})^2 + (${xarr[$n-1]} - ${xarr[0]})^2)")
@@ -88,9 +89,11 @@ overallDistance=$(bc -l <<< "sqrt((${yarr[$n-1]} - ${yarr[0]})^2 + (${xarr[$n-1]
 if [ $(bc -l <<< "$sod == 0") -eq 1 ]; then
   # assume no noise if no records
   noise = 0
+	echo "noise = sod == 0"
 else
-  #echo "sod=$sod, overallDistance=$overallDistance"
+  echo "sod=$sod, overallDistance=$overallDistance"
   noise=$(bc -l <<< "1 - ($overallDistance/$sod)")
+	echo "noise = $noise"
 fi
 noise=$(printf "%.*f\n" 5 $noise)
 ReportNoiseAndExit
