@@ -220,6 +220,8 @@ function check_utc()
   curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[created_at\]\[\$gte\]=$(date -d "2400 hours ago" -Ihours -u)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null  > ${LDIR}/testUTC.json  
   if [ $? == 0 ]; then
     createdAt=$(jq ".[0].created_at" ${LDIR}/testUTC.json)
+    createdAt="${createdAt%\"}"
+    createdAt="${createdAt#\"}"
     if [ ${#createdAt} -le 4 ]; then
       log "You must record a \"Sensor Insert\" in Nightscout before Logger will run" 
       log "exiting\n"
