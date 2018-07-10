@@ -601,11 +601,11 @@ function process_announcements()
   else
     if [ "$mode" == "expired" ]; then
       state="OK" 
-      state_id=0x00
+      state_id=0x06
 
       lastState="OK"
       status="OK"
-      status_id=0x06
+      status_id=0x00
       lastStatus="OK"
       log "process_announcements: state=$state status=$status"
     fi
@@ -813,6 +813,10 @@ function post_cgm_ns_pill()
 #    \"sessionStart\":$sessionStart,\
 #    \"txActivation\":$txActivation,\
 #    \"lastCalibrationDate\":$lastCalibrationDate,\
+   # json required conversion to decimal values
+   state_id=$(echo $(($state_id)))
+   status_id=$(echo $(($status_id)))
+
    pill="[{\"device\":\"$xrig\",\"xdripjs\": {\
     \"sessionStart\":$lastSensorInsertDate,\
     \"state\":$state_id,\
