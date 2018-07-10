@@ -257,6 +257,7 @@ function check_battery_status()
    resist=$(jq ".resist" $file)
    runtime=$(jq ".runtime" $file)
    temperature=$(jq ".temperature" $file)
+   batteryTimestamp=$(date +%s -r $file)
 
    if [ "$battery_check" == "Yes" ]; then
      g5_status=$(jq ".status" $file)
@@ -505,8 +506,8 @@ function  capture_entry_values()
   state="${state%\"}"
   state="${state#\"}"
 
-  state_id=$(cat ${LDIR}/entry.json | jq -M '.[0].state_id')
-  status_id=$(cat ${LDIR}/entry.json | jq -M '.[0].status_id')
+  state_id=$(cat ${LDIR}/extra.json | jq -M '.[0].state_id')
+  status_id=$(cat ${LDIR}/extra.json | jq -M '.[0].status_id')
 
   rssi=$(cat ${LDIR}/entry.json | jq -M '.[0].rssi')
 
@@ -836,6 +837,7 @@ function post_cgm_ns_pill()
     \"slope\":$slope,\
     \"intercept\":$yIntercept,\
     \"calType\":\"$calibrationType\",\
+    \"batteryTimestamp\":$batteryTimestamp,\
     \"voltagea\":$voltagea,\
     \"voltageb\":$voltageb,\
     \"temperature\":$temperature,\
