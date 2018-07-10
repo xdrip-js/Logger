@@ -128,6 +128,8 @@ transmitter.on('glucose', glucose => {
       'trend': glucose.trend,
       'state': SensorStateString(glucose.state), 
       'status': TransmitterStatusString(glucose.status), 
+      'state_id': glucose.state, 
+      'status_id': glucose.status, 
       'glucose': Math.round(glucose.glucose)
     }];
     const data = JSON.stringify(entry);
