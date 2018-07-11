@@ -257,7 +257,7 @@ function check_battery_status()
    resist=$(jq ".resist" $file)
    runtime=$(jq ".runtime" $file)
    temperature=$(jq ".temperature" $file)
-   batteryTimestamp=$(date +%s -r $file)
+   batteryTimestamp=$(date +%s%3N -r $file)
 
    if [ "$battery_check" == "Yes" ]; then
      g5_status=$(jq ".status" $file)
