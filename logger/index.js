@@ -113,6 +113,11 @@ transmitter.on('glucose', glucose => {
 
   console.log(util.inspect(glucose, false, null))
   var fs = require('fs');
+  const extra = [{
+      'state_id': glucose.state, 
+      'status_id': glucose.status, 
+    }];
+    const extraData = JSON.stringify(extra);
   const entry = [{
       'device': 'DexcomR4',
       'date': glucose.readDate,
@@ -137,12 +142,18 @@ transmitter.on('glucose', glucose => {
       console.log("Error - bad glucose data, not processing");
       process.exit();
     }
-    fs.writeFile("/root/myopenaps/monitor/logger/entry.json", data, function(err) {
+    fs.writeFile("/root/myopenaps/monitor/logger/extra.json", extraData, function(err) {
     if(err) {
-        console.log("Error while writing entry-test.json");
+        console.log("Error while writing extra.json");
         console.log(err);
         }
-    process.exit();
+        fs.writeFile("/root/myopenaps/monitor/logger/entry.json", data, function(err) {
+        if(err) {
+            console.log("Error while writing entry.json");
+            console.log(err);
+            }
+        process.exit();
+        });
     });
 });
 
