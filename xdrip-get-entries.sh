@@ -86,7 +86,7 @@ main()
 
 
   if [ "$mode" == expired ]; then
-    #readLastStatus
+    readLastStatus
     apply_lsr_calibration 
   fi
 
@@ -119,6 +119,10 @@ main()
   process_announcements
   post_cgm_ns_pill
 
+  if [ "$mode" == expired ]; then
+    saveLastStatus
+  fi
+
   remove_dexcom_bt_pair
   log "Completed Logger"
   echo
@@ -126,19 +130,18 @@ main()
 
 function readLastStatus
 {
-  #echo "[{state:\"${state}\", status:\"${status}\"}]" > ${LDIR}/lastStatus.json
-  echo ""
-    state=$(cat ${LDIR}/lastStatus.json | jq -M '.[0].state')
-    status=$(cat ${LDIR}/lastStatus.json | jq -M '.[0].status')
-    status="${status%\"}"
-    status="${status#\"}"
-    state="${state%\"}"
-    state="${state#\"}"
+  echo "readLastStatus"
+    lastStatus=$(cat ${LDIR}/lastStatus.json | jq -M '.[0].status')
+    lastStatus="${status%\"}"
+    lastStatus="${status#\"}"
+    echo "lastStatus=$lastStatus"
 }
 
 function saveLastStatus
 {
-  echo "[{\"state\":\"${state}\", \"status\":\"${status}\"}]" > ${LDIR}/lastStatus.json
+  echo "saveLastStatus"
+  echo "[{\"status\":\"${status}\"}]" > ${LDIR}/lastStatus.json
+  cat ${LDIR}/lastStatus.json
 }
 
 function log
