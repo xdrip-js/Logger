@@ -342,6 +342,10 @@ function check_sensor_change()
     ClearCalibrationInput
     ClearCalibrationCache
     touch ${LDIR}/last_sensor_change
+    status="Warmup"
+    status_id=0x02
+    post_cgm_ns_pill
+
     log "exiting"
     exit
   fi
@@ -685,12 +689,12 @@ function check_ns_calibration()
       if [[ "$meterbgunits" == *"mmol"* ]]; then
         meterbg=$(bc <<< "($meterbg *18)/1")
       fi
+      found_meterbg=true
     else
       # clear old meterbg curl responses
       rm $METERBG_NS_RAW
     fi
     log "meterbg from nightscout: $meterbg"
-    found_meterbg=true
     calDate=$(date +'%s%3N') # TODO: use NS BG Check date
   fi
 }
@@ -1041,10 +1045,13 @@ function calculate_noise()
 
 function check_messages()
 {
-  if [ -n $meterbg ]; then 
-    if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
-      calibrationJSON="[{\"date\": ${calDate}, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
-      log "calibrationJSON=$calibrationJSON"
+  # use found_meterbg here to avoid sending duplicate meterbg's to dexcom
+  if [ $found_meterbg ]; then
+    if [ -n $meterbg ]; then 
+      if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
+        calibrationJSON="[{\"date\": ${calDate}, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
+        log "calibrationJSON=$calibrationJSON"
+      fi
     fi
   fi
   
