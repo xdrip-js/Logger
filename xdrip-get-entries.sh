@@ -128,6 +128,37 @@ main()
   echo
 }
 
+# This func takes an arg list of value name pairs creating a simple json string
+# What's different about this vs jq is that this function will ignore
+# any value/name pair where the variable value name is null or blank
+# it also automatically handles quotes around variable values with strings
+# and doesn't include quotes for those without strings
+
+function build_json() {
+  local __result="{"
+
+  args=("$@")
+  for (( i=0; i < ${#}; i+=2 ))
+  do
+      local __key=${args[$i]}
+      local __value=${args[$i+1]}
+      #echo "key=$__key, value=$__value"
+      local __len=${#__value}
+      if [ $__len -gt 0 ]; then
+        if [ $(echo "$__value" | grep -cE "^\-?([0-9]+)(\.[0-9]+)?$") -gt 0 ]; then
+        # must be a number
+          __result="$__result\"$__key\":$__value,"
+        else
+        # must be a string
+          __result="$__result\"$__key\":\"$__value\","
+        fi
+      fi
+  done
+  # remove comma on last value/name pair
+  __result="${__result::-1}}"
+  echo $__result
+}
+
 function readLastStatus
 {
   echo "readLastStatus"
@@ -175,6 +206,9 @@ function check_environment
      log "Make sure the two lines below are in your ~/.bash_profile as follows:\n"
      log "API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxx # where xxxx is your hashed NS API_SECRET"
      log "export API_SECRET\n\nexiting\n"
+     state_id=0x21
+     state="API_SECRET Not Set" ; stateString=$state ; stateStringShort=$state
+     post_cgm_ns_pill
      exit
   fi
   if [ "$NIGHTSCOUT_HOST" = "" ]; then
@@ -182,6 +216,9 @@ function check_environment
      log "Make sure the two lines below are in your ~/.bash_profile as follows:\n"
      log "NIGHTSCOUT_HOST=https://xxxx # where xxxx is your hashed Nightscout url"
      log "export NIGHTSCOUT_HOST\n\nexiting\n"
+     state_id=0x22
+     state="NIGHTSCOUT_HOST Not Set" ; stateString=$state ; stateStringShort=$state
+     post_cgm_ns_pill
      exit
   fi
 }
@@ -227,8 +264,13 @@ function check_utc()
     createdAt="${createdAt#\"}"
     if [ ${#createdAt} -le 4 ]; then
       log "You must record a \"Sensor Insert\" in Nightscout before Logger will run" 
-      log "exiting\n"
-      exit
+      log "If you are offline at the moment (no internet) then this warning is OK"
+      #log "exiting\n"
+      state_id=0x23
+      state="Needs NS CGM Sensor Insert" ; stateString=$state ; stateStringShort=$state
+      post_cgm_ns_pill
+      # don't exit here -- offline mode will not work if exit here
+      # exit
     elif [[ $createdAt == *"Z"* ]]; then
       UTC=" -u "
       log "NS is using UTC $UTC"      
@@ -342,8 +384,8 @@ function check_sensor_change()
     ClearCalibrationInput
     ClearCalibrationCache
     touch ${LDIR}/last_sensor_change
-    status="Warmup"
-    status_id=0x02
+    state_id=0x02
+    state="Warmup" ; stateString=$state ; stateStringShort=$state
     post_cgm_ns_pill
 
     log "exiting"
@@ -495,6 +537,9 @@ function  call_logger()
     ls -al ${LDIR}/entry.json
     rm ${LDIR}/entry.json
     remove_dexcom_bt_pair
+    state_id=0x24
+    state="Invalid or No Response" ; stateString=$state ; stateStringShort=$state
+    post_cgm_ns_pill
     exit
   fi
 }
@@ -735,7 +780,6 @@ function calculate_calibrations()
   fi
 }
 
-# expired mode only
 function apply_lsr_calibration()
 {
   if [ -e ${LDIR}/calibration-linear.json ]; then
@@ -760,10 +804,15 @@ function apply_lsr_calibration()
       /usr/local/bin/g5-post-ns ${LDIR}/cal.json && (echo; log "Upload to NightScout of cal record entry worked";) || (echo; log "Upload to NS of cal record did not work")
     fi
   else
-    # exit until we have a valid calibration record
-    log "no valid calibration record yet, exiting ..."
-    remove_dexcom_bt_pair
-    exit
+    if [ "$mode" == "expired" ]; then
+      # exit until we have a valid calibration record
+      log "no valid calibration record yet, exiting ..."
+      state_id=0x07
+      state="Needs Calibration" ; stateString=$state ; stateStringShort=$state
+      post_cgm_ns_pill
+      remove_dexcom_bt_pair
+      exit
+    fi
   fi
 
   # $raw is either unfiltered or filtered value from g5
@@ -796,9 +845,14 @@ function apply_lsr_calibration()
   if [ -z $calibratedBG ]; then
     # Outer calibrated BG boundary checks - exit and don't send these on to Nightscout / openaps
     if [ $(bc <<< "$calibratedBG > 600") -eq 1 -o $(bc <<< "$calibratedBG < 0") -eq 1 ]; then
-      log "Glucose $calibratedBG out of range [0,600] - exiting"
-      remove_dexcom_bt_pair
-      exit
+      if [ "$mode" == "expired" ]; then
+        log "Glucose $calibratedBG out of range [0,600] - exiting"
+        state_id=0x20
+        state="LSR Calibrated BG Out of Bounds" ; stateString=$state ; stateStringShort=$state
+        post_cgm_ns_pill
+        remove_dexcom_bt_pair
+        exit
+      fi
     fi
   fi
 
@@ -817,39 +871,41 @@ function apply_lsr_calibration()
 
 function post_cgm_ns_pill()
 {
-  xrig="xdripjs://$(hostname)"
 #    \"sessionStart\":$sessionStart,\
 #    \"txActivation\":$txActivation,\
 #    \"lastCalibrationDate\":$lastCalibrationDate,\
    # json required conversion to decimal values
+   xrig="xdripjs://$(hostname)"
    state_id=$(echo $(($state_id)))
    status_id=$(echo $(($status_id)))
 
-   pill="[{\"device\":\"$xrig\",\"xdripjs\": {\
-    \"sessionStart\":$lastSensorInsertDate,\
-    \"state\":$state_id,\
-    \"txStatus\":$status_id,\
-    \"stateString\":\"$state\",\
-    \"stateStringShort\":\"$state\",\
-    \"txId\":\"$transmitter\",\
-    \"txStatusString\":\"$status\",\
-    \"txStatusStringShort\":\"$status\",\
-    \"mode\":\"$mode\",\
-    \"timestamp\":$epochdatems,\
-    \"rssi\":$rssi,\
-    \"unfiltered\":$unfiltered,\
-    \"filtered\":$filtered,\
-    \"noise\":$noise,\
-    \"noiseString\":\"$noiseString\",\
-    \"slope\":$slope,\
-    \"intercept\":$yIntercept,\
-    \"calType\":\"$calibrationType\",\
-    \"batteryTimestamp\":$batteryTimestamp,\
-    \"voltagea\":$voltagea,\
-    \"voltageb\":$voltageb,\
-    \"temperature\":$temperature,\
-    \"resistance\":$resist},\
-    \"created_at\":\"$dateString\"}]"
+   jstr="$(build_json \
+      sessionStart "$lastSensorInsertDate" \
+    state "$state_id" \
+    txStatus "$status_id" \
+    stateString "$state" \
+    stateStringShort "$state" \
+    txId "$transmitter" \
+    txStatusString "$status" \
+    txStatusStringShort "$status" \
+    mode "$mode" \
+    timestamp "$epochdatems" \
+    rssi "$rssi" \
+    unfiltered "$unfiltered" \
+    filtered "$filtered" \
+    noise "$noise" \
+    noiseString "$noiseString" \
+    slope "$slope" \
+    intercept "$yIntercept" \
+    calType "$calibrationType" \
+    batteryTimestamp "$batteryTimestamp" \
+    voltagea "$voltagea" \
+    voltageb "$voltageb" \
+    temperature "$temperature" \
+    resistance "$resist"
+    )"
+
+   pill="[{\"device\":\"$xrig\",\"xdripjs\": $jstr, \"created_at\":\"$dateString\"}] "
 
    echo $pill && echo $pill > ${LDIR}/cgm-pill.json
 
@@ -871,19 +927,6 @@ function process_delta()
   if [ -n $da -a $(bc <<< "$da < 0") -eq 1 ]; then
     da=$(bc <<< "0 - $da")
   fi
-
-# not needed given how OpenAPS processes
-#
-#  if [ "$da" -lt "45" -a "$da" -gt "15" ]; then
-#    if [ "$mode" == "expired" ]; then
-#      log "Before Average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, calibratedBG=$calibratedBG"
-#      calibratedBG=$(bc <<< "($calibratedBG + $lastGlucose)/2")
-#      dg=$(bc <<< "$calibratedBG - $lastGlucose")
-#      log "After average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, calibratedBG=${calibratedBG}"
-#    fi
-#  fi
-  # end average last two entries if noise
-
 
   if [ $(bc <<< "$dg > $maxDelta") -eq 1 -o $(bc <<< "$dg < (0 - $maxDelta)") -eq 1 ]; then
     log "Change $dg out of range [$maxDelta,-${maxDelta}] - setting noise=Heavy"
