@@ -72,6 +72,8 @@ main()
   log "Mode = $mode"
   if [[ "$mode" == "not-expired" ]]; then
     initialize_calibrate_bg 
+  else
+    check_last_calibration
   fi
   set_entry_fields
 
@@ -653,14 +655,11 @@ function process_announcements()
     /usr/local/bin/g5-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of sensor Stopped status change worked") || (echo; log "Upload to NS of transmitter sensor Stopped did not work")
   else
     if [ "$mode" == "expired" ]; then
-      state="OK" 
-      state_id=0x06
+      #state="OK" 
+      #state_id=0x06
 
-      lastState="OK"
-      status="OK"
-      status_id=0x00
-      lastStatus="OK"
-      log "process_announcements: state=$state status=$status"
+      lastState=$state
+      lastStatus=$status
     fi
     log "process_announcements: state=$state status=$status"
     if [ "$status" != "$lastStatus" ]; then
@@ -673,6 +672,25 @@ function process_announcements()
       /usr/local/bin/g5-post-ns ${LDIR}/state-change.json treatments && (echo; log "Upload to NightScout of sensor state change worked") || (echo; log "Upload to NS of sensor state change did not work")
     fi
   fi
+}
+
+function check_last_calibration()
+{
+   state="Needs Calibration" ; stateString=$state ; stateStringShort=$state
+   state_id=0x07
+   if [ "$mode" == "expired" ]; then
+     if [ -e ${LDIR}/calibration-linear.json ]; then
+       if test  `find ${LDIR}/calibration-linear.json -mmin -720`
+       then
+         log "Last calibration > 12 hours ago, setting sensor state to Needs Calibration"
+         : # default of Needs calibration here since last one > 12 hours ago
+       else
+         log "Last calibration within 12 hours, setting sensor state to OK"
+         state="OK" ; stateString=$state ; stateStringShort=$state
+         state_id=0x06
+       fi
+     fi
+    fi
 }
 
 function check_pump_history_calibration()
@@ -873,8 +891,12 @@ function post_cgm_ns_pill()
 {
 #    \"sessionStart\":$sessionStart,\
 #    \"txActivation\":$txActivation,\
-#    \"lastCalibrationDate\":$lastCalibrationDate,\
    # json required conversion to decimal values
+
+   local cache="${LDIR}/calibration-linear.json"
+   if [ -e $cache ]; then
+     lastCalibrationDate=$(stat -c "%Y" ${cache})
+   fi
    xrig="xdripjs://$(hostname)"
    state_id=$(echo $(($state_id)))
    status_id=$(echo $(($status_id)))
@@ -895,6 +917,7 @@ function post_cgm_ns_pill()
     filtered "$filtered" \
     noise "$noise" \
     noiseString "$noiseString" \
+    lastCalibrationDate "$lastCalibrationDate" \
     slope "$slope" \
     intercept "$yIntercept" \
     calType "$calibrationType" \
