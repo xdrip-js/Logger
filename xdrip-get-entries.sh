@@ -680,7 +680,7 @@ function check_last_calibration()
    state_id=0x07
    if [ "$mode" == "expired" ]; then
      if [ -e ${LDIR}/calibration-linear.json ]; then
-       if test  `find ${LDIR}/calibration-linear.json -mmin -720`
+       if test  `find ${LDIR}/calibration-linear.json -mmin +720`
        then
          log "Last calibration > 12 hours ago, setting sensor state to Needs Calibration"
          : # default of Needs calibration here since last one > 12 hours ago
@@ -696,25 +696,27 @@ function check_last_calibration()
 function check_pump_history_calibration()
 {
   if [ $found_meterbg == false ]; then
-    # look for a bg check from pumphistory (direct from meter->openaps):
-    # note: pumphistory may not be loaded by openaps very timely...
-    meterbgafter=$(date -d "9 minutes ago" -Iminutes)
-    meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\")'"
-    bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json" > $METERBG_NS_RAW
-    meterbg=$(bash -c "jq .amount $METERBG_NS_RAW")
-    meterbgid=$(bash -c "jq .timestamp $METERBG_NS_RAW")
-    # meter BG from pumphistory doesn't support mmol yet - has no units...
-    # using arg3 if mmol then convert it
-    if [[ "$pumpUnits" == *"mmol"* ]]; then
-      meterbg=$(bc <<< "($meterbg *18)/1")
-      log "converted pump history meterbg from mmol value to $meterbg"
+    if [ -e "~/myopenaps/monitor/pumphistory-merged.json" ]; then
+      # look for a bg check from pumphistory (direct from meter->openaps):
+      # note: pumphistory may not be loaded by openaps very timely...
+      meterbgafter=$(date -d "9 minutes ago" -Iminutes)
+      meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\")'"
+      bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json" > $METERBG_NS_RAW
+      meterbg=$(bash -c "jq .amount $METERBG_NS_RAW")
+      meterbgid=$(bash -c "jq .timestamp $METERBG_NS_RAW")
+      # meter BG from pumphistory doesn't support mmol yet - has no units...
+      # using arg3 if mmol then convert it
+      if [[ "$pumpUnits" == *"mmol"* ]]; then
+        meterbg=$(bc <<< "($meterbg *18)/1")
+        log "converted pump history meterbg from mmol value to $meterbg"
+      fi
+      echo
+      if [[ -n "$meterbg" && "$meterbg" != "" ]]; then  
+        log "meterbg from pumphistory: $meterbg"
+        found_meterbg=true
+      fi
+      calDate=$(date +'%s%3N') # TODO: use pump history date
     fi
-    echo
-    if [[ -n "$meterbg" && "$meterbg" != "" ]]; then  
-      log "meterbg from pumphistory: $meterbg"
-      found_meterbg=true
-    fi
-    calDate=$(date +'%s%3N') # TODO: use pump history date
   fi
 }
 
@@ -895,7 +897,7 @@ function post_cgm_ns_pill()
 
    local cache="${LDIR}/calibration-linear.json"
    if [ -e $cache ]; then
-     lastCalibrationDate=$(stat -c "%Y" ${cache})
+     lastCalibrationDate=$(stat -c "%Y000" ${cache})
    fi
    xrig="xdripjs://$(hostname)"
    state_id=$(echo $(($state_id)))
