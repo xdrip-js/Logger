@@ -22,8 +22,8 @@
 # yarr = array of last unfiltered values associated w/ bg meter checks 
 # xarr = array of last bg meter check bg values
 
-INPUT=${1:-"${HOME}/myopenaps/monitor/logger/calibrations.csv"}
-OUTPUT=${2:-"${HOME}/myopenaps/monitor/logger/calibration-linear.json"}
+INPUT=${1:-"${HOME}/myopenaps/monitor/xdripjs/calibrations.csv"}
+OUTPUT=${2:-"${HOME}/myopenaps/monitor/xdripjs/calibration-linear.json"}
 MAXSLOPE=1.450
 MINSLOPE=0.550
 MINSLOPESINGLE=0.800

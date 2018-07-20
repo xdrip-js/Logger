@@ -1,6 +1,6 @@
 #!/bin/bash
 
-MESSAGE="${HOME}/myopenaps/monitor/logger/g5-reset.json"
+MESSAGE="${HOME}/myopenaps/monitor/xdripjs/g5-reset.json"
 epochdate=$(date +'%s%3N')
 
 echo "Running this command will instruct Logger to reset the g5 Transmitter!"

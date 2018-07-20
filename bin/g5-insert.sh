@@ -1,8 +1,8 @@
 #!/bin/bash
 
-MESSAGE="${HOME}/myopenaps/monitor/logger/g5-reset.json"
+MESSAGE="${HOME}/myopenaps/monitor/xdripjs/g5-reset.json"
 
-LDIR="${HOME}/myopenaps/monitor/logger"
+LDIR="${HOME}/myopenaps/monitor/xdripjs"
 
 function ClearCalibrationInput()
 {

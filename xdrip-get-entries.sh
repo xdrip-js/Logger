@@ -1,12 +1,29 @@
 #!/bin/bash
 
+function check_dirs()
+{
+  LDIR="${HOME}/myopenaps/monitor/xdripjs"
+  OLD_LDIR="${HOME}/myopenaps/monitor/logger"
+
+  if [ ! -d ${LDIR} ]; then
+    if [ -d ${OLD_LDIR} ]; then
+      mv ${OLD_LDIR} ${LDIR}
+    fi
+  fi
+  mkdir -p ${LDIR}
+  mkdir -p ${LDIR}/old-calibrations
+}
+
+
+
 main()
 {
   log "Starting Logger"
 
-  LDIR="${HOME}/myopenaps/monitor/logger"
-  mkdir -p ${LDIR}
-  mkdir -p ${LDIR}/old-calibrations
+  check_dirs
+#  LDIR="${HOME}/myopenaps/monitor/logger"
+#  mkdir -p ${LDIR}
+#  mkdir -p ${LDIR}/old-calibrations
 
 # Cmd line args - transmitter $1 is 6 character tx serial number
   transmitter=$1
@@ -34,6 +51,7 @@ main()
   dateString=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
 
 
+  set_mode # call now and after getting status from tx
   initialize_messages
   check_environment
   check_utc
@@ -72,6 +90,8 @@ main()
   log "Mode = $mode"
   if [[ "$mode" == "not-expired" ]]; then
     initialize_calibrate_bg 
+  else
+    check_last_calibration
   fi
   set_entry_fields
 
@@ -86,7 +106,7 @@ main()
 
 
   if [ "$mode" == expired ]; then
-    readLastStatus
+    readLastState
     apply_lsr_calibration 
   fi
 
@@ -120,7 +140,7 @@ main()
   post_cgm_ns_pill
 
   if [ "$mode" == expired ]; then
-    saveLastStatus
+    saveLastState
   fi
 
   remove_dexcom_bt_pair
@@ -159,20 +179,18 @@ function build_json() {
   echo $__result
 }
 
-function readLastStatus
+function readLastState
 {
-  echo "readLastStatus"
-    lastStatus=$(cat ${LDIR}/lastStatus.json | jq -M '.[0].status')
-    lastStatus="${status%\"}"
-    lastStatus="${status#\"}"
-    echo "lastStatus=$lastStatus"
+    lastState=$(cat ${LDIR}/lastState.json | jq -M '.[0].state')
+    lastState="${state%\"}"
+    lastState="${state#\"}"
+    log "readLastState: lastState=$lastState"
 }
 
-function saveLastStatus
+function saveLastState
 {
-  echo "saveLastStatus"
-  echo "[{\"status\":\"${status}\"}]" > ${LDIR}/lastStatus.json
-  cat ${LDIR}/lastStatus.json
+  log "saveLastState"
+  echo "[{\"state\":\"${state}\"}]" > ${LDIR}/lastState.json
 }
 
 function log
@@ -398,15 +416,15 @@ function check_last_entry_values()
   # TODO: check file stamp for > x for last-entry.json and ignore lastGlucose if older than x minutes
   if [ -e "${LDIR}/last-entry.json" ] ; then
     lastGlucose=$(cat ${LDIR}/last-entry.json | jq -M '.[0].sgv')
-    lastState=$(cat ${LDIR}/last-entry.json | jq -M '.[0].state')
     lastStatus=$(cat ${LDIR}/last-entry.json | jq -M '.[0].status')
     lastStatus="${lastStatus%\"}"
     lastStatus="${lastStatus#\"}"
-    lastState="${lastState%\"}"
-    lastState="${lastState#\"}"
-    log "lastGlucose=$lastGlucose, lastStatus=$lastStatus, lastState=$lastState"
-  else
-    log "${LDIR}/last-entry.json not available, lastGlucose=0"
+    if [ "$mode" != "expired" ]; then
+      lastState=$(cat ${LDIR}/last-entry.json | jq -M '.[0].state')
+      lastState="${lastState%\"}"
+      lastState="${lastState#\"}"
+      log "check_last_entry_values: lastGlucose=$lastGlucose, lastStatus=$lastStatus, lastState=$lastState"
+    fi
   fi
 }
 
@@ -610,8 +628,6 @@ function set_mode()
   if [[ "$cmd_line_mode" == "expired" ]]; then
     mode="expired"
   fi
-  # to hard-code or test expired mode, uncomment below line
-  #mode="expired"
 }
 
 function  initialize_calibrate_bg()
@@ -652,17 +668,7 @@ function process_announcements()
     echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Sensor Stopped, unfiltered=$unfiltered\"}]" > ${LDIR}/status-change.json
     /usr/local/bin/g5-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of sensor Stopped status change worked") || (echo; log "Upload to NS of transmitter sensor Stopped did not work")
   else
-    if [ "$mode" == "expired" ]; then
-      state="OK" 
-      state_id=0x06
-
-      lastState="OK"
-      status="OK"
-      status_id=0x00
-      lastStatus="OK"
-      log "process_announcements: state=$state status=$status"
-    fi
-    log "process_announcements: state=$state status=$status"
+    log "process_announcements: state=$state lastState=$lastState status=$status lastStatus=$lastStatus"
     if [ "$status" != "$lastStatus" ]; then
       echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Tx $status\"}]" > ${LDIR}/status-change.json
       /usr/local/bin/g5-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of transmitter status change worked") || (echo; log "Upload to NS of transmitter status change did not work")
@@ -675,28 +681,49 @@ function process_announcements()
   fi
 }
 
+function check_last_calibration()
+{
+   state="Needs Calibration" ; stateString=$state ; stateStringShort=$state
+   state_id=0x07
+   if [ "$mode" == "expired" ]; then
+     if [ -e ${LDIR}/calibration-linear.json ]; then
+       if test  `find ${LDIR}/calibration-linear.json -mmin +720`
+       then
+         log "Last calibration > 12 hours ago, setting sensor state to Needs Calibration"
+         : # default of Needs calibration here since last one > 12 hours ago
+       else
+         log "Last calibration within 12 hours, setting sensor state to OK"
+         state="OK" ; stateString=$state ; stateStringShort=$state
+         state_id=0x06
+       fi
+     fi
+    fi
+}
+
 function check_pump_history_calibration()
 {
   if [ $found_meterbg == false ]; then
-    # look for a bg check from pumphistory (direct from meter->openaps):
-    # note: pumphistory may not be loaded by openaps very timely...
-    meterbgafter=$(date -d "9 minutes ago" -Iminutes)
-    meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\")'"
-    bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json" > $METERBG_NS_RAW
-    meterbg=$(bash -c "jq .amount $METERBG_NS_RAW")
-    meterbgid=$(bash -c "jq .timestamp $METERBG_NS_RAW")
-    # meter BG from pumphistory doesn't support mmol yet - has no units...
-    # using arg3 if mmol then convert it
-    if [[ "$pumpUnits" == *"mmol"* ]]; then
-      meterbg=$(bc <<< "($meterbg *18)/1")
-      log "converted pump history meterbg from mmol value to $meterbg"
+    if [ -e "~/myopenaps/monitor/pumphistory-merged.json" ]; then
+      # look for a bg check from pumphistory (direct from meter->openaps):
+      # note: pumphistory may not be loaded by openaps very timely...
+      meterbgafter=$(date -d "9 minutes ago" -Iminutes)
+      meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\")'"
+      bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json" > $METERBG_NS_RAW
+      meterbg=$(bash -c "jq .amount $METERBG_NS_RAW")
+      meterbgid=$(bash -c "jq .timestamp $METERBG_NS_RAW")
+      # meter BG from pumphistory doesn't support mmol yet - has no units...
+      # using arg3 if mmol then convert it
+      if [[ "$pumpUnits" == *"mmol"* ]]; then
+        meterbg=$(bc <<< "($meterbg *18)/1")
+        log "converted pump history meterbg from mmol value to $meterbg"
+      fi
+      echo
+      if [[ -n "$meterbg" && "$meterbg" != "" ]]; then  
+        log "meterbg from pumphistory: $meterbg"
+        found_meterbg=true
+      fi
+      calDate=$(date +'%s%3N') # TODO: use pump history date
     fi
-    echo
-    if [[ -n "$meterbg" && "$meterbg" != "" ]]; then  
-      log "meterbg from pumphistory: $meterbg"
-      found_meterbg=true
-    fi
-    calDate=$(date +'%s%3N') # TODO: use pump history date
   fi
 }
 
@@ -873,8 +900,12 @@ function post_cgm_ns_pill()
 {
 #    \"sessionStart\":$sessionStart,\
 #    \"txActivation\":$txActivation,\
-#    \"lastCalibrationDate\":$lastCalibrationDate,\
    # json required conversion to decimal values
+
+   local cache="${LDIR}/calibration-linear.json"
+   if [ -e $cache ]; then
+     lastCalibrationDate=$(stat -c "%Y000" ${cache})
+   fi
    xrig="xdripjs://$(hostname)"
    state_id=$(echo $(($state_id)))
    status_id=$(echo $(($status_id)))
@@ -895,6 +926,7 @@ function post_cgm_ns_pill()
     filtered "$filtered" \
     noise "$noise" \
     noiseString "$noiseString" \
+    lastCalibrationDate "$lastCalibrationDate" \
     slope "$slope" \
     intercept "$yIntercept" \
     calType "$calibrationType" \
