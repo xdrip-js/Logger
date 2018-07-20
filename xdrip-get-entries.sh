@@ -105,7 +105,7 @@ main()
   check_recent_sensor_insert
 
 
-  if [ "$mode" == expired ]; then
+  if [ "$mode" == "expired" ]; then
     readLastState
     apply_lsr_calibration 
   fi
@@ -139,7 +139,7 @@ main()
   process_announcements
   post_cgm_ns_pill
 
-  if [ "$mode" == expired ]; then
+  if [ "$mode" == "expired" ]; then
     saveLastState
   fi
 
@@ -182,8 +182,8 @@ function build_json() {
 function readLastState
 {
     lastState=$(cat ${LDIR}/lastState.json | jq -M '.[0].state')
-    lastState="${state%\"}"
-    lastState="${state#\"}"
+    lastState="${lastState%\"}"
+    lastState="${lastState#\"}"
     log "readLastState: lastState=$lastState"
 }
 
@@ -628,6 +628,7 @@ function set_mode()
   if [[ "$cmd_line_mode" == "expired" ]]; then
     mode="expired"
   fi
+  echo "Logger mode=$mode"
 }
 
 function  initialize_calibrate_bg()
