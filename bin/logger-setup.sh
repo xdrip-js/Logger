@@ -24,7 +24,7 @@ function build_go_exe()
 }
 
 
-mkdir -p ${HOME}/myopenaps/monitor/logger
+mkdir -p ${HOME}/myopenaps/monitor/xdripjs
 
 root_dir=${HOME}/src/Logger
 link_install ${root_dir}/bin/calibrate.sh calibrate

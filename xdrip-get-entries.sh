@@ -1,12 +1,29 @@
 #!/bin/bash
 
+function check_dirs()
+{
+  LDIR="${HOME}/myopenaps/monitor/xdripjs"
+  OLD_LDIR="${HOME}/myopenaps/monitor/logger"
+
+  if [ ! -d ${LDIR} ]; then
+    if [ -d ${OLD_LDIR} ]; then
+      mv ${OLD_LDIR} ${LDIR}
+    fi
+  fi
+  mkdir -p ${LDIR}
+  mkdir -p ${LDIR}/old-calibrations
+}
+
+
+
 main()
 {
   log "Starting Logger"
 
-  LDIR="${HOME}/myopenaps/monitor/logger"
-  mkdir -p ${LDIR}
-  mkdir -p ${LDIR}/old-calibrations
+  check_dirs
+#  LDIR="${HOME}/myopenaps/monitor/logger"
+#  mkdir -p ${LDIR}
+#  mkdir -p ${LDIR}/old-calibrations
 
 # Cmd line args - transmitter $1 is 6 character tx serial number
   transmitter=$1
@@ -34,6 +51,7 @@ main()
   dateString=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
 
 
+  set_mode # call now and after getting status from tx
   initialize_messages
   check_environment
   check_utc
@@ -88,7 +106,7 @@ main()
 
 
   if [ "$mode" == expired ]; then
-    readLastStatus
+    readLastState
     apply_lsr_calibration 
   fi
 
@@ -122,7 +140,7 @@ main()
   post_cgm_ns_pill
 
   if [ "$mode" == expired ]; then
-    saveLastStatus
+    saveLastState
   fi
 
   remove_dexcom_bt_pair
@@ -161,20 +179,18 @@ function build_json() {
   echo $__result
 }
 
-function readLastStatus
+function readLastState
 {
-  echo "readLastStatus"
-    lastStatus=$(cat ${LDIR}/lastStatus.json | jq -M '.[0].status')
-    lastStatus="${status%\"}"
-    lastStatus="${status#\"}"
-    echo "lastStatus=$lastStatus"
+    lastState=$(cat ${LDIR}/lastState.json | jq -M '.[0].state')
+    lastState="${state%\"}"
+    lastState="${state#\"}"
+    log "readLastState: lastState=$lastState"
 }
 
-function saveLastStatus
+function saveLastState
 {
-  echo "saveLastStatus"
-  echo "[{\"status\":\"${status}\"}]" > ${LDIR}/lastStatus.json
-  cat ${LDIR}/lastStatus.json
+  log "saveLastState"
+  echo "[{\"state\":\"${state}\"}]" > ${LDIR}/lastState.json
 }
 
 function log
@@ -400,15 +416,15 @@ function check_last_entry_values()
   # TODO: check file stamp for > x for last-entry.json and ignore lastGlucose if older than x minutes
   if [ -e "${LDIR}/last-entry.json" ] ; then
     lastGlucose=$(cat ${LDIR}/last-entry.json | jq -M '.[0].sgv')
-    lastState=$(cat ${LDIR}/last-entry.json | jq -M '.[0].state')
     lastStatus=$(cat ${LDIR}/last-entry.json | jq -M '.[0].status')
     lastStatus="${lastStatus%\"}"
     lastStatus="${lastStatus#\"}"
-    lastState="${lastState%\"}"
-    lastState="${lastState#\"}"
-    log "lastGlucose=$lastGlucose, lastStatus=$lastStatus, lastState=$lastState"
-  else
-    log "${LDIR}/last-entry.json not available, lastGlucose=0"
+    if [ "$mode" != "expired" ]; then
+      lastState=$(cat ${LDIR}/last-entry.json | jq -M '.[0].state')
+      lastState="${lastState%\"}"
+      lastState="${lastState#\"}"
+      log "check_last_entry_values: lastGlucose=$lastGlucose, lastStatus=$lastStatus, lastState=$lastState"
+    fi
   fi
 }
 
@@ -612,8 +628,6 @@ function set_mode()
   if [[ "$cmd_line_mode" == "expired" ]]; then
     mode="expired"
   fi
-  # to hard-code or test expired mode, uncomment below line
-  #mode="expired"
 }
 
 function  initialize_calibrate_bg()
@@ -654,14 +668,7 @@ function process_announcements()
     echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Sensor Stopped, unfiltered=$unfiltered\"}]" > ${LDIR}/status-change.json
     /usr/local/bin/g5-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of sensor Stopped status change worked") || (echo; log "Upload to NS of transmitter sensor Stopped did not work")
   else
-    if [ "$mode" == "expired" ]; then
-      #state="OK" 
-      #state_id=0x06
-
-      lastState=$state
-      lastStatus=$status
-    fi
-    log "process_announcements: state=$state status=$status"
+    log "process_announcements: state=$state lastState=$lastState status=$status lastStatus=$lastStatus"
     if [ "$status" != "$lastStatus" ]; then
       echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Tx $status\"}]" > ${LDIR}/status-change.json
       /usr/local/bin/g5-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of transmitter status change worked") || (echo; log "Upload to NS of transmitter status change did not work")

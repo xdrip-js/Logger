@@ -142,12 +142,12 @@ transmitter.on('glucose', glucose => {
       console.log("Error - bad glucose data, not processing");
       process.exit();
     }
-    fs.writeFile("/root/myopenaps/monitor/logger/extra.json", extraData, function(err) {
+    fs.writeFile("/root/myopenaps/monitor/xdripjs/extra.json", extraData, function(err) {
     if(err) {
         console.log("Error while writing extra.json");
         console.log(err);
         }
-        fs.writeFile("/root/myopenaps/monitor/logger/entry.json", data, function(err) {
+        fs.writeFile("/root/myopenaps/monitor/xdripjs/entry.json", data, function(err) {
         if(err) {
             console.log("Error while writing entry.json");
             console.log(err);
@@ -172,7 +172,7 @@ transmitter.on('batteryStatus', data => {
 
   var fs = require('fs');
   const battery = JSON.stringify(data);
-  fs.writeFile("/root/myopenaps/monitor/logger/g5-battery.json", battery, function(err) {
+  fs.writeFile("/root/myopenaps/monitor/xdripjs/g5-battery.json", battery, function(err) {
   if(err) {
       console.log("Error while writing g5-battery.json");
       console.log(err);
