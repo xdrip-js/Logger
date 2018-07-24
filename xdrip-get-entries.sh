@@ -1,29 +1,10 @@
 #!/bin/bash
 
-function check_dirs()
-{
-  LDIR="${HOME}/myopenaps/monitor/xdripjs"
-  OLD_LDIR="${HOME}/myopenaps/monitor/logger"
-
-  if [ ! -d ${LDIR} ]; then
-    if [ -d ${OLD_LDIR} ]; then
-      mv ${OLD_LDIR} ${LDIR}
-    fi
-  fi
-  mkdir -p ${LDIR}
-  mkdir -p ${LDIR}/old-calibrations
-}
-
-
-
 main()
 {
   log "Starting Logger"
 
   check_dirs
-#  LDIR="${HOME}/myopenaps/monitor/logger"
-#  mkdir -p ${LDIR}
-#  mkdir -p ${LDIR}/old-calibrations
 
 # Cmd line args - transmitter $1 is 6 character tx serial number
   transmitter=$1
@@ -146,6 +127,19 @@ main()
   remove_dexcom_bt_pair
   log "Completed Logger"
   echo
+}
+
+function check_dirs() {
+  LDIR="${HOME}/myopenaps/monitor/xdripjs"
+  OLD_LDIR="${HOME}/myopenaps/monitor/logger"
+
+  if [ ! -d ${LDIR} ]; then
+    if [ -d ${OLD_LDIR} ]; then
+      mv ${OLD_LDIR} ${LDIR}
+    fi
+  fi
+  mkdir -p ${LDIR}
+  mkdir -p ${LDIR}/old-calibrations
 }
 
 # This func takes an arg list of value name pairs creating a simple json string
@@ -545,20 +539,29 @@ function  call_logger()
   timeout 420 node logger $transmitter "${messages}"
   #"[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\" glucose\": $meterbg}]"
   echo
+  local error=""
   log "after xdrip-js bg record below ..."
-  cat ${LDIR}/entry.json
-  echo
-  glucose=$(cat ${LDIR}/entry.json | jq -M '.[0].glucose')
-
-  if [ -z "${glucose}" ] ; then
-    log "Exit - Invalid response from g5 transmitter"
-    ls -al ${LDIR}/entry.json
-    rm ${LDIR}/entry.json
-    remove_dexcom_bt_pair
+  if [ -e "${LDIR}/entry.json" ]; then
+    cat ${LDIR}/entry.json
+    echo
+    glucose=$(cat ${LDIR}/entry.json | jq -M '.[0].glucose')
+    unfiltered=$(cat ${LDIR}/entry.json | jq -M '.[0].unfiltered')
+    unfiltered=$(bc -l <<< "scale=3; $unfiltered / 1000")
+    if [ $(bc  -l <<< "$unfiltered < 30") -eq 1 -o $(bc -l <<< "$unfiltered > 500") -eq 1 ]; then 
+      error="Invalid response - Unfiltered = $unfiltered"
+      state_id=0x25
+      ls -al ${LDIR}/entry.json
+      rm ${LDIR}/entry.json
+    fi
+  else
     state_id=0x24
-    state="Invalid or No Response" ; stateString=$state ; stateStringShort=$state
-    post_cgm_ns_pill
-    exit
+    error="No Response" 
+  fi
+  if [ "$error" != "" ]; then
+      state=$error ; stateString=$state ; stateStringShort=$state
+      remove_dexcom_bt_pair
+      post_cgm_ns_pill
+      exit
   fi
 }
 
@@ -835,8 +838,8 @@ function apply_lsr_calibration()
     if [ "$mode" == "expired" ]; then
       # exit until we have a valid calibration record
       log "no valid calibration record yet, exiting ..."
-      state_id=0x07
-      state="Needs Calibration" ; stateString=$state ; stateStringShort=$state
+      state_id=0x04
+      state="First Calibration" ; stateString=$state ; stateStringShort=$state
       post_cgm_ns_pill
       remove_dexcom_bt_pair
       exit
