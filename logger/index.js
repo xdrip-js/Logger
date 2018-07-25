@@ -137,11 +137,12 @@ transmitter.on('glucose', glucose => {
     }];
     const data = JSON.stringify(entry);
 
-  if(glucose.unfiltered > 500000 || glucose.unfiltered < 30000) // for safety, I'm assuming it is erroneous and ignoring
+/*  if(glucose.unfiltered > 500000 || glucose.unfiltered < 30000) // for safety, I'm assuming it is erroneous and ignoring
     {
       console.log("Error - bad glucose data, not processing");
       process.exit();
     }
+*/
     fs.writeFile("/root/myopenaps/monitor/xdripjs/extra.json", extraData, function(err) {
     if(err) {
         console.log("Error while writing extra.json");
