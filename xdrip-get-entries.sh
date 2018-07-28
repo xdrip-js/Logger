@@ -86,8 +86,8 @@ main()
   check_recent_sensor_insert
 
 
+  readLastState
   if [ "$mode" == "expired" ]; then
-    readLastState
     apply_lsr_calibration 
   fi
 
@@ -120,9 +120,7 @@ main()
   process_announcements
   post_cgm_ns_pill
 
-  if [ "$mode" == "expired" ]; then
-    saveLastState
-  fi
+  saveLastState
 
   remove_dexcom_bt_pair
   log "Completed Logger"
@@ -175,7 +173,7 @@ function build_json() {
 
 function readLastState
 {
-    lastState=$(cat ${LDIR}/lastState.json | jq -M '.[0].state')
+    lastState=$(cat ${LDIR}/Logger-last-state.json | jq -M '.[0].state')
     lastState="${lastState%\"}"
     lastState="${lastState#\"}"
     log "readLastState: lastState=$lastState"
@@ -183,8 +181,8 @@ function readLastState
 
 function saveLastState
 {
-  log "saveLastState"
-  echo "[{\"state\":\"${state}\"}]" > ${LDIR}/lastState.json
+  log "saveLastState, state=$state"
+  echo "[{\"state\":\"${state}\",\"txId\":\"${transmitter}\"}]" > ${LDIR}/Logger-last-state.json
 }
 
 function log
@@ -687,9 +685,9 @@ function process_announcements()
 
 function check_last_calibration()
 {
+   if [ "$mode" == "expired" ]; then
    state="Needs Calibration" ; stateString=$state ; stateStringShort=$state
    state_id=0x07
-   if [ "$mode" == "expired" ]; then
      if [ -e ${LDIR}/calibration-linear.json ]; then
        if test  `find ${LDIR}/calibration-linear.json -mmin +720`
        then
