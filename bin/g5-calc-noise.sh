@@ -13,8 +13,8 @@
 # also added weight for points where the delta shifts from pos to neg or neg to pos (peaks/valleys)
 # the more peaks and valleys, the more noise is amplified
 
-INPUT=${1:-"${HOME}/myopenaps/monitor/logger/noise-input.csv"}
-OUTPUT=${2:-"${HOME}/myopenaps/monitor/logger/noise.json"}
+INPUT=${1:-"${HOME}/myopenaps/monitor/xdripjs/noise-input.csv"}
+OUTPUT=${2:-"${HOME}/myopenaps/monitor/xdripjs/noise.json"}
 MAXRECORDS=12
 MINRECORDS=4
 noise=0

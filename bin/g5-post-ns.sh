@@ -27,5 +27,5 @@ if [ -e $INPUT ]; then
   curl_status=$?
 fi
 
-#echo "curl status from g5-post-ns is $curl_status"
+#echo "curl status from cgm-post-ns is $curl_status"
 exit $curl_status

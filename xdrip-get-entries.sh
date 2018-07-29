@@ -4,9 +4,7 @@ main()
 {
   log "Starting Logger"
 
-  LDIR="${HOME}/myopenaps/monitor/logger"
-  mkdir -p ${LDIR}
-  mkdir -p ${LDIR}/old-calibrations
+  check_dirs
 
 # Cmd line args - transmitter $1 is 6 character tx serial number
   transmitter=$1
@@ -34,6 +32,7 @@ main()
   dateString=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
 
 
+  set_mode # call now and after getting status from tx
   initialize_messages
   check_environment
   check_utc
@@ -72,6 +71,8 @@ main()
   log "Mode = $mode"
   if [[ "$mode" == "not-expired" ]]; then
     initialize_calibrate_bg 
+  else
+    check_last_calibration
   fi
   set_entry_fields
 
@@ -85,8 +86,8 @@ main()
   check_recent_sensor_insert
 
 
-  if [ "$mode" == expired ]; then
-    readLastStatus
+  readLastState
+  if [ "$mode" == "expired" ]; then
     apply_lsr_calibration 
   fi
 
@@ -100,7 +101,7 @@ main()
 
   if [ "$mode" != "Stopped" ]; then
     log "Posting glucose record to xdripAPS / OpenAPS"
-    /usr/local/bin/g5-post-xdrip ${LDIR}/entry-xdrip.json
+    /usr/local/bin/cgm-post-xdrip ${LDIR}/entry-xdrip.json
   fi
 
   post-nightscout-with-backfill
@@ -119,29 +120,69 @@ main()
   process_announcements
   post_cgm_ns_pill
 
-  if [ "$mode" == expired ]; then
-    saveLastStatus
-  fi
+  saveLastState
 
   remove_dexcom_bt_pair
   log "Completed Logger"
   echo
 }
 
-function readLastStatus
-{
-  echo "readLastStatus"
-    lastStatus=$(cat ${LDIR}/lastStatus.json | jq -M '.[0].status')
-    lastStatus="${status%\"}"
-    lastStatus="${status#\"}"
-    echo "lastStatus=$lastStatus"
+function check_dirs() {
+  LDIR="${HOME}/myopenaps/monitor/xdripjs"
+  OLD_LDIR="${HOME}/myopenaps/monitor/logger"
+
+  if [ ! -d ${LDIR} ]; then
+    if [ -d ${OLD_LDIR} ]; then
+      mv ${OLD_LDIR} ${LDIR}
+    fi
+  fi
+  mkdir -p ${LDIR}
+  mkdir -p ${LDIR}/old-calibrations
 }
 
-function saveLastStatus
+# This func takes an arg list of value name pairs creating a simple json string
+# What's different about this vs jq is that this function will ignore
+# any value/name pair where the variable value name is null or blank
+# it also automatically handles quotes around variable values with strings
+# and doesn't include quotes for those without strings
+
+function build_json() {
+  local __result="{"
+
+  args=("$@")
+  for (( i=0; i < ${#}; i+=2 ))
+  do
+      local __key=${args[$i]}
+      local __value=${args[$i+1]}
+      #echo "key=$__key, value=$__value"
+      local __len=${#__value}
+      if [ $__len -gt 0 ]; then
+        if [ $(echo "$__value" | grep -cE "^\-?([0-9]+)(\.[0-9]+)?$") -gt 0 ]; then
+        # must be a number
+          __result="$__result\"$__key\":$__value,"
+        else
+        # must be a string
+          __result="$__result\"$__key\":\"$__value\","
+        fi
+      fi
+  done
+  # remove comma on last value/name pair
+  __result="${__result::-1}}"
+  echo $__result
+}
+
+function readLastState
 {
-  echo "saveLastStatus"
-  echo "[{\"status\":\"${status}\"}]" > ${LDIR}/lastStatus.json
-  cat ${LDIR}/lastStatus.json
+    lastState=$(cat ${LDIR}/Logger-last-state.json | jq -M '.[0].state')
+    lastState="${lastState%\"}"
+    lastState="${lastState#\"}"
+    log "readLastState: lastState=$lastState"
+}
+
+function saveLastState
+{
+  log "saveLastState, state=$state"
+  echo "[{\"state\":\"${state}\",\"txId\":\"${transmitter}\"}]" > ${LDIR}/Logger-last-state.json
 }
 
 function log
@@ -175,6 +216,9 @@ function check_environment
      log "Make sure the two lines below are in your ~/.bash_profile as follows:\n"
      log "API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxx # where xxxx is your hashed NS API_SECRET"
      log "export API_SECRET\n\nexiting\n"
+     state_id=0x21
+     state="API_SECRET Not Set" ; stateString=$state ; stateStringShort=$state
+     post_cgm_ns_pill
      exit
   fi
   if [ "$NIGHTSCOUT_HOST" = "" ]; then
@@ -182,6 +226,9 @@ function check_environment
      log "Make sure the two lines below are in your ~/.bash_profile as follows:\n"
      log "NIGHTSCOUT_HOST=https://xxxx # where xxxx is your hashed Nightscout url"
      log "export NIGHTSCOUT_HOST\n\nexiting\n"
+     state_id=0x22
+     state="NIGHTSCOUT_HOST Not Set" ; stateString=$state ; stateStringShort=$state
+     post_cgm_ns_pill
      exit
   fi
 }
@@ -227,8 +274,13 @@ function check_utc()
     createdAt="${createdAt#\"}"
     if [ ${#createdAt} -le 4 ]; then
       log "You must record a \"Sensor Insert\" in Nightscout before Logger will run" 
-      log "exiting\n"
-      exit
+      log "If you are offline at the moment (no internet) then this warning is OK"
+      #log "exiting\n"
+      state_id=0x23
+      state="Needs NS CGM Sensor Insert" ; stateString=$state ; stateStringShort=$state
+      post_cgm_ns_pill
+      # don't exit here -- offline mode will not work if exit here
+      # exit
     elif [[ $createdAt == *"Z"* ]]; then
       UTC=" -u "
       log "NS is using UTC $UTC"      
@@ -242,7 +294,7 @@ function check_utc()
 
 function log_g5_status_csv()
 {
-  file="/var/log/openaps/g5-status.csv"
+  file="/var/log/openaps/cgm-status.csv"
   if [ ! -f $file ]; then
     echo "epochdate,datetime,status,voltagea,voltageb,resist,runtime,temperature" > $file 
   fi
@@ -254,7 +306,7 @@ function check_battery_status()
 {
 
    #TODO: ignore voltagea, etc. for cgm pill update if they are null
-   file="${LDIR}/g5-battery.json"
+   file="${LDIR}/cgm-battery.json"
    voltagea=$(jq ".voltagea" $file)
    voltageb=$(jq ".voltageb" $file)
    resist=$(jq ".resist" $file)
@@ -266,8 +318,8 @@ function check_battery_status()
      g5_status=$(jq ".status" $file)
      battery_msg="g5_status=$g5_status, voltagea=$voltagea, voltageb=$voltageb, resist=$resist, runtime=$runtime days, temp=$temperature celcius"
     
-     echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Note\",\"notes\":\"Battery $battery_msg\"}]" > ${LDIR}/g5-battery-status.json
-     /usr/local/bin/g5-post-ns ${LDIR}/g5-battery-status.json treatments && (echo; log "Upload to NightScout of battery status change worked") || (echo; log "Upload to NS of battery status change did not work")
+     echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Note\",\"notes\":\"Battery $battery_msg\"}]" > ${LDIR}/cgm-battery-status.json
+     /usr/local/bin/cgm-post-ns ${LDIR}/cgm-battery-status.json treatments && (echo; log "Upload to NightScout of battery status change worked") || (echo; log "Upload to NS of battery status change did not work")
      log_g5_status_csv
 
    fi
@@ -275,7 +327,7 @@ function check_battery_status()
 
 function check_send_battery_status()
  {
-   file="${LDIR}/g5-battery.json"
+   file="${LDIR}/cgm-battery.json"
  
    if [ -e $file ]; then
      if test  `find $file -mmin +720`
@@ -342,8 +394,8 @@ function check_sensor_change()
     ClearCalibrationInput
     ClearCalibrationCache
     touch ${LDIR}/last_sensor_change
-    status="Warmup"
-    status_id=0x02
+    state_id=0x02
+    state="Warmup" ; stateString=$state ; stateStringShort=$state
     post_cgm_ns_pill
 
     log "exiting"
@@ -356,15 +408,15 @@ function check_last_entry_values()
   # TODO: check file stamp for > x for last-entry.json and ignore lastGlucose if older than x minutes
   if [ -e "${LDIR}/last-entry.json" ] ; then
     lastGlucose=$(cat ${LDIR}/last-entry.json | jq -M '.[0].sgv')
-    lastState=$(cat ${LDIR}/last-entry.json | jq -M '.[0].state')
     lastStatus=$(cat ${LDIR}/last-entry.json | jq -M '.[0].status')
     lastStatus="${lastStatus%\"}"
     lastStatus="${lastStatus#\"}"
-    lastState="${lastState%\"}"
-    lastState="${lastState#\"}"
-    log "lastGlucose=$lastGlucose, lastStatus=$lastStatus, lastState=$lastState"
-  else
-    log "${LDIR}/last-entry.json not available, lastGlucose=0"
+    if [ "$mode" != "expired" ]; then
+      lastState=$(cat ${LDIR}/last-entry.json | jq -M '.[0].state')
+      lastState="${lastState%\"}"
+      lastState="${lastState#\"}"
+      log "check_last_entry_values: lastGlucose=$lastGlucose, lastStatus=$lastStatus, lastState=$lastState"
+    fi
   fi
 }
 
@@ -485,17 +537,29 @@ function  call_logger()
   timeout 420 node logger $transmitter "${messages}"
   #"[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\" glucose\": $meterbg}]"
   echo
+  local error=""
   log "after xdrip-js bg record below ..."
-  cat ${LDIR}/entry.json
-  echo
-  glucose=$(cat ${LDIR}/entry.json | jq -M '.[0].glucose')
-
-  if [ -z "${glucose}" ] ; then
-    log "Exit - Invalid response from g5 transmitter"
-    ls -al ${LDIR}/entry.json
-    rm ${LDIR}/entry.json
-    remove_dexcom_bt_pair
-    exit
+  if [ -e "${LDIR}/entry.json" ]; then
+    cat ${LDIR}/entry.json
+    echo
+    glucose=$(cat ${LDIR}/entry.json | jq -M '.[0].glucose')
+    unfiltered=$(cat ${LDIR}/entry.json | jq -M '.[0].unfiltered')
+    unfiltered=$(bc -l <<< "scale=3; $unfiltered / 1000")
+    if [ $(bc  -l <<< "$unfiltered < 30") -eq 1 -o $(bc -l <<< "$unfiltered > 500") -eq 1 ]; then 
+      error="Invalid response - Unfiltered = $unfiltered"
+      state_id=0x25
+      ls -al ${LDIR}/entry.json
+      rm ${LDIR}/entry.json
+    fi
+  else
+    state_id=0x24
+    error="No Response" 
+  fi
+  if [ "$error" != "" ]; then
+      state=$error ; stateString=$state ; stateStringShort=$state
+      remove_dexcom_bt_pair
+      post_cgm_ns_pill
+      exit
   fi
 }
 
@@ -565,8 +629,7 @@ function set_mode()
   if [[ "$cmd_line_mode" == "expired" ]]; then
     mode="expired"
   fi
-  # to hard-code or test expired mode, uncomment below line
-  #mode="expired"
+  echo "Logger mode=$mode"
 }
 
 function  initialize_calibrate_bg()
@@ -593,7 +656,7 @@ function log_g5_csv()
   noise_percentage=$(bc <<< "$noise * 100")
 
   if [ ! -f $file ]; then
-    echo "epochdate,datetime,unfiltered,filtered,direction,calibratedBG-lsr,g5-glucose,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend,mode,noise*100,sensitivity,rssi" > $file 
+    echo "epochdate,datetime,unfiltered,filtered,direction,calibratedBG-lsr,cgm-glucose,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend,mode,noise*100,sensitivity,rssi" > $file 
   fi
   echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${glucose},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend},${mode},${noise_percentage},${sensitivity},${rssi}" >> $file 
 }
@@ -605,53 +668,64 @@ function process_announcements()
   if [ "$mode" == "Stopped" ]; then
     log "Not posting glucose to Nightscout or OpenAPS - sensor state is Stopped, unfiltered=$unfiltered"
     echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Sensor Stopped, unfiltered=$unfiltered\"}]" > ${LDIR}/status-change.json
-    /usr/local/bin/g5-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of sensor Stopped status change worked") || (echo; log "Upload to NS of transmitter sensor Stopped did not work")
+    /usr/local/bin/cgm-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of sensor Stopped status change worked") || (echo; log "Upload to NS of transmitter sensor Stopped did not work")
   else
-    if [ "$mode" == "expired" ]; then
-      state="OK" 
-      state_id=0x06
-
-      lastState="OK"
-      status="OK"
-      status_id=0x00
-      lastStatus="OK"
-      log "process_announcements: state=$state status=$status"
-    fi
-    log "process_announcements: state=$state status=$status"
+    log "process_announcements: state=$state lastState=$lastState status=$status lastStatus=$lastStatus"
     if [ "$status" != "$lastStatus" ]; then
       echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Tx $status\"}]" > ${LDIR}/status-change.json
-      /usr/local/bin/g5-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of transmitter status change worked") || (echo; log "Upload to NS of transmitter status change did not work")
+      /usr/local/bin/cgm-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of transmitter status change worked") || (echo; log "Upload to NS of transmitter status change did not work")
     fi
 
     if [ "$state" != "$lastState" ]; then
       echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Sensor $state\"}]" > ${LDIR}/state-change.json
-      /usr/local/bin/g5-post-ns ${LDIR}/state-change.json treatments && (echo; log "Upload to NightScout of sensor state change worked") || (echo; log "Upload to NS of sensor state change did not work")
+      /usr/local/bin/cgm-post-ns ${LDIR}/state-change.json treatments && (echo; log "Upload to NightScout of sensor state change worked") || (echo; log "Upload to NS of sensor state change did not work")
     fi
   fi
+}
+
+function check_last_calibration()
+{
+   if [ "$mode" == "expired" ]; then
+   state="Needs Calibration" ; stateString=$state ; stateStringShort=$state
+   state_id=0x07
+     if [ -e ${LDIR}/calibration-linear.json ]; then
+       if test  `find ${LDIR}/calibration-linear.json -mmin +720`
+       then
+         log "Last calibration > 12 hours ago, setting sensor state to Needs Calibration"
+         : # default of Needs calibration here since last one > 12 hours ago
+       else
+         log "Last calibration within 12 hours, setting sensor state to OK"
+         state="OK" ; stateString=$state ; stateStringShort=$state
+         state_id=0x06
+       fi
+     fi
+    fi
 }
 
 function check_pump_history_calibration()
 {
   if [ $found_meterbg == false ]; then
-    # look for a bg check from pumphistory (direct from meter->openaps):
-    # note: pumphistory may not be loaded by openaps very timely...
-    meterbgafter=$(date -d "9 minutes ago" -Iminutes)
-    meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\")'"
-    bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-merged.json" > $METERBG_NS_RAW
-    meterbg=$(bash -c "jq .amount $METERBG_NS_RAW | head -1")
-    meterbgid=$(bash -c "jq .timestamp $METERBG_NS_RAW | head -1")
-    # meter BG from pumphistory doesn't support mmol yet - has no units...
-    # using arg3 if mmol then convert it
-    if [[ "$pumpUnits" == *"mmol"* ]]; then
-      meterbg=$(bc <<< "($meterbg *18)/1")
-      log "converted pump history meterbg from mmol value to $meterbg"
+    if [ -e "~/myopenaps/monitor/pumphistory-24h-zoned.json" ]; then
+      # look for a bg check from pumphistory (direct from meter->openaps):
+      # note: pumphistory may not be loaded by openaps very timely...
+      meterbgafter=$(date -d "9 minutes ago" -Iminutes)
+      meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\")'"
+      bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-24h-zoned.json" > $METERBG_NS_RAW
+      meterbg=$(bash -c "jq .amount $METERBG_NS_RAW | head -1")
+      meterbgid=$(bash -c "jq .timestamp $METERBG_NS_RAW | head -1")
+      # meter BG from pumphistory doesn't support mmol yet - has no units...
+      # using arg3 if mmol then convert it
+      if [[ "$pumpUnits" == *"mmol"* ]]; then
+        meterbg=$(bc <<< "($meterbg *18)/1")
+        log "converted pump history meterbg from mmol value to $meterbg"
+      fi
+      echo
+      if [[ -n "$meterbg" && "$meterbg" != "" ]]; then  
+        log "meterbg from pumphistory: $meterbg"
+        found_meterbg=true
+      fi
+      calDate=$(date +'%s%3N') # TODO: use pump history date
     fi
-    echo
-    if [[ -n "$meterbg" && "$meterbg" != "" ]]; then  
-      log "meterbg from pumphistory: $meterbg"
-      found_meterbg=true
-    fi
-    calDate=$(date +'%s%3N') # TODO: use pump history date
   fi
 }
 
@@ -719,7 +793,7 @@ function calculate_calibrations()
 	    log "Raw/unfiltered compared to meterbg is $meterbg_raw_delta > 80, ignoring calibration"
           else
             echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid,$filtered,$unfiltered" >> ${LDIR}/calibrations.csv
-            /usr/local/bin/g5-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
+            /usr/local/bin/cgm-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
             maxDelta=80
             calibrationDone=1
             cat ${LDIR}/calibrations.csv
@@ -735,7 +809,6 @@ function calculate_calibrations()
   fi
 }
 
-# expired mode only
 function apply_lsr_calibration()
 {
   if [ -e ${LDIR}/calibration-linear.json ]; then
@@ -757,13 +830,18 @@ function apply_lsr_calibration()
       #yIntercept_div_1000=$(bc -l <<< "scale=2; $yIntercept / 1000")
 
       echo "[{\"device\":\"$rig\",\"type\":\"cal\",\"date\":$epochdatems,\"dateString\":\"$dateString\", \"scale\":1,\"intercept\":$yIntercept,\"slope\":$slope}]" > ${LDIR}/cal.json 
-      /usr/local/bin/g5-post-ns ${LDIR}/cal.json && (echo; log "Upload to NightScout of cal record entry worked";) || (echo; log "Upload to NS of cal record did not work")
+      /usr/local/bin/cgm-post-ns ${LDIR}/cal.json && (echo; log "Upload to NightScout of cal record entry worked";) || (echo; log "Upload to NS of cal record did not work")
     fi
   else
-    # exit until we have a valid calibration record
-    log "no valid calibration record yet, exiting ..."
-    remove_dexcom_bt_pair
-    exit
+    if [ "$mode" == "expired" ]; then
+      # exit until we have a valid calibration record
+      log "no valid calibration record yet, exiting ..."
+      state_id=0x04
+      state="First Calibration" ; stateString=$state ; stateStringShort=$state
+      post_cgm_ns_pill
+      remove_dexcom_bt_pair
+      exit
+    fi
   fi
 
   # $raw is either unfiltered or filtered value from g5
@@ -796,9 +874,14 @@ function apply_lsr_calibration()
   if [ -z $calibratedBG ]; then
     # Outer calibrated BG boundary checks - exit and don't send these on to Nightscout / openaps
     if [ $(bc <<< "$calibratedBG > 600") -eq 1 -o $(bc <<< "$calibratedBG < 0") -eq 1 ]; then
-      log "Glucose $calibratedBG out of range [0,600] - exiting"
-      remove_dexcom_bt_pair
-      exit
+      if [ "$mode" == "expired" ]; then
+        log "Glucose $calibratedBG out of range [0,600] - exiting"
+        state_id=0x20
+        state="LSR Calibrated BG Out of Bounds" ; stateString=$state ; stateStringShort=$state
+        post_cgm_ns_pill
+        remove_dexcom_bt_pair
+        exit
+      fi
     fi
   fi
 
@@ -817,43 +900,50 @@ function apply_lsr_calibration()
 
 function post_cgm_ns_pill()
 {
-  xrig="xdripjs://$(hostname)"
 #    \"sessionStart\":$sessionStart,\
 #    \"txActivation\":$txActivation,\
-#    \"lastCalibrationDate\":$lastCalibrationDate,\
    # json required conversion to decimal values
+
+   local cache="${LDIR}/calibration-linear.json"
+   if [ -e $cache ]; then
+     lastCalibrationDate=$(stat -c "%Y000" ${cache})
+   fi
+   xrig="xdripjs://$(hostname)"
    state_id=$(echo $(($state_id)))
    status_id=$(echo $(($status_id)))
 
-   pill="[{\"device\":\"$xrig\",\"xdripjs\": {\
-    \"sessionStart\":$lastSensorInsertDate,\
-    \"state\":$state_id,\
-    \"txStatus\":$status_id,\
-    \"stateString\":\"$state\",\
-    \"stateStringShort\":\"$state\",\
-    \"txId\":\"$transmitter\",\
-    \"txStatusString\":\"$status\",\
-    \"txStatusStringShort\":\"$status\",\
-    \"mode\":\"$mode\",\
-    \"timestamp\":$epochdatems,\
-    \"rssi\":$rssi,\
-    \"unfiltered\":$unfiltered,\
-    \"filtered\":$filtered,\
-    \"noise\":$noise,\
-    \"noiseString\":\"$noiseString\",\
-    \"slope\":$slope,\
-    \"intercept\":$yIntercept,\
-    \"calType\":\"$calibrationType\",\
-    \"batteryTimestamp\":$batteryTimestamp,\
-    \"voltagea\":$voltagea,\
-    \"voltageb\":$voltageb,\
-    \"temperature\":$temperature,\
-    \"resistance\":$resist},\
-    \"created_at\":\"$dateString\"}]"
+   jstr="$(build_json \
+      sessionStart "$lastSensorInsertDate" \
+    state "$state_id" \
+    txStatus "$status_id" \
+    stateString "$state" \
+    stateStringShort "$state" \
+    txId "$transmitter" \
+    txStatusString "$status" \
+    txStatusStringShort "$status" \
+    mode "$mode" \
+    timestamp "$epochdatems" \
+    rssi "$rssi" \
+    unfiltered "$unfiltered" \
+    filtered "$filtered" \
+    noise "$noise" \
+    noiseString "$noiseString" \
+    lastCalibrationDate "$lastCalibrationDate" \
+    slope "$slope" \
+    intercept "$yIntercept" \
+    calType "$calibrationType" \
+    batteryTimestamp "$batteryTimestamp" \
+    voltagea "$voltagea" \
+    voltageb "$voltageb" \
+    temperature "$temperature" \
+    resistance "$resist"
+    )"
+
+   pill="[{\"device\":\"$xrig\",\"xdripjs\": $jstr, \"created_at\":\"$dateString\"}] "
 
    echo $pill && echo $pill > ${LDIR}/cgm-pill.json
 
-   /usr/local/bin/g5-post-ns ${LDIR}/cgm-pill.json devicestatus && (echo; log "Upload to NightScout of cgm status pill record entry worked";) || (echo; log "Upload to NS of cgm status pill record did not work")
+   /usr/local/bin/cgm-post-ns ${LDIR}/cgm-pill.json devicestatus && (echo; log "Upload to NightScout of cgm status pill record entry worked";) || (echo; log "Upload to NS of cgm status pill record did not work")
 }
 
 function process_delta()
@@ -871,19 +961,6 @@ function process_delta()
   if [ -n $da -a $(bc <<< "$da < 0") -eq 1 ]; then
     da=$(bc <<< "0 - $da")
   fi
-
-# not needed given how OpenAPS processes
-#
-#  if [ "$da" -lt "45" -a "$da" -gt "15" ]; then
-#    if [ "$mode" == "expired" ]; then
-#      log "Before Average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, calibratedBG=$calibratedBG"
-#      calibratedBG=$(bc <<< "($calibratedBG + $lastGlucose)/2")
-#      dg=$(bc <<< "$calibratedBG - $lastGlucose")
-#      log "After average last 2 entries - lastGlucose=$lastGlucose, dg=$dg, calibratedBG=${calibratedBG}"
-#    fi
-#  fi
-  # end average last two entries if noise
-
 
   if [ $(bc <<< "$dg > $maxDelta") -eq 1 -o $(bc <<< "$dg < (0 - $maxDelta)") -eq 1 ]; then
     log "Change $dg out of range [$maxDelta,-${maxDelta}] - setting noise=Heavy"
@@ -1002,17 +1079,17 @@ function calculate_noise()
     done
     echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ${LDIR}/noise-input41.csv
 
-    if [ -e "/usr/local/bin/g5-calc-noise-go" ]; then
+    if [ -e "/usr/local/bin/cgm-calc-noise-go" ]; then
       # use the go-based version
-      noise_cmd="/usr/local/bin/g5-calc-noise-go"
+      noise_cmd="/usr/local/bin/cgm-calc-noise-go"
       #log "calculating noise using go-based version"
     else 
-      noise_cmd="/usr/local/bin/g5-calc-noise"
+      noise_cmd="/usr/local/bin/cgm-calc-noise"
       #log "calculating noise using bash-based version"
     fi
     # TODO: fix go-based version
     # TODO: resolve issue with input41.csv
-    noise_cmd="/usr/local/bin/g5-calc-noise"
+    noise_cmd="/usr/local/bin/cgm-calc-noise"
     log "calculating noise using bash-based version"
     $noise_cmd 
 
@@ -1055,21 +1132,21 @@ function check_messages()
     fi
   fi
   
-  file="${LDIR}/g5-stop.json"
+  file="${LDIR}/cgm-stop.json"
   if [ -e "$file" ]; then
     stopJSON=$(cat $file)
     log "stopJSON=$stopJSON"
     rm -f $file
   fi
 
-  file="${LDIR}/g5-start.json"
+  file="${LDIR}/cgm-start.json"
   if [ -e "$file" ]; then
     startJSON=$(cat $file)
     log "startJSON=$startJSON"
     rm -f $file
   fi
 
-  file="${LDIR}/g5-reset.json"
+  file="${LDIR}/cgm-reset.json"
   if [ -e "$file" ]; then
     resetJSON=$(cat $file)
     log "resetJSON=$resetJSON"
@@ -1109,12 +1186,12 @@ function  post-nightscout-with-backfill()
 
 
   log "Posting blood glucose to NightScout"
-  /usr/local/bin/g5-post-ns ${LDIR}/entry-ns.json && (echo; log "Upload to NightScout of xdrip entry worked ... removing ${LDIR}/entry-backfill.json"; rm -f ${LDIR}/entry-backfill.json) || (echo; log "Upload to NS of xdrip entry did not work ... saving for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile"; cp ${LDIR}/entry-ns.json ${LDIR}/entry-backfill.json)
+  /usr/local/bin/cgm-post-ns ${LDIR}/entry-ns.json && (echo; log "Upload to NightScout of xdrip entry worked ... removing ${LDIR}/entry-backfill.json"; rm -f ${LDIR}/entry-backfill.json) || (echo; log "Upload to NS of xdrip entry did not work ... saving for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile"; cp ${LDIR}/entry-ns.json ${LDIR}/entry-backfill.json)
   echo
 
   if [ -e "${LDIR}/treatments-backfill.json" ]; then
     log "Posting treatments to NightScout"
-    /usr/local/bin/g5-post-ns ${LDIR}/treatments-backfill.json treatments && (echo; log "Upload to NightScout of xdrip treatments worked ... removing ${LDIR}/treatments-backfill.json"; rm -f ${LDIR}/treatments-backfill.json) || (echo; log "Upload to NS of xdrip entry did not work ... saving treatments for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile")
+    /usr/local/bin/cgm-post-ns ${LDIR}/treatments-backfill.json treatments && (echo; log "Upload to NightScout of xdrip treatments worked ... removing ${LDIR}/treatments-backfill.json"; rm -f ${LDIR}/treatments-backfill.json) || (echo; log "Upload to NS of xdrip entry did not work ... saving treatments for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile")
     echo
   fi
 }
