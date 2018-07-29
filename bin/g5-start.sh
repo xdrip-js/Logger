@@ -42,7 +42,7 @@ fi
 
 
 
-MESSAGE="${HOME}/myopenaps/monitor/xdripjs/xxxxg5-start.json"
+MESSAGE="${HOME}/myopenaps/monitor/xdripjs/cgm-start.json"
 if [ -n "$minutes_ago" ]; then
   epochdate=$(date +'%s%3N' -d "$minutes_ago minutes ago")
 else
