@@ -9,13 +9,11 @@ function usage
   exit
 }
 
-# optional parameter $1 to specify how many minutes ago for sensor insert/start
-minutes_ago=$1
-
-# or use -m or -c to specify minutes ago and/or g6 code
-
-while test $# != 0
-do
+numArgs=$#
+if [ $(bc <<< "$numArgs > 1") -eq 1 ]; then
+# use -m or -c to specify minutes ago and/or g6 code
+  while test $# != 0
+  do
     case "$1" in
     -m|--minutes_ago) minutes_ago=$2; shift ;;
     -c|--code) code=$2; shift ;;
@@ -23,7 +21,13 @@ do
     *)  usage ;;
     esac
     shift
-done
+  done
+elif [ $(bc <<< "$numArgs > 0") -eq 1 ]; then
+  # optional parameter $1 to specify how many minutes ago for sensor insert/start
+  minutes_ago=$1
+fi
+ 
+
 
 #echo "minutes_ago=$minutes_ago"
 #echo "code=$code"
@@ -38,7 +42,7 @@ done
 
 
 
-MESSAGE="${HOME}/myopenaps/monitor/xdripjs/g5-start.json"
+MESSAGE="${HOME}/myopenaps/monitor/xdripjs/xxxxg5-start.json"
 if [ -n "$minutes_ago" ]; then
   epochdate=$(date +'%s%3N' -d "$minutes_ago minutes ago")
 else
