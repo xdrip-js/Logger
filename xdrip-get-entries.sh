@@ -101,7 +101,7 @@ main()
 
   if [ "$mode" != "Stopped" ]; then
     log "Posting glucose record to xdripAPS / OpenAPS"
-    /usr/local/bin/g5-post-xdrip ${LDIR}/entry-xdrip.json
+    /usr/local/bin/cgm-post-xdrip ${LDIR}/entry-xdrip.json
   fi
 
   post-nightscout-with-backfill
@@ -294,7 +294,7 @@ function check_utc()
 
 function log_g5_status_csv()
 {
-  file="/var/log/openaps/g5-status.csv"
+  file="/var/log/openaps/cgm-status.csv"
   if [ ! -f $file ]; then
     echo "epochdate,datetime,status,voltagea,voltageb,resist,runtime,temperature" > $file 
   fi
@@ -306,7 +306,7 @@ function check_battery_status()
 {
 
    #TODO: ignore voltagea, etc. for cgm pill update if they are null
-   file="${LDIR}/g5-battery.json"
+   file="${LDIR}/cgm-battery.json"
    voltagea=$(jq ".voltagea" $file)
    voltageb=$(jq ".voltageb" $file)
    resist=$(jq ".resist" $file)
@@ -318,8 +318,8 @@ function check_battery_status()
      g5_status=$(jq ".status" $file)
      battery_msg="g5_status=$g5_status, voltagea=$voltagea, voltageb=$voltageb, resist=$resist, runtime=$runtime days, temp=$temperature celcius"
     
-     echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Note\",\"notes\":\"Battery $battery_msg\"}]" > ${LDIR}/g5-battery-status.json
-     /usr/local/bin/g5-post-ns ${LDIR}/g5-battery-status.json treatments && (echo; log "Upload to NightScout of battery status change worked") || (echo; log "Upload to NS of battery status change did not work")
+     echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Note\",\"notes\":\"Battery $battery_msg\"}]" > ${LDIR}/cgm-battery-status.json
+     /usr/local/bin/cgm-post-ns ${LDIR}/cgm-battery-status.json treatments && (echo; log "Upload to NightScout of battery status change worked") || (echo; log "Upload to NS of battery status change did not work")
      log_g5_status_csv
 
    fi
@@ -327,7 +327,7 @@ function check_battery_status()
 
 function check_send_battery_status()
  {
-   file="${LDIR}/g5-battery.json"
+   file="${LDIR}/cgm-battery.json"
  
    if [ -e $file ]; then
      if test  `find $file -mmin +720`
@@ -656,7 +656,7 @@ function log_g5_csv()
   noise_percentage=$(bc <<< "$noise * 100")
 
   if [ ! -f $file ]; then
-    echo "epochdate,datetime,unfiltered,filtered,direction,calibratedBG-lsr,g5-glucose,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend,mode,noise*100,sensitivity,rssi" > $file 
+    echo "epochdate,datetime,unfiltered,filtered,direction,calibratedBG-lsr,cgm-glucose,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend,mode,noise*100,sensitivity,rssi" > $file 
   fi
   echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${glucose},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend},${mode},${noise_percentage},${sensitivity},${rssi}" >> $file 
 }
@@ -668,17 +668,17 @@ function process_announcements()
   if [ "$mode" == "Stopped" ]; then
     log "Not posting glucose to Nightscout or OpenAPS - sensor state is Stopped, unfiltered=$unfiltered"
     echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Sensor Stopped, unfiltered=$unfiltered\"}]" > ${LDIR}/status-change.json
-    /usr/local/bin/g5-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of sensor Stopped status change worked") || (echo; log "Upload to NS of transmitter sensor Stopped did not work")
+    /usr/local/bin/cgm-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of sensor Stopped status change worked") || (echo; log "Upload to NS of transmitter sensor Stopped did not work")
   else
     log "process_announcements: state=$state lastState=$lastState status=$status lastStatus=$lastStatus"
     if [ "$status" != "$lastStatus" ]; then
       echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Tx $status\"}]" > ${LDIR}/status-change.json
-      /usr/local/bin/g5-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of transmitter status change worked") || (echo; log "Upload to NS of transmitter status change did not work")
+      /usr/local/bin/cgm-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of transmitter status change worked") || (echo; log "Upload to NS of transmitter status change did not work")
     fi
 
     if [ "$state" != "$lastState" ]; then
       echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Sensor $state\"}]" > ${LDIR}/state-change.json
-      /usr/local/bin/g5-post-ns ${LDIR}/state-change.json treatments && (echo; log "Upload to NightScout of sensor state change worked") || (echo; log "Upload to NS of sensor state change did not work")
+      /usr/local/bin/cgm-post-ns ${LDIR}/state-change.json treatments && (echo; log "Upload to NightScout of sensor state change worked") || (echo; log "Upload to NS of sensor state change did not work")
     fi
   fi
 }
@@ -793,7 +793,7 @@ function calculate_calibrations()
 	    log "Raw/unfiltered compared to meterbg is $meterbg_raw_delta > 80, ignoring calibration"
           else
             echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid,$filtered,$unfiltered" >> ${LDIR}/calibrations.csv
-            /usr/local/bin/g5-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
+            /usr/local/bin/cgm-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
             maxDelta=80
             calibrationDone=1
             cat ${LDIR}/calibrations.csv
@@ -830,7 +830,7 @@ function apply_lsr_calibration()
       #yIntercept_div_1000=$(bc -l <<< "scale=2; $yIntercept / 1000")
 
       echo "[{\"device\":\"$rig\",\"type\":\"cal\",\"date\":$epochdatems,\"dateString\":\"$dateString\", \"scale\":1,\"intercept\":$yIntercept,\"slope\":$slope}]" > ${LDIR}/cal.json 
-      /usr/local/bin/g5-post-ns ${LDIR}/cal.json && (echo; log "Upload to NightScout of cal record entry worked";) || (echo; log "Upload to NS of cal record did not work")
+      /usr/local/bin/cgm-post-ns ${LDIR}/cal.json && (echo; log "Upload to NightScout of cal record entry worked";) || (echo; log "Upload to NS of cal record did not work")
     fi
   else
     if [ "$mode" == "expired" ]; then
@@ -943,7 +943,7 @@ function post_cgm_ns_pill()
 
    echo $pill && echo $pill > ${LDIR}/cgm-pill.json
 
-   /usr/local/bin/g5-post-ns ${LDIR}/cgm-pill.json devicestatus && (echo; log "Upload to NightScout of cgm status pill record entry worked";) || (echo; log "Upload to NS of cgm status pill record did not work")
+   /usr/local/bin/cgm-post-ns ${LDIR}/cgm-pill.json devicestatus && (echo; log "Upload to NightScout of cgm status pill record entry worked";) || (echo; log "Upload to NS of cgm status pill record did not work")
 }
 
 function process_delta()
@@ -1079,17 +1079,17 @@ function calculate_noise()
     done
     echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ${LDIR}/noise-input41.csv
 
-    if [ -e "/usr/local/bin/g5-calc-noise-go" ]; then
+    if [ -e "/usr/local/bin/cgm-calc-noise-go" ]; then
       # use the go-based version
-      noise_cmd="/usr/local/bin/g5-calc-noise-go"
+      noise_cmd="/usr/local/bin/cgm-calc-noise-go"
       #log "calculating noise using go-based version"
     else 
-      noise_cmd="/usr/local/bin/g5-calc-noise"
+      noise_cmd="/usr/local/bin/cgm-calc-noise"
       #log "calculating noise using bash-based version"
     fi
     # TODO: fix go-based version
     # TODO: resolve issue with input41.csv
-    noise_cmd="/usr/local/bin/g5-calc-noise"
+    noise_cmd="/usr/local/bin/cgm-calc-noise"
     log "calculating noise using bash-based version"
     $noise_cmd 
 
@@ -1132,21 +1132,21 @@ function check_messages()
     fi
   fi
   
-  file="${LDIR}/g5-stop.json"
+  file="${LDIR}/cgm-stop.json"
   if [ -e "$file" ]; then
     stopJSON=$(cat $file)
     log "stopJSON=$stopJSON"
     rm -f $file
   fi
 
-  file="${LDIR}/g5-start.json"
+  file="${LDIR}/cgm-start.json"
   if [ -e "$file" ]; then
     startJSON=$(cat $file)
     log "startJSON=$startJSON"
     rm -f $file
   fi
 
-  file="${LDIR}/g5-reset.json"
+  file="${LDIR}/cgm-reset.json"
   if [ -e "$file" ]; then
     resetJSON=$(cat $file)
     log "resetJSON=$resetJSON"
@@ -1186,12 +1186,12 @@ function  post-nightscout-with-backfill()
 
 
   log "Posting blood glucose to NightScout"
-  /usr/local/bin/g5-post-ns ${LDIR}/entry-ns.json && (echo; log "Upload to NightScout of xdrip entry worked ... removing ${LDIR}/entry-backfill.json"; rm -f ${LDIR}/entry-backfill.json) || (echo; log "Upload to NS of xdrip entry did not work ... saving for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile"; cp ${LDIR}/entry-ns.json ${LDIR}/entry-backfill.json)
+  /usr/local/bin/cgm-post-ns ${LDIR}/entry-ns.json && (echo; log "Upload to NightScout of xdrip entry worked ... removing ${LDIR}/entry-backfill.json"; rm -f ${LDIR}/entry-backfill.json) || (echo; log "Upload to NS of xdrip entry did not work ... saving for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile"; cp ${LDIR}/entry-ns.json ${LDIR}/entry-backfill.json)
   echo
 
   if [ -e "${LDIR}/treatments-backfill.json" ]; then
     log "Posting treatments to NightScout"
-    /usr/local/bin/g5-post-ns ${LDIR}/treatments-backfill.json treatments && (echo; log "Upload to NightScout of xdrip treatments worked ... removing ${LDIR}/treatments-backfill.json"; rm -f ${LDIR}/treatments-backfill.json) || (echo; log "Upload to NS of xdrip entry did not work ... saving treatments for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile")
+    /usr/local/bin/cgm-post-ns ${LDIR}/treatments-backfill.json treatments && (echo; log "Upload to NightScout of xdrip treatments worked ... removing ${LDIR}/treatments-backfill.json"; rm -f ${LDIR}/treatments-backfill.json) || (echo; log "Upload to NS of xdrip entry did not work ... saving treatments for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile")
     echo
   fi
 }

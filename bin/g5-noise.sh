@@ -1,7 +1,7 @@
 #!/bin/bash
 
 MAXRECORDS=${1:-25}
-INPUT=${2:-"/var/log/openaps/g5.csv"}
+INPUT=${2:-"/var/log/openaps/cgm.csv"}
 
 n=0
 
