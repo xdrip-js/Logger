@@ -711,8 +711,8 @@ function check_pump_history_calibration()
       meterbgafter=$(date -d "9 minutes ago" -Iminutes)
       meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\")'"
       bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-24h-zoned.json" > $METERBG_NS_RAW
-      meterbg=$(bash -c "jq .amount $METERBG_NS_RAW")
-      meterbgid=$(bash -c "jq .timestamp $METERBG_NS_RAW")
+      meterbg=$(bash -c "jq .amount $METERBG_NS_RAW | head -1")
+      meterbgid=$(bash -c "jq .timestamp $METERBG_NS_RAW | head -1")
       # meter BG from pumphistory doesn't support mmol yet - has no units...
       # using arg3 if mmol then convert it
       if [[ "$pumpUnits" == *"mmol"* ]]; then
