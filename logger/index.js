@@ -173,9 +173,9 @@ transmitter.on('batteryStatus', data => {
 
   var fs = require('fs');
   const battery = JSON.stringify(data);
-  fs.writeFile("/root/myopenaps/monitor/xdripjs/g5-battery.json", battery, function(err) {
+  fs.writeFile("/root/myopenaps/monitor/xdripjs/cgm-battery.json", battery, function(err) {
   if(err) {
-      console.log("Error while writing g5-battery.json");
+      console.log("Error while writing cgm-battery.json");
       console.log(err);
       }
   });

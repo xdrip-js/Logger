@@ -49,5 +49,5 @@ else
   epochdate=$(date +'%s%3N')
 fi
 
-echo "[{\"date\":\"${epochdate}\",\"type\":\"StartSensor\"},\"code\":\"${code}\"]" >  $MESSAGE
+echo "[{\"date\":\"${epochdate}\",\"type\":\"StartSensor\",\"code\":\"${code}\"}]" >  $MESSAGE
 cat $MESSAGE
