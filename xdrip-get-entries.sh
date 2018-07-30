@@ -369,10 +369,16 @@ function check_sensor_start()
       if [ ${#createdAt} -ge 8 ]; then
         touch ${LDIR}/nightscout-treatments.log
         if ! cat ${LDIR}/nightscout-treatments.log | egrep "$createdAt"; then
+          sensorSerialCode=$(jq ".[$index].notes" $file) 
+      	  sensorSerialCode="${sensorSerialCode%\"}"
+          sensorSerialCode="${sensorSerialCode#\"}"
+
           start_date=$(date "+%s%3N" -d "$createdAt")
           echo "Processing sensor start retrieved from Nightscout - startdate = $createdAt"
           # comment out below line for testing sensor start without actually sending tx message
-          startJSON="[{\"date\":\"${start_date}\",\"type\":\"StartSensor\"}]"
+          # always send sensorSerialCode even if it is blank - doesn't matter for g5, but needed
+          # for g6
+          startJSON="[{\"date\":\"${start_date}\",\"type\":\"StartSensor\",\"sensorSerialCode\":\"${sensorSerialCode}\"}]"
           echo "startJSON = $startJSON"
           # below done so that next time the egrep returns positive for this specific message and the log reads right
           echo "Already Processed Sensor Start Message from Nightscout at $createdAt" >> ${LDIR}/nightscout-treatments.log

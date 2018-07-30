@@ -28,18 +28,12 @@ elif [ $(bc <<< "$numArgs > 0") -eq 1 ]; then
 fi
  
 
-
-#echo "minutes_ago=$minutes_ago"
-#echo "code=$code"
-
-
 # check Logger last state json file to get txId in order to determine if using g6 or not
 #LAST_STATE="${HOME}/myopenaps/monitor/xdripjs/Logger-last-state.json"
 #txId=$(cat ${LDIR}/Logger-last-state.json | jq -M '.[0].txId')
 #txId="${txId%\"}"
 #txId="${txId#\"}"
 #echo ""
-
 
 
 MESSAGE="${HOME}/myopenaps/monitor/xdripjs/cgm-start.json"
@@ -49,5 +43,5 @@ else
   epochdate=$(date +'%s%3N')
 fi
 
-echo "[{\"date\":\"${epochdate}\",\"type\":\"StartSensor\",\"code\":\"${code}\"}]" >  $MESSAGE
+echo "[{\"date\":\"${epochdate}\",\"type\":\"StartSensor\",\"sensorSerialCode\":\"${code}\"}]" >  $MESSAGE
 cat $MESSAGE
