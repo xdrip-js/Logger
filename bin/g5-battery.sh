@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# optional parameter $1 to specify how many hours ago for sensor insert/start
+# optional parameter $1 to specify "refresh" then it queues a Battery refresh ctl message to tx
 refresh=$1
 
 file="${HOME}/myopenaps/monitor/xdripjs/cgm-battery.json"
