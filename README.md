@@ -1,14 +1,14 @@
-# xdrip-js-logger - Bash (shell) based Dexcom g5 glucose pre-processor for OpenAPS
+# xdrip-js-logger - Bash (shell) based Dexcom g5 / g6 glucose pre-processor for OpenAPS
 
-Logger connects to the g5 transmitter, waits for the first bg, logs a json entry record, then exits. Doing it one-shot at a time seems to make xdrip-js more reliable in some cases. Logger is a wrapper shell script that is called from cron every minute. The user interface is a mixture between unix command line scripts and NightScout. The current Logger features are below:
+Logger connects to the g5 or g6 transmitter, waits for the first bg, logs a json entry record, then exits. Doing it one-shot at a time seems to make xdrip-js more reliable in some cases. Logger is a wrapper shell script that is called from cron every minute. The user interface is a mixture between unix command line scripts and NightScout. The current Logger features are below:
 
 * Preparation and sending of the blood glucose data to Nightscout and to OpenAPS.
 * Offline mode - Logger runs on the rig and sends bg data directly to openaps through via xdripAPS. Logger queues up NS updates while internet is down and fills in the gaps when internet is restored.
-* Reset Transmitter - Use the following command, wait > 10 minutes, and your expired transmitter is new again! Careful, though it will reset everything on your transmitter including your current session. Note this feature is only available via the command line.  ```g5-reset```
+* Reset Transmitter - Use the following command, wait > 10 minutes, and your expired transmitter is new again! Careful, though it will reset everything on your transmitter including your current session. Note this feature is only available via the command line.  ```cgm-reset```
 
-* Stop Sensor - Use the following command, wait > 5 minutes, and your current sensor session will stop. Use  this command before changing out your sensor so that Logger will stop sending glucose information temporarily (while the sensor is stopped) This feature is also available via the command line only.  ```g5-stop```
+* Stop Sensor - Use the following command, wait > 5 minutes, and your current sensor session will stop. Use  this command before changing out your sensor so that Logger will stop sending glucose information temporarily (while the sensor is stopped) This feature is also available via the command line only.  ```cgm-stop```
 
-* Start Sensor - Use the following command, wait > 5 minutes, and your sensor session will start. Use  this command after inserting your sensor so that Logger will start the process for sending glucose information. This feature is also available via the command line and you can also do it via Nightscout as a BG Treatment, entry type of Sensor Start.  ```g5-start```
+* Start Sensor - Use the following command, wait > 5 minutes, and your sensor session will start. Use  this command after inserting your sensor so that Logger will start the process for sending glucose information. This feature is also available via the command line and you can also do it via Nightscout as a BG Treatment, entry type of Sensor Start.  ```cgm-start```
 
 * Calibration via linear least squares regression (LSR) (similar to xdrip plus)
   * Calibrations must be input into Nightscout as BG Check treatments or command line ```calibrate bg_value```.
@@ -23,9 +23,9 @@ Logger connects to the g5 transmitter, waits for the first bg, logs a json entry
 
 Logger LSR calibration is a new feature as of Feb/2018. Only those who closely monitor and check blood glucose and regularly review the Logger logfiles should use this program at this time.
 * /var/log/openaps/logger-loop.log
-* /var/log/openaps/g5.csv
+* /var/log/openaps/cgm.csv
 * /root/myopenaps/monitor/logger/calibrations.csv - the current list of calibrations (unfiltered, BG check, datetime, BG Check ID)
-* /root/myopenaps/monitor/logger/calibration-linear.json - the current calibration values (slope, yIntercept). Please note that other fields in this file are for informational purposes at this time. Unfiltered values from the g5 are on a 1,000 scale which explains why slope and yIntercept are 1,000 greater than glucose values.
+* /root/myopenaps/monitor/logger/calibration-linear.json - the current calibration values (slope, yIntercept). Please note that other fields in this file are for informational purposes at this time. Unfiltered values from the transmitter are on a 1,000 scale which explains why slope and yIntercept are 1,000 greater than glucose values.
 
 [![Join the chat at https://gitter.im/thebookins/xdrip-js](https://badges.gitter.im/thebookins/xdrip-js.svg)](https://gitter.im/thebookins/xdrip-js?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
@@ -74,7 +74,7 @@ sudo npm run global-install
 sudo apt-get install bluez-tools
 ```
 
-Add cron job entry (replace "403BX6" with your g5 transmitter id in both places below) ...
+Add cron job entry (replace "403BX6" with your transmitter id in both places below) ...
 ```
 * * * * * cd /root/src/Logger && ps aux | grep -v grep | grep -q '403BX6' || /usr/local/bin/Logger 403BX6 >> /var/log/openaps/logger-loop.log 2>&1
 ```
@@ -95,9 +95,11 @@ Review the Logger logfile to ensure the proccess is proceeding without errors. R
 tail -f /var/log/openaps/logger-loop.log
 ```
 
-Insert the new Dexcom g5 sensor. Notify Logger of this insertion by using Nightscout Treatment CGM Sensor Insert
+Insert the new Dexcom g5 or g6 sensor. Notify Logger of this insertion by using Nightscout Treatment CGM Sensor Insert
 
-Start the new Dexcom g5 sensor by using one of the two methods (Nightscout Treatment CGM Sensor Start) or (run ```g5-start``` from the command line)
+Start the new Dexcom g5 sensor by using one of the two methods (Nightscout Treatment CGM Sensor Start) or (run ```cgm-start``` from the command line)
+
+If starting a g6, specify the sensor serial code by putting the 4 digit code in the Nightscout Sensor Start Note or passing the the command line as follows: ```cgm-start -c 1234``` where 1234 is the sensor serial code.
 
 Within 15 minutes, the sensor state should show "Warmup" in Nightscout and in the Logger log. At this point, you have 2 options:
 	
@@ -112,5 +114,5 @@ After calibration(s), you should see BG values in Nightscout and in the log.
 
 ## Troubleshooting 
 
-If both unfiltered and filtered values are showing up as 0 in the Logger logfile, then you may be able to solve the problem by doing a ```g5-reset```. Note: This will reset the session and you will lose any transmitter stored calibrations so this technique is probably best used when unfiltered is 0 upon new sensor insertion.
+If both unfiltered and filtered values are showing up as 0 in the Logger logfile, then you may be able to solve the problem by doing a ```cgm-reset```. Note: This will reset the session and you will lose any transmitter stored calibrations so this technique is probably best used when unfiltered is 0 upon new sensor insertion.
 
