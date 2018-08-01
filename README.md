@@ -25,7 +25,7 @@ Logger LSR calibration is a new feature as of Feb/2018. Only those who closely m
 * /var/log/openaps/logger-loop.log
 * /var/log/openaps/cgm.csv
 * /root/myopenaps/monitor/logger/calibrations.csv - the current list of calibrations (unfiltered, BG check, datetime, BG Check ID)
-* /root/myopenaps/monitor/logger/calibration-linear.json - the current calibration values (slope, yIntercept). Please note that other fields in this file are for informational purposes at this time. Unfiltered values from the transmitter are on a 1,000 scale which explains why slope and yIntercept are 1,000 greater than glucose values.
+* /root/myopenaps/monitor/logger/calibration-linear.json - the current calibration values (slope, yIntercept). Please note that other fields in this file are for informational purposes at this time. 
 
 [![Join the chat at https://gitter.im/thebookins/xdrip-js](https://badges.gitter.im/thebookins/xdrip-js.svg)](https://gitter.im/thebookins/xdrip-js?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
