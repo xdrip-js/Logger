@@ -116,5 +116,5 @@ After calibration(s), you should see BG values in Nightscout and in the log.
 
 ## Troubleshooting 
 
-If both unfiltered and filtered values are showing up as 0 in the Logger logfile, then you may be able to solve the problem by doing a ```cgm-reset```. Note: This will reset the session and you will lose any transmitter stored calibrations so this technique is probably best used when unfiltered is 0 upon new sensor insertion.
+If both unfiltered and filtered values are showing up as 0 in the Logger logfile, then you may be able to solve the problem by doing a ```cgm-reset```. Note: This will reset the session and you will lose any transmitter stored calibrations so this technique is probably best used when unfiltered is 0 upon new sensor insertion. Once again, it is not recommended to do a ```cgm-reset``` on a g6 transmitter because you will lose the ability to do no-calibration mode.
 
