@@ -612,26 +612,27 @@ function  set_glucose_type()
 
 function set_mode()
 {
-  mode="expired"
-  if [[ "$status" == "OK" || "$status" == "Low battery" ]]; then 
-    mode="not-expired"
-    if [[ "$state" == "Stopped" ]]; then
-      mode="Stopped" 
-      mode="expired"
-    elif [[ "$state" == "Warmup" ]]; then
-      mode="not-expired" 
-    fi
-  fi
+  mode="not-expired"
 
-  if [ "$mode" == "not-expired" ]; then
-    if [[ $(bc <<< "$glucose > 0") -eq 1 && "$glucose" != "null" ]]; then 
-      :
-      # this means we got an internal tx calibrated glucose
-    else
-      # fallback to try to use unfiltered in this case
-      mode="expired"
-    fi
-  fi
+#  if [[ "$status" == "OK" || "$status" == "Low battery" ]]; then 
+#    mode="not-expired"
+#    if [[ "$state" == "Stopped" ]]; then
+#      mode="Stopped" 
+#      mode="expired"
+#    elif [[ "$state" == "Warmup" ]]; then
+#      mode="not-expired" 
+#    fi
+#  fi
+#
+#  if [ "$mode" == "not-expired" ]; then
+#    if [[ $(bc <<< "$glucose > 0") -eq 1 && "$glucose" != "null" ]]; then 
+#      :
+#      # this means we got an internal tx calibrated glucose
+#    else
+#      # fallback to try to use unfiltered in this case
+#      mode="expired"
+#    fi
+#  fi
   if [[ "$cmd_line_mode" == "expired" ]]; then
     mode="expired"
   fi
