@@ -51,8 +51,10 @@ For the edison/explorer board (jubilinux), the version of Node that ships with j
 sudo apt-get remove nodered -y
 sudo apt-get remove nodejs nodejs-legacy -y
 sudo apt-get remove npm  -y # if you installed npm
-sudo curl -sL https://deb.nodesource.com/setup_6.x | sudo bash -
+sudo curl -sL https://deb.nodesource.com/setup_8.x | sudo bash -
 sudo apt-get install nodejs -y
+
+cd ~/src/Logger && npm rebuild # if Logger exists already and you are upgrading node from 6.x to 8.x
 ```
 
 If you are using the RPI zero hat, the version of Node that ships with jubilinux also needs updating. Here are the instructions for updating the rpi zero hat's Node:
