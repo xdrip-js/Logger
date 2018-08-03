@@ -35,7 +35,7 @@ function SensorStateString(state) {
      case 0x02:	
        return 'Warmup';	
      case 0x03:	
-       return 'Unused';
+       return 'Excess Noise';
      case 0x04:	
        return 'First calibration';	
      case 0x05:	
@@ -45,29 +45,35 @@ function SensorStateString(state) {
      case 0x07:	
        return 'Needs calibration';	
     case 0x08:
-        return 'Calibration Error 1'; 
+        return 'Confused Calibration 1'; 
       case 0x09:
-        return 'Calibration Error 0';
+        return 'Confused Calibration 2';
      case 0x0a:
-        return 'Calibration Linearity Fit Failure';
+        return 'Needs More Calibration';
       case 0x0b:
         return 'Sensor Failed Due to Counts Aberration';
       case 0x0c:
         return 'Sensor Failed Due to Residual Aberration';
       case 0x0d:
-        return 'Out of Calibration Due To Outlier';
+        return 'Outlier Calibration';
       case 0x0e:
-        return 'Outlier Calibration Request - Need a Calibration';
+        return 'Needs More Calibration due to Outlier';
       case 0x0f:
-        return 'Session Expired';
+        return 'Sensor Session Ended';
       case 0x10:
-        return 'Session Failed Due To Unrecoverable Error';
+        return 'Sensor Failed Due To Unrecoverable Error';
       case 0x11:
-        return 'Session Failed Due To Transmitter Error';
+        return 'Transmitter Problem';
       case 0x12:
-        return 'Temporary Session Failure - ???';
+        return 'Temporary Session Error';
       case 0x13:
-        return 'Reserved';
+        return 'Sensor Failed 4';
+      case 0x14:
+        return 'Sensor Failed 5';
+      case 0x15:
+        return 'Sensor Failed 6';
+      case 0x16:
+        return 'Sensor Failed Start';
       case 0x80:
         return 'Calibration State - Start';
       case 0x81:
