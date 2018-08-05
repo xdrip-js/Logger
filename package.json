@@ -1,27 +1,22 @@
 {
-  "name": "xdrip-js-logger",
-  "version": "0.3.2",
+  "name": "Logger",
+  "version": "0.4.0",
   "description": "Logger xdrip openaps",
   "main": "logger/index.js",
-  "author": "Paul Dickens",
   "license": "MIT",
   "scripts": {
     "test": "make test",
     "setup": "./bin/logger-setup.sh",
-    "global-install": "npm install && sudo npm install -g && sudo npm link && sudo npm link xdrip-js-logger && ./bin/logger-setup.sh "
+    "global-install": "npm install && ./bin/logger-setup.sh"
   },
   "dependencies": {
-    "xdrip-js": "thebookins/xdrip-js#v1.1.2"
+    "xdrip-js": "xdrip-js/xdrip-js#dev"
   },
-  "bin": {
-    "xdrip-get-entries": "./xdrip-get-entries.sh",
-    "post-xdripAPS": "./post-xdripAPS.sh",
-    "post-ns": "./post-ns.sh",
-    "calc-calibration": "./calc-calibration.sh",
-    "calibrate": "./bin/calibrate.sh",
-    "calc-calibration": "./calc-noise.sh"
+    "repository": {
+    "type": "git",
+    "url": "git://github.com/xdrip-js/Logger.git"
   },
-  "homepage": "https://github.com/efidoman/xdrip-js-logger",
+  "homepage": "https://github.com/xdrip-js/Logger",
   "config": {
     "blanket": {
       "pattern": [

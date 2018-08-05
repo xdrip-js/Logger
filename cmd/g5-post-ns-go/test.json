@@ -1,0 +1,10 @@
+[
+  {
+    "enteredBy": "OpenAPS",
+    "reason": "testing",
+    "eventType": "Note",
+    "notes": "Testing Yo a note",
+    "glucoseType": "Finger",
+    "units": "mg/dl"
+  }
+]

@@ -22,11 +22,11 @@
 # yarr = array of last unfiltered values associated w/ bg meter checks 
 # xarr = array of last bg meter check bg values
 
-INPUT=${1:-"calibrations.csv"}
-OUTPUT=${2:-"calibration-linear.json"}
-MAXSLOPE=1450
-MINSLOPE=550
-MINSLOPESINGLE=800
+INPUT=${1:-"${HOME}/myopenaps/monitor/xdripjs/calibrations.csv"}
+OUTPUT=${2:-"${HOME}/myopenaps/monitor/xdripjs/calibration-linear.json"}
+MAXSLOPE=1.450
+MINSLOPE=0.550
+MINSLOPESINGLE=0.800
 MAXRECORDS=8
 MINRECORDSFORLSR=3
 rSquared=0
@@ -38,6 +38,13 @@ tdate=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f4 ) )
 echo "Begin calibration using input of $INPUT and output of $OUTPUT"
 
 
+# so that upgades will work for old 1000x scale calibration.csv data
+for (( k=0; k<${#yarr[@]}; k++ ))
+do
+  if [ $(bc -l <<< "${yarr[$k]} > 1000") -eq 1 ]; then
+   yarr[$k]=$(bc -l <<< "scale=3; ${yarr[$k]} / 1000") 
+  fi
+done 
 
 
 function MathMin()
@@ -146,7 +153,7 @@ function LeastSquaresRegression()
   done  
   denominator=$(bc -l <<< "sqrt((($n * $sumXSq - ${sumX}^2) * ($n * $sumYSq - ${sumY}^2)))")
   if [ $(bc <<< "$denominator == 0") -eq 1 -o  $(bc <<< "$stddevX == 0") -eq 1 ] ; then
-    slope=1000
+    slope=1
     yIntercept=0
   else
     r=$(bc -l <<< "($n * $sumXY - $sumX * $sumY) / $denominator")
@@ -154,8 +161,8 @@ function LeastSquaresRegression()
     rSquared=$(printf "%.*f\n" 5 $rSquared)
 
 
-    slope=$(bc -l <<< "$r * $stddevY / $stddevX ")
-    yIntercept=$(bc -l <<< "$meanY - $slope * $meanX ")
+    slope=$(bc -l <<< "scale=5; $r * $stddevY / $stddevX ")
+    yIntercept=$(bc -l <<< "scale=5; $meanY - $slope * $meanX ")
 
 
   # calculate error
@@ -181,7 +188,7 @@ function SinglePointCalibration
     x=${xarr[-1]}
     y=${yarr[-1]}
     yIntercept=0
-    slope=$(bc -l <<< "$y / $x")
+    slope=$(bc -l <<< "scale=5; $y / $x")
     calibrationType="SinglePoint"
     echo "x=$x, y=$y, slope=$slope, yIntercept=0" 
   fi
@@ -191,7 +198,7 @@ function SinglePointCalibration
 
 #get the number of calibrations
 numx=${#xarr[@]}
-slope=1000
+slope=1
 yIntercept=0
 slopeError=0
 yError=0
@@ -204,13 +211,13 @@ elif [ $(bc -l <<< "$numx > 0") -eq 1 ]; then
   echo "Calibration records = $numx, using single point linear" 
   SinglePointCalibration
 else
-  slope=1000
+  slope=1
   yIntercept=0
 fi
 
 # truncate and bounds check
-yIntercept=$(bc <<< "$yIntercept / 1") # truncate
-slope=$(bc <<< "$slope / 1") # truncate
+#yIntercept=$(bc <<< "$yIntercept / 1") # truncate
+#slope=$(bc <<< "$slope / 1") # truncate
 yError=$(bc <<< "$yError / 1") # truncate
 slopeError=$(bc <<< "$slopeError / 1") # truncate
 
@@ -220,18 +227,18 @@ maxIntercept=$(MathMin "${yarr[@]}")
 echo "Calibration - Before bounds check, slope=$slope, yIntercept=$yIntercept"
 
 # Check for boundaries and fall back to Single Point Calibration if necessary
-if [ $(bc <<< "$slope > $MAXSLOPE") -eq 1 ]; then
+if [ $(bc -l <<< "$slope > $MAXSLOPE") -eq 1 ]; then
   echo "slope of $slope > maxSlope of $MAXSLOPE, using single point linear" 
   SinglePointCalibration
-elif [ $(bc <<< "$slope < $MINSLOPE") -eq 1 ]; then
+elif [ $(bc -l <<< "$slope < $MINSLOPE") -eq 1 ]; then
   echo "slope of $slope < minSlope of $MINSLOPE, using single point linear" 
   SinglePointCalibration
 fi 
 
-if [ $(bc  <<< "$yIntercept > $maxIntercept") -eq 1 ]; then
+if [ $(bc  -l <<< "$yIntercept > $maxIntercept") -eq 1 ]; then
   echo "yIntercept of $yIntercept > maxIntercept of $maxIntercept, using single point linear" 
   SinglePointCalibration
-elif [ $(bc <<< "$yIntercept < (0 - $maxIntercept)") -eq 1 ]; then
+elif [ $(bc -l <<< "$yIntercept < (0 - $maxIntercept)") -eq 1 ]; then
   echo "yIntercept of $yIntercept < negative maxIntercept of -$maxIntercept, using single point linear" 
   SinglePointCalibration
   echo "x=$x, y=$y, slope=$slope, yIntercept=0" 
@@ -243,23 +250,23 @@ fi
 # to make sure that we don't have use without bounds a potentiall bad 
 # or mistaken calibration recent record
 if [ "$calibrationType" == "SinglePoint" ]; then
-  if [ $(bc <<< "$slope > $MAXSLOPE") -eq 1 ]; then
+  if [ $(bc -l <<< "$slope > $MAXSLOPE") -eq 1 ]; then
     echo "single point slope of $slope > maxSlope of $MAXSLOPE, using $MAXSLOPE" 
     slope=$MAXSLOPE
-  elif [ $(bc <<< "$slope < $MINSLOPESINGLE") -eq 1 ]; then
+  elif [ $(bc -l <<< "$slope < $MINSLOPESINGLE") -eq 1 ]; then
     echo "single point slope of $slope < minSlope of $MINSLOPESINGLE, using $MINSLOPESINGLE" 
     slope=$MINSLOPESINGLE
   fi 
 fi
 
-yIntercept=$(bc <<< "$yIntercept / 1") # truncate
-slope=$(bc <<< "$slope / 1") # truncate
+#yIntercept=$(bc <<< "$yIntercept / 1") # truncate
+#slope=$(bc <<< "$slope / 1") # truncate
 
 echo "Calibration - After bounds check, slope=$slope, yIntercept=$yIntercept"
 echo "Calibration - slopeError=$slopeError, yError=$yError"
 
 # store the calibration in a json file for use by xdrip-get-entries.sh
-echo "[{\"slope\":$slope, \"yIntercept\":$yIntercept, \"formula\":\"calibratedbg=(unfiltered-yIntercept)/slope\", \"yError\":$yError, \"slopeError\":${slopeError}, \"rSquared\":${rSquared}, \"numCalibrations\":${numx}, \"calibrationType\":\"${calibrationType}\"}]" > $OUTPUT 
+echo "[{\"slope\":$(printf "%10.3f" $slope), \"yIntercept\":$(printf "%10.3f" $yIntercept), \"formula\":\"calibratedbg=(unfiltered-yIntercept)/slope\", \"yError\":$yError, \"slopeError\":${slopeError}, \"rSquared\":${rSquared}, \"numCalibrations\":${numx}, \"calibrationType\":\"${calibrationType}\"}]" > $OUTPUT 
 
 echo "Calibration - Created $OUTPUT"
 cat $OUTPUT
