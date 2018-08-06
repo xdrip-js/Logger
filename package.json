@@ -7,12 +7,12 @@
   "scripts": {
     "test": "make test",
     "setup": "./bin/logger-setup.sh",
-    "global-install": "npm install && ./bin/logger-setup.sh"
+    "global-install": "./bin/upgrade-node.sh && npm install && ./bin/logger-setup.sh"
   },
   "dependencies": {
     "xdrip-js": "xdrip-js/xdrip-js#dev"
   },
-    "repository": {
+  "repository": {
     "type": "git",
     "url": "git://github.com/xdrip-js/Logger.git"
   },
@@ -28,5 +28,3 @@
     }
   }
 }
-
-
