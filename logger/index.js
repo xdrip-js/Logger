@@ -126,8 +126,8 @@ transmitter.on('glucose', glucose => {
     const extraData = JSON.stringify(extra);
   const entry = [{
       'device': 'DexcomR4',
-      'date': glucose.readDate,
-      'dateString': new Date(glucose.readDate).toISOString(),
+      'date': d.getTime(),
+      'dateString': d.toISOString(),
       //'sgv': Math.round(glucose.unfiltered/1000),
       'sgv': glucose.glucose,
       'direction': 'None',
