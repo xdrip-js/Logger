@@ -267,7 +267,7 @@ function ClearCalibrationCache()
 # check UTC to begin with and use UTC flag for any curls
 function check_utc()
 {
-  curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[created_at\]\[\$gte\]=$(date -d "2400 hours ago" -Ihours -u)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null  > ${LDIR}/testUTC.json  
+  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[created_at\]\[\$gte\]=$(date -d "2400 hours ago" -Ihours -u)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null  > ${LDIR}/testUTC.json  
   if [ $? == 0 ]; then
     createdAt=$(jq ".[0].created_at" ${LDIR}/testUTC.json)
     createdAt="${createdAt%\"}"
@@ -357,7 +357,7 @@ function check_sensor_start()
 
   file="${LDIR}/nightscout_sensor_start_treatment.json"
   rm -f $file
-  curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "3 hours ago" -Ihours $UTC)&find\[eventType\]\[\$regex\]=Sensor.Start" 2>/dev/null > $file
+  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "3 hours ago" -Ihours $UTC)&find\[eventType\]\[\$regex\]=Sensor.Start" 2>/dev/null > $file
   if [ $? == 0 ]; then
     len=$(jq '. | length' $file)
     index=$(bc <<< "$len - 1")
@@ -394,7 +394,7 @@ function check_sensor_start()
 # calibrate after 15 minutes of sensor change time entered in NS
 function check_sensor_change()
 {
-  curl --compressed -m 30 "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
+  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
   if [ $? == 0 ]; then
     log "sensor change within last 15 minutes - clearing calibration files"
     ClearCalibrationInput
