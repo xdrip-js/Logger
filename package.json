@@ -10,7 +10,7 @@
     "global-install": "./bin/upgrade-node.sh && npm install && ./bin/logger-setup.sh"
   },
   "dependencies": {
-    "xdrip-js": "xdrip-js/xdrip-js#dev"
+    "xdrip-js": "xdrip-js/xdrip-js#v1.2.0"
   },
   "repository": {
     "type": "git",
