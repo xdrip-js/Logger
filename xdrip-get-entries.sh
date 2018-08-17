@@ -848,8 +848,14 @@ function apply_lsr_calibration()
       post_cgm_ns_pill
       remove_dexcom_bt_pair
       exit
+    else
+      if [ "$mode" == "not-expired" ]; then
+        # exit as there is nothing to calibrate without calibration-linear.json?
+        log "no calibration records (mode: not-expired)"
+        exit
+      fi
     fi
-  fi
+  fi   
 
   # $raw is either unfiltered or filtered value from g5
   # based upon glucoseType variable at top of script
