@@ -8,7 +8,7 @@ main()
 
 # Cmd line args - transmitter $1 is 6 character tx serial number
   transmitter=$1
-  if [ -z  "$transmitter" ] || [ "$transmitter" == "-" ]; then
+  if [ -z  "$transmitter" ]; then
     # check config file
     transmitter=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.transmitter_id')
   fi
@@ -17,7 +17,7 @@ main()
     exit
   fi
 
-  cmd_line_mode=${2}
+  cmd_line_mode=$2
   if [ -z "$cmd_line_mode" ]; then
     # check config file
     cmd_line_mode=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.mode')
@@ -26,7 +26,7 @@ main()
     fi
   fi
 
-  pumpUnits=${3}
+  pumpUnits=$3
   if [ -z  "$pumpUnits" ]; then
     # check config file
     pumpUnits=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.pump_units')
@@ -35,7 +35,7 @@ main()
     fi
   fi
 
-  meterid=${4}
+  meterid=$4
   if [ -z  "$meterid" ]; then
     # check config file
     meterid=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.fake_meter_id')
