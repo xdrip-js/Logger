@@ -10,7 +10,7 @@ function usage
 
 function  generate_config
 {
-  echo "{\"transmitter_id\":\"${txId}\",\"sensor_id\":\"\",\"mode\":\"not-expired\",\"pump_units\":\"mg/dl\",\"fake_meter_id\":\"000000\"}" | jq . > $config
+  echo "{\"transmitter_id\":\"${txId}\",\"sensor_code\":\"\",\"mode\":\"not-expired\",\"pump_units\":\"mg/dl\",\"fake_meter_id\":\"000000\"}" | jq . > $config
 }
 
 numArgs=$#

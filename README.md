@@ -95,7 +95,7 @@ Add cron job entry ...
 You can edit the following options values in the configuration file (~/myopenaps/xdripjs.json)
 
 	"transmitter_id" = 6 character tx serial number (i.e. 403BX6).  Should be set using cgm-trasmitter cmd.
-	"sensor_id" = Optional - Sensor code used for G6 only.  Note that this value is read-only in the configuration file & setting it here will not affect Logger/xdrip-js.  To set a new sensor code you must set it using the cgm-start cmd or NS.
+	"sensor_code" = Optional - Sensor code used for G6 only.  Note that this value is read-only in the configuration file & setting it here will not affect Logger/xdrip-js.  To set a new sensor code you must set it using the cgm-start cmd or NS.
 	"mode" = Optional - if you specify "expired" then mode is hard-coded to expired tx mode and it uses local LSR calibration always.  Default is "not-expired".
 	"pump_units" = Optional - pumpUnits default is "mg/dl"
 	"fake_meter_id" = Optional - meterid for fakemeter sending glucose records to pump, default is "000000"

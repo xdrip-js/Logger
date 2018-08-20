@@ -425,7 +425,7 @@ function check_sensor_start()
             config="/root/myopenaps/xdripjs.json"
             if [ -e "$config" ]; then
               tmp=$(mktemp)
-              jq --arg sensorSerialCode "$sensorSerialCode" '.sensor_id = $sensorSerialCode' "$config" > "$tmp" && mv "$tmp" "$config"
+              jq --arg sensorSerialCode "$sensorSerialCode" '.sensor_code = $sensorSerialCode' "$config" > "$tmp" && mv "$tmp" "$config"
             fi
           fi
 

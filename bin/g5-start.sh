@@ -39,7 +39,7 @@ if [ -n $code ]; then
     config="/root/myopenaps/xdripjs.json"
     if [ -e "$config" ]; then
       tmp=$(mktemp)
-      jq --arg code "$code" '.sensor_id = $code' "$config" > "$tmp" && mv "$tmp" "$config"
+      jq --arg code "$code" '.sensor_code = $code' "$config" > "$tmp" && mv "$tmp" "$config"
     fi        
   fi
 fi
