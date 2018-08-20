@@ -409,7 +409,7 @@ function check_sensor_start()
           sensorSerialCode="${sensorSerialCode#\"}"
 
           start_date=$(date "+%s%3N" -d "$createdAt")
-          echo "Processing sensor start retrieved from Nightscout - startdate = $createdAt"
+          echo "Processing sensor start retrieved from Nightscout - startdate = $createdAt, sensorCode = $sensorSerialCode"
           # comment out below line for testing sensor start without actually sending tx message
           # always send sensorSerialCode even if it is blank - doesn't matter for g5, but needed
           # for g6
@@ -419,6 +419,16 @@ function check_sensor_start()
           echo "Already Processed Sensor Start Message from Nightscout at $createdAt" >> ${LDIR}/nightscout-treatments.log
           # do not clear in this case because in session sensors could be just doing a quick start 
 	  # clearing only happens for sensor insert
+	  
+	  #update xdripjs.json with new sensor code
+          if [ "$sensorSerialCode" != "null" -a "$sensorSerialCode" != "" ]; then  
+            config="/root/myopenaps/xdripjs.json"
+            if [ -e "$config" ]; then
+              tmp=$(mktemp)
+              jq --arg sensorSerialCode "$sensorSerialCode" '.sensor_id = $sensorSerialCode' "$config" > "$tmp" && mv "$tmp" "$config"
+            fi
+          fi
+
         fi
       fi
     fi
