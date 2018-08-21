@@ -8,9 +8,43 @@ main()
 
 # Cmd line args - transmitter $1 is 6 character tx serial number
   transmitter=$1
-  cmd_line_mode=${2:-""}
-  pumpUnits=${3:-"mg/dl"}
-  meterid=${4:-"000000"}
+  if [ -z  "$transmitter" ]; then
+    # check config file
+    transmitter=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.transmitter_id')
+  fi
+  if [ -z  "$transmitter" ] || [ "$transmitter" == "null" ]; then
+    log "ERROR: No transmitter id set!; exiting"
+    exit
+  fi
+
+  cmd_line_mode=$2
+  if [ -z "$cmd_line_mode" ]; then
+    # check config file
+    cmd_line_mode=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.mode')
+    if [ -z  "$cmd_line_mode" ] || [ "$cmd_line_mode" == "null" ]; then
+      cmd_line_mode=""
+    fi
+  fi
+
+  pumpUnits=$3
+  if [ -z  "$pumpUnits" ]; then
+    # check config file
+    pumpUnits=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.pump_units')
+    if [ -z  "$pumpUnits" ] || [ "$pumpUnits" == "null" ]; then
+      pumpUnits="mg/dl"
+    fi
+  fi
+
+  meterid=$4
+  if [ -z  "$meterid" ]; then
+    # check config file
+    meterid=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.fake_meter_id')
+    if [ -z  "$meterid" ] || [ "$meterid" == "null" ]; then
+      meterid="000000"
+    fi
+  fi
+
+  log "Using transmitter: $transmitter"
 
   id2=$(echo "${transmitter: -2}")
   id="Dexcom${id2}"
@@ -128,6 +162,7 @@ main()
 }
 
 function check_dirs() {
+  CONF_DIR="${HOME}/myopenaps"
   LDIR="${HOME}/myopenaps/monitor/xdripjs"
   OLD_LDIR="${HOME}/myopenaps/monitor/logger"
 
@@ -374,7 +409,7 @@ function check_sensor_start()
           sensorSerialCode="${sensorSerialCode#\"}"
 
           start_date=$(date "+%s%3N" -d "$createdAt")
-          echo "Processing sensor start retrieved from Nightscout - startdate = $createdAt"
+          echo "Processing sensor start retrieved from Nightscout - startdate = $createdAt, sensorCode = $sensorSerialCode"
           # comment out below line for testing sensor start without actually sending tx message
           # always send sensorSerialCode even if it is blank - doesn't matter for g5, but needed
           # for g6
@@ -384,6 +419,16 @@ function check_sensor_start()
           echo "Already Processed Sensor Start Message from Nightscout at $createdAt" >> ${LDIR}/nightscout-treatments.log
           # do not clear in this case because in session sensors could be just doing a quick start 
 	  # clearing only happens for sensor insert
+	  
+	  #update xdripjs.json with new sensor code
+          if [ "$sensorSerialCode" != "null" -a "$sensorSerialCode" != "" ]; then  
+            config="/root/myopenaps/xdripjs.json"
+            if [ -e "$config" ]; then
+              tmp=$(mktemp)
+              jq --arg sensorSerialCode "$sensorSerialCode" '.sensor_code = $sensorSerialCode' "$config" > "$tmp" && mv "$tmp" "$config"
+            fi
+          fi
+
         fi
       fi
     fi

@@ -63,7 +63,9 @@ link_install ${root_dir}/bin/g5-calc-noise.sh cgm-calc-noise
 link_install ${root_dir}/bin/g5-post-ns.sh g5-post-ns
 link_install ${root_dir}/bin/g5-post-ns.sh cgm-post-ns
 link_install ${root_dir}/bin/g5-post-xdrip.sh g5-post-xdrip 
-link_install ${root_dir}/bin/g5-post-xdrip.sh cgm-post-xdrip 
+link_install ${root_dir}/bin/g5-post-xdrip.sh cgm-post-xdrip
+link_install ${root_dir}/bin/g5-transmitter.sh g5-transmitter
+link_install ${root_dir}/bin/g5-transmitter.sh cgm-transmitter
 
 link_install ${root_dir}/xdrip-get-entries.sh Logger
 
