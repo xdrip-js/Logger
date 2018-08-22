@@ -1275,7 +1275,7 @@ function wait_with_echo()
 
 function check_last_glucose_time_smart_sleep()
 {
-  file="${LDIR}/entry.json"
+  file="${LDIR}/last-entry.json"
   if [ -e $file ]; then
     entry_timestamp=$(date -r $file +'%s')
     seconds_since_last_entry=$(bc <<< "$epochdate - $entry_timestamp")
