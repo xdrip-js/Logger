@@ -53,6 +53,7 @@ main()
   noiseSend=0 # default unknown
   UTC=" -u "
   lastGlucose=0
+  lastGlucoseDate=0
   lastSensorInsertDate=0
   messages="[]"
   calibrationJSON=""
@@ -71,6 +72,7 @@ main()
   check_environment
   check_utc
 
+  check_last_entry_values
   check_last_glucose_time_smart_sleep
 
   # clear out prior curl or tx responses
@@ -82,7 +84,6 @@ main()
 
   check_send_battery_status
   check_sensor_start
-  check_last_entry_values
 
 # begin calibration logic - look for calibration from NS, use existing calibration or none
   maxDelta=30
@@ -459,6 +460,7 @@ function check_last_entry_values()
   # TODO: check file stamp for > x for last-entry.json and ignore lastGlucose if older than x minutes
   if [ -e "${LDIR}/last-entry.json" ] ; then
     lastGlucose=$(cat ${LDIR}/last-entry.json | jq -M '.[0].sgv')
+    lastGlucoseDate=$(cat ${LDIR}/last-entry.json | jq -M '.[0].date')
     lastStatus=$(cat ${LDIR}/last-entry.json | jq -M '.[0].status')
     lastStatus="${lastStatus%\"}"
     lastStatus="${lastStatus#\"}"
@@ -529,6 +531,7 @@ function initialize_messages()
   startJSON=""
   batteryJSON=""
   resetJSON=""
+  backfillJSON=""
 }
 
 function compile_messages()
@@ -567,6 +570,12 @@ function compile_messages()
   if [ "${resetJSON}" != "" ]; then
     tmp=$(mktemp)
     echo "${resetJSON}" > $tmp
+    files="$files $tmp"
+  fi
+
+  if [ "${backfillJSON}" != "" ]; then
+    tmp=$(mktemp)
+    echo "${backfillJSON}" > $tmp
     files="$files $tmp"
   fi
   
@@ -1285,6 +1294,12 @@ function check_last_glucose_time_smart_sleep()
     if [ $(bc <<< "$sleep_time > 0") -eq 1 -a $(bc <<< "$sleep_time < 240") -eq 1 ]; then
       log "Waiting $sleep_time seconds because glucose records only happen every 5 minutes"
       wait_with_echo $sleep_time
+    elif [ $(bc <<< "$sleep_time < -60") -eq 1 ]; then
+      # FIXME: maybe this sholud go in a seperate function not related to sleep
+      backfill_start=${lastGlucoseDate}
+      [[ $backfill_start == 0 ]] && backfill_start=$(date "+%s%3N" -d @"$entry_timestamp")
+      log "Requesting backfill since $backfill_start"
+      backfillJSON="[{\"date\":\"${backfill_start}\",\"type\":\"Backfill\"}]"
     fi
   else
     log "More than 4 minutes since last glucose entry, continue processing without waiting"
