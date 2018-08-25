@@ -133,7 +133,7 @@ main()
 
   fake_meter
 
-  if [ "$mode" != "Stopped" ]; then
+  if [ "$state" != "Stopped" ] || [ "$mode" != "not-expired" ]; then
     log "Posting glucose record to xdripAPS / OpenAPS"
     /usr/local/bin/cgm-post-xdrip ${LDIR}/entry-xdrip.json
   fi
@@ -717,7 +717,7 @@ function log_g5_csv()
 # if tx state or status changed, then post a note to NS
 function process_announcements()
 {
-  if [ "$mode" == "Stopped" ]; then
+  if [ "$state" == "Stopped" ] && [ "$mode" != "expired" ]; then
     log "Not posting glucose to Nightscout or OpenAPS - sensor state is Stopped, unfiltered=$unfiltered"
     echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Sensor Stopped, unfiltered=$unfiltered\"}]" > ${LDIR}/status-change.json
     /usr/local/bin/cgm-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of sensor Stopped status change worked") || (echo; log "Upload to NS of transmitter sensor Stopped did not work")
@@ -1228,10 +1228,10 @@ function check_recent_sensor_insert()
 
 function  post-nightscout-with-backfill()
 {
-  if [ "$mode" == "Stopped" ]; then
+  #if [ "$state" == "Stopped" ]; then
     # don't post glucose to NS
-    return
-  fi
+    #return
+  #fi
   if [ -e "${LDIR}/entry-backfill.json" ] ; then
     # In this case backfill records not yet sent to Nightscout
     jq -s add ${LDIR}/entry-xdrip.json ${LDIR}/entry-backfill.json > ${LDIR}/entry-ns.json
