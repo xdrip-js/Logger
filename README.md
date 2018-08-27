@@ -16,7 +16,7 @@ Note: Resetting the G6 transmitter will prohibit using no-calibration mode (even
 
 * Calibration via linear least squares regression (LSR) (similar to xdrip plus)
   * Calibrations must be input into Nightscout as BG Check treatments or command line ```calibrate bg_value```.
-  * Logger will not calculate or send any BG data out unless at least one  calibration has been done in Nightscout.
+  * Logger will not calculate or send any BG data out unless at least one  calibration has been done in Nightscout. Calibration is not required for a g6 when using no-calibration by sending it a valid sensor serial code in the cgm-start message.
   * LSR calibration only comes into play after 3 or more calibrations. When there one or two calibrations, single point linear calibration is used.
   * The calibration cache will be cleared for the first 15 minutes after a Nightscout "CGM Sensor Insert" has been posted as Nightscout treatment.
   * After 15 minutes, BG data will only be sent out after at least one calibration has been documented in Nightscout.
