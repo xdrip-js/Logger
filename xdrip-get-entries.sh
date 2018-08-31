@@ -136,6 +136,9 @@ main()
 
   if [ "$state" != "Stopped" ] || [ "$mode" != "not-expired" ]; then
     log "Posting glucose record to xdripAPS / OpenAPS"
+    if [ -e "${LDIR}/entry-backfill2.json" ] ; then
+      /usr/local/bin/cgm-post-xdrip ${LDIR}/entry-backfill2.json
+    fi
     /usr/local/bin/cgm-post-xdrip ${LDIR}/entry-xdrip.json
   fi
 
@@ -1241,6 +1244,10 @@ function  post-nightscout-with-backfill()
     # don't post glucose to NS
     #return
   #fi
+  if [ -e "${LDIR}/entry-backfill2.json" ] ; then
+    /usr/local/bin/cgm-post-ns ${LDIR}/entry-backfill2.json && (echo; log "Upload backfill to NightScout worked ... removing ${LDIR}/entry-backfill2.json"; rm -f ${LDIR}/entry-backfill2.json) || (echo; log "Upload backfill to NS did not work ... keeping for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile";)
+  fi
+
   if [ -e "${LDIR}/entry-backfill.json" ] ; then
     # In this case backfill records not yet sent to Nightscout
     jq -s add ${LDIR}/entry-xdrip.json ${LDIR}/entry-backfill.json > ${LDIR}/entry-ns.json
@@ -1250,7 +1257,6 @@ function  post-nightscout-with-backfill()
     log "${LDIR}/entry-backfill.json does not exist so no backfill"
     cp ${LDIR}/entry-xdrip.json ${LDIR}/entry-ns.json
   fi
-
 
   log "Posting blood glucose to NightScout"
   /usr/local/bin/cgm-post-ns ${LDIR}/entry-ns.json && (echo; log "Upload to NightScout of xdrip entry worked ... removing ${LDIR}/entry-backfill.json"; rm -f ${LDIR}/entry-backfill.json) || (echo; log "Upload to NS of xdrip entry did not work ... saving for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile"; cp ${LDIR}/entry-ns.json ${LDIR}/entry-backfill.json)
