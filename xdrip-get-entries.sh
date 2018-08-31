@@ -1304,6 +1304,9 @@ function check_last_glucose_time_smart_sleep()
       # FIXME: maybe this sholud go in a seperate function not related to sleep
       backfill_start=${lastGlucoseDate}
       [[ $backfill_start == 0 ]] && backfill_start=$(date "+%s%3N" -d @"$entry_timestamp")
+      # add one minute to the backfill_start to avoid duplicating the last seen entry
+      backfill_start=$(bc <<< "$backfill_start + 60 * 1000")
+
       log "Requesting backfill since $backfill_start"
       backfillJSON="[{\"date\":\"${backfill_start}\",\"type\":\"Backfill\"}]"
     fi
