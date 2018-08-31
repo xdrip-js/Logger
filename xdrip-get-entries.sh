@@ -592,7 +592,7 @@ function compile_messages()
 function  call_logger()
 {
   log "Calling xdrip-js ... node logger $transmitter"
-  DEBUG=smp,transmitter,bluetooth-manager
+  DEBUG=smp,transmitter,bluetooth-manager,backfill-parser
   export DEBUG
   timeout 420 node logger $transmitter "${messages}"
   #"[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\" glucose\": $meterbg}]"
