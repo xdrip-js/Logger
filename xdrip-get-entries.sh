@@ -53,7 +53,6 @@ main()
   noiseSend=0 # default unknown
   UTC=" -u "
   lastGlucose=0
-  lastGlucoseDate=0
   lastSensorInsertDate=0
   messages="[]"
   calibrationJSON=""
@@ -72,7 +71,6 @@ main()
   check_environment
   check_utc
 
-  check_last_entry_values
   check_last_glucose_time_smart_sleep
 
   # clear out prior curl or tx responses
@@ -84,6 +82,7 @@ main()
 
   check_send_battery_status
   check_sensor_start
+  check_last_entry_values
 
 # begin calibration logic - look for calibration from NS, use existing calibration or none
   maxDelta=30
@@ -136,9 +135,6 @@ main()
 
   if [ "$state" != "Stopped" ] || [ "$mode" != "not-expired" ]; then
     log "Posting glucose record to xdripAPS / OpenAPS"
-    if [ -e "${LDIR}/entry-backfill2.json" ] ; then
-      /usr/local/bin/cgm-post-xdrip ${LDIR}/entry-backfill2.json
-    fi
     /usr/local/bin/cgm-post-xdrip ${LDIR}/entry-xdrip.json
   fi
 
@@ -463,7 +459,6 @@ function check_last_entry_values()
   # TODO: check file stamp for > x for last-entry.json and ignore lastGlucose if older than x minutes
   if [ -e "${LDIR}/last-entry.json" ] ; then
     lastGlucose=$(cat ${LDIR}/last-entry.json | jq -M '.[0].sgv')
-    lastGlucoseDate=$(cat ${LDIR}/last-entry.json | jq -M '.[0].date')
     lastStatus=$(cat ${LDIR}/last-entry.json | jq -M '.[0].status')
     lastStatus="${lastStatus%\"}"
     lastStatus="${lastStatus#\"}"
@@ -534,7 +529,6 @@ function initialize_messages()
   startJSON=""
   batteryJSON=""
   resetJSON=""
-  backfillJSON=""
 }
 
 function compile_messages()
@@ -575,12 +569,6 @@ function compile_messages()
     echo "${resetJSON}" > $tmp
     files="$files $tmp"
   fi
-
-  if [ "${backfillJSON}" != "" ]; then
-    tmp=$(mktemp)
-    echo "${backfillJSON}" > $tmp
-    files="$files $tmp"
-  fi
   
   if [ "$files" != "" ]; then
     jq -c -s add $files > $mfile
@@ -595,7 +583,7 @@ function compile_messages()
 function  call_logger()
 {
   log "Calling xdrip-js ... node logger $transmitter"
-  DEBUG=smp,transmitter,bluetooth-manager,backfill-parser
+  DEBUG=smp,transmitter,bluetooth-manager
   export DEBUG
   timeout 420 node logger $transmitter "${messages}"
   #"[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\" glucose\": $meterbg}]"
@@ -1244,10 +1232,6 @@ function  post-nightscout-with-backfill()
     # don't post glucose to NS
     #return
   #fi
-  if [ -e "${LDIR}/entry-backfill2.json" ] ; then
-    /usr/local/bin/cgm-post-ns ${LDIR}/entry-backfill2.json && (echo; log "Upload backfill to NightScout worked ... removing ${LDIR}/entry-backfill2.json"; rm -f ${LDIR}/entry-backfill2.json) || (echo; log "Upload backfill to NS did not work ... keeping for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile";)
-  fi
-
   if [ -e "${LDIR}/entry-backfill.json" ] ; then
     # In this case backfill records not yet sent to Nightscout
     jq -s add ${LDIR}/entry-xdrip.json ${LDIR}/entry-backfill.json > ${LDIR}/entry-ns.json
@@ -1257,6 +1241,7 @@ function  post-nightscout-with-backfill()
     log "${LDIR}/entry-backfill.json does not exist so no backfill"
     cp ${LDIR}/entry-xdrip.json ${LDIR}/entry-ns.json
   fi
+
 
   log "Posting blood glucose to NightScout"
   /usr/local/bin/cgm-post-ns ${LDIR}/entry-ns.json && (echo; log "Upload to NightScout of xdrip entry worked ... removing ${LDIR}/entry-backfill.json"; rm -f ${LDIR}/entry-backfill.json) || (echo; log "Upload to NS of xdrip entry did not work ... saving for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile"; cp ${LDIR}/entry-ns.json ${LDIR}/entry-backfill.json)
@@ -1290,7 +1275,7 @@ function wait_with_echo()
 
 function check_last_glucose_time_smart_sleep()
 {
-  file="${LDIR}/last-entry.json"
+  file="${LDIR}/entry.json"
   if [ -e $file ]; then
     entry_timestamp=$(date -r $file +'%s')
     seconds_since_last_entry=$(bc <<< "$epochdate - $entry_timestamp")
@@ -1300,15 +1285,6 @@ function check_last_glucose_time_smart_sleep()
     if [ $(bc <<< "$sleep_time > 0") -eq 1 -a $(bc <<< "$sleep_time < 240") -eq 1 ]; then
       log "Waiting $sleep_time seconds because glucose records only happen every 5 minutes"
       wait_with_echo $sleep_time
-    elif [ $(bc <<< "$sleep_time < -60") -eq 1 ]; then
-      # FIXME: maybe this sholud go in a seperate function not related to sleep
-      backfill_start=${lastGlucoseDate}
-      [[ $backfill_start == 0 ]] && backfill_start=$(date "+%s%3N" -d @"$entry_timestamp")
-      # add one minute to the backfill_start to avoid duplicating the last seen entry
-      backfill_start=$(bc <<< "$backfill_start + 60 * 1000")
-
-      log "Requesting backfill since $backfill_start"
-      backfillJSON="[{\"date\":\"${backfill_start}\",\"type\":\"Backfill\"}]"
     fi
   else
     log "More than 4 minutes since last glucose entry, continue processing without waiting"
