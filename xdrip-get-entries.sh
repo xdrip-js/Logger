@@ -66,7 +66,7 @@ main()
   dateString=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
 
 
-  set_mode # call now and after getting status from tx
+  initialize_mode # call now and after getting status from tx
   initialize_messages
   check_environment
   check_utc
@@ -100,7 +100,7 @@ main()
   dateString=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
   capture_entry_values
   set_glucose_type
-  set_mode
+  checkif_fallback_mode
 
   log "Mode = $mode"
   if [[ "$mode" == "not-expired" ]]; then
@@ -655,29 +655,24 @@ function  set_glucose_type()
   fi
 }
 
-function set_mode()
+function checkif_fallback_mode()
+{
+  if [ "$mode" == "not-expired" ]; then
+    if [[ $(bc <<< "$glucose > 9") -eq 1 && "$glucose" != "null" ]]; then 
+      :
+      # this means we got an internal tx calibrated glucose
+    else
+      # fallback to try to use unfiltered in this case
+      mode="expired"
+      echo "Due to glucose out of range, Logger will temporarily fallback to mode=$mode"
+    fi
+  fi
+}
+
+function initialize_mode()
 {
   mode="not-expired"
 
-#  if [[ "$status" == "OK" || "$status" == "Low battery" ]]; then 
-#    mode="not-expired"
-#    if [[ "$state" == "Stopped" ]]; then
-#      mode="Stopped" 
-#      mode="expired"
-#    elif [[ "$state" == "Warmup" ]]; then
-#      mode="not-expired" 
-#    fi
-#  fi
-#
-#  if [ "$mode" == "not-expired" ]; then
-#    if [[ $(bc <<< "$glucose > 0") -eq 1 && "$glucose" != "null" ]]; then 
-#      :
-#      # this means we got an internal tx calibrated glucose
-#    else
-#      # fallback to try to use unfiltered in this case
-#      mode="expired"
-#    fi
-#  fi
   if [[ "$cmd_line_mode" == "expired" ]]; then
     mode="expired"
   fi
