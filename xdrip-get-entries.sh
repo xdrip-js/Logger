@@ -893,18 +893,20 @@ function apply_lsr_calibration()
     fi
   else
     if [ "$mode" == "expired" ]; then
-      # exit until we have a valid calibration record
-      log "no valid calibration record yet, exiting ..."
+      # don't exit here because g6 supports no calibration mode now
+      # TODO: determine if g6 and in no-calibration mode somehow and do not set state to First Calibration
+      log "no calibration records (mode: expired)"
       state_id=0x04
       state="First Calibration" ; stateString=$state ; stateStringShort=$state
-      post_cgm_ns_pill
-      remove_dexcom_bt_pair
-      exit
+      #post_cgm_ns_pill
+      #remove_dexcom_bt_pair
+      #exit
     else
       if [ "$mode" == "not-expired" ]; then
         # exit as there is nothing to calibrate without calibration-linear.json?
         log "no calibration records (mode: not-expired)"
-        exit
+	# don't exit here because g6 supports no calibration mode now
+        #exit
       fi
     fi
   fi   
