@@ -763,13 +763,20 @@ function check_last_calibration()
 
 function check_pump_history_calibration()
 {
+
   if [ $found_meterbg == false ]; then
-    if [ -e "~/myopenaps/monitor/pumphistory-24h-zoned.json" ]; then
+    historyFile="$HOME/myopenaps/monitor/pumphistory-24h-zoned.json"
+    if [ ! -e "$historyFile" ]; then
+      # support the old file name in case of older version of OpenAPS
+      historyFile="$HOME/myopenaps/monitor/pumphistory-zoned.json"
+    fi
+
+    if [ -e "$historyFile" ]; then
       # look for a bg check from pumphistory (direct from meter->openaps):
       # note: pumphistory may not be loaded by openaps very timely...
       meterbgafter=$(date -d "9 minutes ago" -Iminutes)
       meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\")'"
-      bash -c "jq $meterjqstr ~/myopenaps/monitor/pumphistory-24h-zoned.json" > $METERBG_NS_RAW
+      bash -c "jq $meterjqstr $historyFile" > $METERBG_NS_RAW
       meterbg=$(bash -c "jq .amount $METERBG_NS_RAW | head -1")
       meterbgid=$(bash -c "jq .timestamp $METERBG_NS_RAW | head -1")
       # meter BG from pumphistory doesn't support mmol yet - has no units...
