@@ -1,17 +1,23 @@
 #!/bin/bash
 
-function check_dirs()
+function testpumphistory()
 {
-  LDIR=~/myopenaps/monitor/xdripjs5
-  OLD_LDIR=~/myopenaps/monitor/logger5
 
-  if [ ! -d ${LDIR} ]; then
-    if [ -d ${OLD_LDIR} ]; then
-      mv ${OLD_LDIR} ${LDIR} 
-    fi
+if [ -e "$HOME/myopenaps/monitor/pumphistory-zoned.json" ]; then
+   echo found first file
+else
+  if [ -e "$HOME/myopenaps/monitor/pumphistory-24h-zoned.json" ]; then
+   echo found second file
   fi
-  mkdir -p ${LDIR}
-  mkdir -p ${LDIR}/old-calibrations
+fi
+
+historyFile="$HOME/myopenaps/monitor/pumphistory-24h-zoned.json"
+if [ ! -e "$historyFile" ]; then
+  echo did not find $historyFile
+else
+  echo found $historyFile
+fi
+
 }
 
-check_dirs
+testpumphistory
