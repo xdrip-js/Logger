@@ -35,7 +35,7 @@ function SensorStateString(state) {
      case 0x02:	
        return 'Warmup';	
      case 0x03:	
-       return 'Unused';
+       return 'Excess Noise';
      case 0x04:	
        return 'First calibration';	
      case 0x05:	
@@ -45,29 +45,35 @@ function SensorStateString(state) {
      case 0x07:	
        return 'Needs calibration';	
     case 0x08:
-        return 'Calibration Error 1'; 
+        return 'Confused Calibration 1'; 
       case 0x09:
-        return 'Calibration Error 0';
+        return 'Confused Calibration 2';
      case 0x0a:
-        return 'Calibration Linearity Fit Failure';
+        return 'Needs More Calibration';
       case 0x0b:
         return 'Sensor Failed Due to Counts Aberration';
       case 0x0c:
         return 'Sensor Failed Due to Residual Aberration';
       case 0x0d:
-        return 'Out of Calibration Due To Outlier';
+        return 'Outlier Calibration';
       case 0x0e:
-        return 'Outlier Calibration Request - Need a Calibration';
+        return 'Needs More Calibration due to Outlier';
       case 0x0f:
-        return 'Session Expired';
+        return 'Sensor Session Ended';
       case 0x10:
-        return 'Session Failed Due To Unrecoverable Error';
+        return 'Sensor Failed Due To Unrecoverable Error';
       case 0x11:
-        return 'Session Failed Due To Transmitter Error';
+        return 'Transmitter Problem';
       case 0x12:
-        return 'Temporary Session Failure - ???';
+        return 'Temporary Session Error';
       case 0x13:
-        return 'Reserved';
+        return 'Sensor Failed 4';
+      case 0x14:
+        return 'Sensor Failed 5';
+      case 0x15:
+        return 'Sensor Failed 6';
+      case 0x16:
+        return 'Sensor Failed Start';
       case 0x80:
         return 'Calibration State - Start';
       case 0x81:
@@ -113,10 +119,15 @@ transmitter.on('glucose', glucose => {
 
   console.log(util.inspect(glucose, false, null))
   var fs = require('fs');
+  const extra = [{
+      'state_id': glucose.state, 
+      'status_id': glucose.status, 
+    }];
+    const extraData = JSON.stringify(extra);
   const entry = [{
       'device': 'DexcomR4',
-      'date': glucose.readDate,
-      'dateString': new Date(glucose.readDate).toISOString(),
+      'date': d.getTime(),
+      'dateString': d.toISOString(),
       //'sgv': Math.round(glucose.unfiltered/1000),
       'sgv': glucose.glucose,
       'direction': 'None',
@@ -132,17 +143,24 @@ transmitter.on('glucose', glucose => {
     }];
     const data = JSON.stringify(entry);
 
-  if(glucose.unfiltered > 500000 || glucose.unfiltered < 30000) // for safety, I'm assuming it is erroneous and ignoring
+/*  if(glucose.unfiltered > 500000 || glucose.unfiltered < 30000) // for safety, I'm assuming it is erroneous and ignoring
     {
       console.log("Error - bad glucose data, not processing");
       process.exit();
     }
-    fs.writeFile("/root/myopenaps/monitor/logger/entry.json", data, function(err) {
+*/
+    fs.writeFile("/root/myopenaps/monitor/xdripjs/extra.json", extraData, function(err) {
     if(err) {
-        console.log("Error while writing entry-test.json");
+        console.log("Error while writing extra.json");
         console.log(err);
         }
-    process.exit();
+        fs.writeFile("/root/myopenaps/monitor/xdripjs/entry.json", data, function(err) {
+        if(err) {
+            console.log("Error while writing entry.json");
+            console.log(err);
+            }
+        process.exit();
+        });
     });
 });
 
@@ -161,9 +179,9 @@ transmitter.on('batteryStatus', data => {
 
   var fs = require('fs');
   const battery = JSON.stringify(data);
-  fs.writeFile("/root/myopenaps/monitor/logger/g5-battery.json", battery, function(err) {
+  fs.writeFile("/root/myopenaps/monitor/xdripjs/cgm-battery.json", battery, function(err) {
   if(err) {
-      console.log("Error while writing g5-battery.json");
+      console.log("Error while writing cgm-battery.json");
       console.log(err);
       }
   });

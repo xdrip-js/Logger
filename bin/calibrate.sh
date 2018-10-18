@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Takes in BG calibration as argument #1 and after some boundary checking 
-# it puts it in to ~/openaps/monitor/logger/calibration.json
+# it puts it in to ~/openaps/monitor/xdripjs/calibration.json
 # This way any apps can put a calibration bg record in that 
 # file and Logger will pick it up and use it for calibration.
 
@@ -9,9 +9,9 @@ BG=${1:-"null"}     # arg 1 is meter bg value
 UNITS=${2:-"mg/dl"} # arg 2 if "mmol" then bg in mmol
 TEST=${3:-""}       # arg 3 if "test" then test mode
 
-CALIBRATION="${HOME}/myopenaps/monitor/logger/calibration.json"
+CALIBRATION="${HOME}/myopenaps/monitor/xdripjs/calibration.json"
 dateString=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
-epochdate=$(date +'%s')
+epochdate=$(date +'%s%3N')
 UUID=$(cat /proc/sys/kernel/random/uuid)
 UUID=$(echo "${UUID//-}")
 

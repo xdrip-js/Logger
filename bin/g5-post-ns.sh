@@ -20,11 +20,12 @@ ns_secret="${API_SECRET}"
 curl_status=-1
 
 if [ -e $INPUT ]; then
-  curl --compressed -f -m 30 -s -X POST -d @$INPUT \
+  curl --retry 4 --compressed -f -m 30 -s -X POST -d @$INPUT \
   -H "API-SECRET: $ns_secret" \
   -H "Content-Type: application/json" \
   "${ns_url}/api/v1/${NSTYPE}.json"
   curl_status=$?
 fi
 
+#echo "curl status from cgm-post-ns is $curl_status"
 exit $curl_status

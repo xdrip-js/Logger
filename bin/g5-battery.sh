@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# optional parameter $1 to specify how many hours ago for sensor insert/start
+# optional parameter $1 to specify "refresh" then it queues a Battery refresh ctl message to tx
 refresh=$1
 
-file="${HOME}/myopenaps/monitor/logger/g5-battery.json"
+file="${HOME}/myopenaps/monitor/xdripjs/cgm-battery.json"
 if [ -n "$refresh" ]; then
   echo "Queueing Battery Status Refresh message for next Tx transmission (5 to 10 minutes)"
   touch -d "13 hours ago" $file
