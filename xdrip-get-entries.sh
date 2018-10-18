@@ -44,6 +44,15 @@ main()
     fi
   fi
 
+  sensorCode=""
+  if [ -z  "$sensorCode" ]; then
+    # check config file
+    sensorCode=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.sensor_code')
+    if [ -z  "$sensorCode" ] || [ "$sensorCode" == "null" ]; then
+      sensorCode=""
+    fi
+  fi
+
   log "Using transmitter: $transmitter"
 
   id2=$(echo "${transmitter: -2}")
@@ -104,13 +113,14 @@ main()
   checkif_fallback_mode
 
   log "Mode = $mode"
-  if [[ "$mode" == "not-expired" ]]; then
+  if [[ "$mode" != "expired" ]]; then
     initialize_calibrate_bg 
   else
     check_last_calibration
   fi
   set_entry_fields
 
+  check_native_calibrates_lsr
 
   check_variation
   #call after posting to NS OpenAPS for not-expired mode
@@ -134,7 +144,7 @@ main()
 
   fake_meter
 
-  if [ "$state" != "Stopped" ] || [ "$mode" != "not-expired" ]; then
+  if [ "$state" != "Stopped" ] || [ "$mode" == "expired" ]; then
     log "Posting glucose record to xdripAPS / OpenAPS"
     if [ -e "${LDIR}/entry-backfill2.json" ] ; then
       /usr/local/bin/cgm-post-xdrip ${LDIR}/entry-backfill2.json
@@ -145,7 +155,7 @@ main()
   post-nightscout-with-backfill
   cp ${LDIR}/entry-xdrip.json ${LDIR}/last-entry.json
 
-  if [ "$mode" == "not-expired" ]; then
+  if [ "$mode" != "expired" ]; then
     log "Calling expired tx lsr calcs (after posting) -allows mode switches / comparisons" 
     calculate_calibrations
     apply_lsr_calibration 
@@ -546,10 +556,13 @@ function compile_messages()
   rm -f $mfile
   touch $mfile
   
-  if [ "${calibrationJSON}" != "" ]; then
-    tmp=$(mktemp)
-    echo "${calibrationJSON}" > $tmp
-    files="$tmp"
+  # if g6 sensor code is set, we're using no-calibration mode - avoid sending calibration to tx
+  if [ "${sensorCode}" == "" ]; then
+    if [ "${calibrationJSON}" != "" ]; then
+      tmp=$(mktemp)
+      echo "${calibrationJSON}" > $tmp
+      files="$tmp"
+    fi
   fi
   
   if [ "${stopJSON}" != "" ]; then
@@ -669,7 +682,7 @@ function  set_glucose_type()
 
 function checkif_fallback_mode()
 {
-  if [ "$mode" == "not-expired" ]; then
+  if [ "$mode" != "expired" ]; then
     if [[ $(bc <<< "$glucose > 9") -eq 1 && "$glucose" != "null" ]]; then 
       :
       # this means we got an internal tx calibrated glucose
@@ -687,6 +700,9 @@ function initialize_mode()
 
   if [[ "$cmd_line_mode" == "expired" ]]; then
     mode="expired"
+  fi
+  if [[ "$cmd_line_mode" == "native-calibrates-lsr" ]]; then
+    mode="native-calibrates-lsr"
   fi
   echo "Logger mode=$mode"
 }
@@ -759,6 +775,23 @@ function check_last_calibration()
        fi
      fi
     fi
+}
+
+function check_native_calibrates_lsr()
+{
+  if [ "$mode" == "native-calibrates-lsr" ]; then
+    # every 6 hours, calibrate LSR algo. via native dexcom glucose value:
+    if [ $(bc <<< "$(date +'%H') % 6") -eq 0 ]; then
+      meterbg=$glucose
+      calDate=$(date +'%s%3N') # TODO: use pump history date
+      if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
+        if [[ -n "$meterbg" && "$meterbg" != "" ]]; then  
+          log "meterbg from native-calibrates-lsr: $meterbg"
+          found_meterbg=true
+        fi
+      fi
+    fi
+  fi
 }
 
 function check_pump_history_calibration()
@@ -909,9 +942,9 @@ function apply_lsr_calibration()
       #remove_dexcom_bt_pair
       #exit
     else
-      if [ "$mode" == "not-expired" ]; then
+      if [ "$mode" != "expired" ]; then
         # exit as there is nothing to calibrate without calibration-linear.json?
-        log "no calibration records (mode: not-expired)"
+        log "no calibration records (mode: $mode)"
 	# don't exit here because g6 supports no calibration mode now
         #exit
       fi
@@ -1325,4 +1358,3 @@ function check_sensitivity()
 }
 
 main "$@"
-
