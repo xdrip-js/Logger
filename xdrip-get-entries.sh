@@ -419,7 +419,7 @@ function check_sensor_start()
         touch ${LDIR}/nightscout-treatments.log
         if ! cat ${LDIR}/nightscout-treatments.log | egrep "$createdAt"; then
           sensorSerialCode=$(jq ".[$index].notes" $file) 
-      	  sensorSerialCode="${sensorSerialCode%\"}"
+          sensorSerialCode="${sensorSerialCode%\"}"
           sensorSerialCode="${sensorSerialCode#\"}"
 
           start_date=$(date "+%s%3N" -d "$createdAt")
@@ -432,9 +432,9 @@ function check_sensor_start()
           # below done so that next time the egrep returns positive for this specific message and the log reads right
           echo "Already Processed Sensor Start Message from Nightscout at $createdAt" >> ${LDIR}/nightscout-treatments.log
           # do not clear in this case because in session sensors could be just doing a quick start 
-	  # clearing only happens for sensor insert
-	  
-	  #update xdripjs.json with new sensor code
+          # clearing only happens for sensor insert
+  
+          #update xdripjs.json with new sensor code
           if [ "$sensorSerialCode" != "null" -a "$sensorSerialCode" != "" ]; then  
             config="/root/myopenaps/xdripjs.json"
             if [ -e "$config" ]; then
@@ -514,7 +514,7 @@ function  check_cmd_line_calibration()
             log "converted OpenAPS meterbg from mmol value to $meterbg"
           fi
           log "Calibration of $meterbg from $CALFILE being processed - id = $meterbgid"
-	  found_meterbg=true
+          found_meterbg=true
           # put in backfill so that the command line calibration will be sent up to NS 
           # now (or later if offline)
           log "Setting up to send calibration to NS now if online (or later with backfill)"
@@ -781,11 +781,13 @@ function check_native_calibrates_lsr()
 {
   if [ "$mode" == "native-calibrates-lsr" ]; then
     # every 6 hours, calibrate LSR algo. via native dexcom glucose value:
+    # (note: _does not_ calibrate tx, since this is only called after the tx comm is over.)
     if [ $(bc <<< "$(date +'%H') % 6") -eq 0 ]; then
-      meterbg=$glucose
-      calDate=$(date +'%s%3N') # TODO: use pump history date
-      if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
-        if [[ -n "$meterbg" && "$meterbg" != "" ]]; then  
+      if [ $(bc <<< "$(date +'%M')") -lt 5 ]; then
+        if [ $(bc <<< "$glucose < 400") -eq 1  -a $(bc <<< "$glucose > 40") -eq 1 ]; then
+          meterbg=$glucose
+          meterbgid=$(date +"%Y-%m-%dT%H:%M:%S%:z")
+          calDate=$(date +'%s%3N') # TODO: use pump history date
           log "meterbg from native-calibrates-lsr: $meterbg"
           found_meterbg=true
         fi
@@ -886,10 +888,10 @@ function calculate_calibrations()
           meterbg_raw_delta=$(bc -l <<< "$meterbg - $raw/1")
           # calculate absolute value
           if [ $(bc -l <<< "$meterbg_raw_delta < 0") -eq 1 ]; then
-	    meterbg_raw_delta=$(bc -l <<< "0 - $meterbg_raw_delta")
+            meterbg_raw_delta=$(bc -l <<< "0 - $meterbg_raw_delta")
           fi
           if [ $(bc -l <<< "$meterbg_raw_delta > 80") -eq 1 ]; then
-	    log "Raw/unfiltered compared to meterbg is $meterbg_raw_delta > 80, ignoring calibration"
+            log "Raw/unfiltered compared to meterbg is $meterbg_raw_delta > 80, ignoring calibration"
           else
             echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid,$filtered,$unfiltered" >> ${LDIR}/calibrations.csv
             /usr/local/bin/cgm-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
@@ -945,7 +947,7 @@ function apply_lsr_calibration()
       if [ "$mode" != "expired" ]; then
         # exit as there is nothing to calibrate without calibration-linear.json?
         log "no calibration records (mode: $mode)"
-	# don't exit here because g6 supports no calibration mode now
+        # don't exit here because g6 supports no calibration mode now
         #exit
       fi
     fi
