@@ -306,10 +306,10 @@ function ClearCalibrationInputOne()
 
 function ClearCalibrationCache()
 {
-  local cache="${LDIR}/calibration-linear.json"
-  if [ -e $cache ]; then
-    cp $cache "${LDIR}/old-calibrations/${cache}.$(date +%Y%m%d-%H%M%S)" 
-    rm $cache 
+  local cache="calibration-linear.json"
+  if [ -e ${LDIR}/$cache ]; then
+    cp ${LDIR}/$cache "${LDIR}/old-calibrations/${cache}.$(date +%Y%m%d-%H%M%S)" 
+    rm ${LDIR}/$cache 
   fi
 }
 
@@ -955,9 +955,21 @@ function apply_lsr_calibration()
 
   # $raw is either unfiltered or filtered value from g5
   # based upon glucoseType variable at top of script
-  calibratedBG=$(bc -l <<< "($raw - $yIntercept)/$slope")
-  calibratedBG=$(bc <<< "($calibratedBG / 1)") # truncate
-  log "After calibration calibratedBG =$calibratedBG, slope=$slope, yIntercept=$yIntercept, filtered=$filtered, unfiltered=$unfiltered, raw=$raw"
+  if [ "$yIntercept" != "" -a "$slope" != "" ]; then
+    calibratedBG=$(bc -l <<< "($raw - $yIntercept)/$slope")
+    calibratedBG=$(bc <<< "($calibratedBG / 1)") # truncate
+    log "After calibration calibratedBG =$calibratedBG, slope=$slope, yIntercept=$yIntercept, filtered=$filtered, unfiltered=$unfiltered, raw=$raw"
+  else
+    calibratedBG=0
+    if [ "$mode" == "expired" ]; then
+      state_id=0x20
+      state="LSR Calibrated BG Out of Bounds" ; stateString=$state ; stateStringShort=$state
+      post_cgm_ns_pill
+      remove_dexcom_bt_pair
+      log "expired mode with no calibration - exiting"
+      exit
+    fi
+  fi
 
   # For Single Point calibration, use a calculated corrective intercept
   # for glucose in the range of 70 <= BG < 85
