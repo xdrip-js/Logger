@@ -44,6 +44,15 @@ main()
     fi
   fi
 
+  sensorCode=""
+  if [ -z  "$sensorCode" ]; then
+    # check config file
+    sensorCode=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.sensor_code')
+    if [ -z  "$sensorCode" ] || [ "$sensorCode" == "null" ]; then
+      sensorCode=""
+    fi
+  fi
+
   log "Using transmitter: $transmitter"
 
   id2=$(echo "${transmitter: -2}")
@@ -104,13 +113,14 @@ main()
   checkif_fallback_mode
 
   log "Mode = $mode"
-  if [[ "$mode" == "not-expired" ]]; then
+  if [[ "$mode" != "expired" ]]; then
     initialize_calibrate_bg 
   else
     check_last_calibration
   fi
   set_entry_fields
 
+  check_native_calibrates_lsr
 
   check_variation
   #call after posting to NS OpenAPS for not-expired mode
@@ -134,7 +144,7 @@ main()
 
   fake_meter
 
-  if [ "$state" != "Stopped" ] || [ "$mode" != "not-expired" ]; then
+  if [ "$state" != "Stopped" ] || [ "$mode" == "expired" ]; then
     log "Posting glucose record to xdripAPS / OpenAPS"
     if [ -e "${LDIR}/entry-backfill2.json" ] ; then
       /usr/local/bin/cgm-post-xdrip ${LDIR}/entry-backfill2.json
@@ -145,7 +155,7 @@ main()
   post-nightscout-with-backfill
   cp ${LDIR}/entry-xdrip.json ${LDIR}/last-entry.json
 
-  if [ "$mode" == "not-expired" ]; then
+  if [ "$mode" != "expired" ]; then
     log "Calling expired tx lsr calcs (after posting) -allows mode switches / comparisons" 
     calculate_calibrations
     apply_lsr_calibration 
@@ -296,10 +306,10 @@ function ClearCalibrationInputOne()
 
 function ClearCalibrationCache()
 {
-  local cache="${LDIR}/calibration-linear.json"
-  if [ -e $cache ]; then
-    cp $cache "${LDIR}/old-calibrations/${cache}.$(date +%Y%m%d-%H%M%S)" 
-    rm $cache 
+  local cache="calibration-linear.json"
+  if [ -e ${LDIR}/$cache ]; then
+    cp ${LDIR}/$cache "${LDIR}/old-calibrations/${cache}.$(date +%Y%m%d-%H%M%S)" 
+    rm ${LDIR}/$cache 
   fi
 }
 
@@ -409,7 +419,7 @@ function check_sensor_start()
         touch ${LDIR}/nightscout-treatments.log
         if ! cat ${LDIR}/nightscout-treatments.log | egrep "$createdAt"; then
           sensorSerialCode=$(jq ".[$index].notes" $file) 
-      	  sensorSerialCode="${sensorSerialCode%\"}"
+          sensorSerialCode="${sensorSerialCode%\"}"
           sensorSerialCode="${sensorSerialCode#\"}"
 
           start_date=$(date "+%s%3N" -d "$createdAt")
@@ -422,9 +432,9 @@ function check_sensor_start()
           # below done so that next time the egrep returns positive for this specific message and the log reads right
           echo "Already Processed Sensor Start Message from Nightscout at $createdAt" >> ${LDIR}/nightscout-treatments.log
           # do not clear in this case because in session sensors could be just doing a quick start 
-	  # clearing only happens for sensor insert
-	  
-	  #update xdripjs.json with new sensor code
+          # clearing only happens for sensor insert
+  
+          #update xdripjs.json with new sensor code
           if [ "$sensorSerialCode" != "null" -a "$sensorSerialCode" != "" ]; then  
             config="/root/myopenaps/xdripjs.json"
             if [ -e "$config" ]; then
@@ -504,7 +514,7 @@ function  check_cmd_line_calibration()
             log "converted OpenAPS meterbg from mmol value to $meterbg"
           fi
           log "Calibration of $meterbg from $CALFILE being processed - id = $meterbgid"
-	  found_meterbg=true
+          found_meterbg=true
           # put in backfill so that the command line calibration will be sent up to NS 
           # now (or later if offline)
           log "Setting up to send calibration to NS now if online (or later with backfill)"
@@ -546,10 +556,13 @@ function compile_messages()
   rm -f $mfile
   touch $mfile
   
-  if [ "${calibrationJSON}" != "" ]; then
-    tmp=$(mktemp)
-    echo "${calibrationJSON}" > $tmp
-    files="$tmp"
+  # if g6 sensor code is set, we're using no-calibration mode - avoid sending calibration to tx
+  if [ "${sensorCode}" == "" ]; then
+    if [ "${calibrationJSON}" != "" ]; then
+      tmp=$(mktemp)
+      echo "${calibrationJSON}" > $tmp
+      files="$tmp"
+    fi
   fi
   
   if [ "${stopJSON}" != "" ]; then
@@ -669,7 +682,7 @@ function  set_glucose_type()
 
 function checkif_fallback_mode()
 {
-  if [ "$mode" == "not-expired" ]; then
+  if [ "$mode" != "expired" ]; then
     if [[ $(bc <<< "$glucose > 9") -eq 1 && "$glucose" != "null" ]]; then 
       :
       # this means we got an internal tx calibrated glucose
@@ -687,6 +700,9 @@ function initialize_mode()
 
   if [[ "$cmd_line_mode" == "expired" ]]; then
     mode="expired"
+  fi
+  if [[ "$cmd_line_mode" == "native-calibrates-lsr" ]]; then
+    mode="native-calibrates-lsr"
   fi
   echo "Logger mode=$mode"
 }
@@ -759,6 +775,25 @@ function check_last_calibration()
        fi
      fi
     fi
+}
+
+function check_native_calibrates_lsr()
+{
+  if [ "$mode" == "native-calibrates-lsr" ]; then
+    # every 6 hours, calibrate LSR algo. via native dexcom glucose value:
+    # (note: _does not_ calibrate tx, since this is only called after the tx comm is over.)
+    if [ $(bc <<< "$(date +'%H') % 6") -eq 0 ]; then
+      if [ $(bc <<< "$(date +'%M')") -lt 5 ]; then
+        if [ $(bc <<< "$glucose < 400") -eq 1  -a $(bc <<< "$glucose > 40") -eq 1 ]; then
+          meterbg=$glucose
+          meterbgid=$(date +"%Y-%m-%dT%H:%M:%S%:z")
+          calDate=$(date +'%s%3N') # TODO: use pump history date
+          log "meterbg from native-calibrates-lsr: $meterbg"
+          found_meterbg=true
+        fi
+      fi
+    fi
+  fi
 }
 
 function check_pump_history_calibration()
@@ -853,10 +888,10 @@ function calculate_calibrations()
           meterbg_raw_delta=$(bc -l <<< "$meterbg - $raw/1")
           # calculate absolute value
           if [ $(bc -l <<< "$meterbg_raw_delta < 0") -eq 1 ]; then
-	    meterbg_raw_delta=$(bc -l <<< "0 - $meterbg_raw_delta")
+            meterbg_raw_delta=$(bc -l <<< "0 - $meterbg_raw_delta")
           fi
           if [ $(bc -l <<< "$meterbg_raw_delta > 80") -eq 1 ]; then
-	    log "Raw/unfiltered compared to meterbg is $meterbg_raw_delta > 80, ignoring calibration"
+            log "Raw/unfiltered compared to meterbg is $meterbg_raw_delta > 80, ignoring calibration"
           else
             echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid,$filtered,$unfiltered" >> ${LDIR}/calibrations.csv
             /usr/local/bin/cgm-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
@@ -909,10 +944,10 @@ function apply_lsr_calibration()
       #remove_dexcom_bt_pair
       #exit
     else
-      if [ "$mode" == "not-expired" ]; then
+      if [ "$mode" != "expired" ]; then
         # exit as there is nothing to calibrate without calibration-linear.json?
-        log "no calibration records (mode: not-expired)"
-	# don't exit here because g6 supports no calibration mode now
+        log "no calibration records (mode: $mode)"
+        # don't exit here because g6 supports no calibration mode now
         #exit
       fi
     fi
@@ -920,9 +955,21 @@ function apply_lsr_calibration()
 
   # $raw is either unfiltered or filtered value from g5
   # based upon glucoseType variable at top of script
-  calibratedBG=$(bc -l <<< "($raw - $yIntercept)/$slope")
-  calibratedBG=$(bc <<< "($calibratedBG / 1)") # truncate
-  log "After calibration calibratedBG =$calibratedBG, slope=$slope, yIntercept=$yIntercept, filtered=$filtered, unfiltered=$unfiltered, raw=$raw"
+  if [ "$yIntercept" != "" -a "$slope" != "" ]; then
+    calibratedBG=$(bc -l <<< "($raw - $yIntercept)/$slope")
+    calibratedBG=$(bc <<< "($calibratedBG / 1)") # truncate
+    log "After calibration calibratedBG =$calibratedBG, slope=$slope, yIntercept=$yIntercept, filtered=$filtered, unfiltered=$unfiltered, raw=$raw"
+  else
+    calibratedBG=0
+    if [ "$mode" == "expired" ]; then
+      state_id=0x20
+      state="LSR Calibrated BG Out of Bounds" ; stateString=$state ; stateStringShort=$state
+      post_cgm_ns_pill
+      remove_dexcom_bt_pair
+      log "expired mode with no calibration - exiting"
+      exit
+    fi
+  fi
 
   # For Single Point calibration, use a calculated corrective intercept
   # for glucose in the range of 70 <= BG < 85
@@ -1325,4 +1372,3 @@ function check_sensitivity()
 }
 
 main "$@"
-
