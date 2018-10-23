@@ -94,9 +94,9 @@ Add cron job entry ...
 
 You can edit the following options values in the configuration file (~/myopenaps/xdripjs.json)
 
-	"transmitter_id" = 6 character tx serial number (i.e. 403BX6).  Should be set using cgm-trasmitter cmd.
-	"sensor_code" = Optional - Sensor code used for G6 only.  Note that this value is read-only in the configuration file & setting it here will not affect Logger/xdrip-js.  To set a new sensor code you must set it using the cgm-start cmd or NS.
-	"mode" = Optional - if you specify "expired" then mode is hard-coded to expired tx mode and it uses local LSR calibration always.  Default is "not-expired".
+	"transmitter_id" = 6 character tx serial number (i.e. 403BX6).  Should be set using cgm-transmitter cmd.
+	"sensor_code" = Optional - Sensor code used for G6 only. Start a transmitter using this to use the G6 no-calibration mode. If set to a non-empty string, calibrations are not sent to the transmitter. To set a new sensor code you must set it using the cgm-start cmd or NS.
+	"mode" = Optional - if you specify "expired" then mode is hard-coded to expired tx mode and it uses local LSR and single-point algorithms to calculate BG always.  If empty, or set to "not-expired", then native Dexcom algorithms will be used (i.e., BG is calculated by transmitter itself), if available, otherwise the local algorithms will be used. If you specify "native-calibrates-lsr" then it will use the Dexcom algorithms, unless not available, and it will also calibrate the local LSR algorithm based on the values of the Dexcom algorithm, every 6 hours. "native-calibrates-lsr" is most useful for G6 without manual calibrations. Default is "not-expired".
 	"pump_units" = Optional - pumpUnits default is "mg/dl"
 	"fake_meter_id" = Optional - meterid for fakemeter sending glucose records to pump, default is "000000"
 
