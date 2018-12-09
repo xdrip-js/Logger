@@ -962,8 +962,8 @@ function apply_lsr_calibration()
   else
     calibratedBG=0
     if [ "$mode" == "expired" ]; then
-      state_id=0x20
-      state="LSR Calibrated BG Out of Bounds" ; stateString=$state ; stateStringShort=$state
+      state_id=0x07
+      state="Needs Calibration" ; stateString=$state ; stateStringShort=$state
       post_cgm_ns_pill
       remove_dexcom_bt_pair
       log "expired mode with no calibration - exiting"
@@ -997,8 +997,10 @@ function apply_lsr_calibration()
     if [ $(bc <<< "$calibratedBG > 600") -eq 1 -o $(bc <<< "$calibratedBG < 0") -eq 1 ]; then
       if [ "$mode" == "expired" ]; then
         log "Glucose $calibratedBG out of range [0,600] - exiting"
-        state_id=0x07
-        state="Needs Calibration" ; stateString=$state ; stateStringShort=$state
+        #state_id=0x07
+        #state="Needs Calibration" ; stateString=$state ; stateStringShort=$state
+        state_id=0x20
+        state="LSR Calibrated BG Out of Bounds" ; stateString=$state ; stateStringShort=$state
         post_cgm_ns_pill
         remove_dexcom_bt_pair
         exit
