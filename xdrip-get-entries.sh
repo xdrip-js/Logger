@@ -890,8 +890,8 @@ function calculate_calibrations()
           if [ $(bc -l <<< "$meterbg_raw_delta < 0") -eq 1 ]; then
             meterbg_raw_delta=$(bc -l <<< "0 - $meterbg_raw_delta")
           fi
-          if [ $(bc -l <<< "$meterbg_raw_delta > 80") -eq 1 ]; then
-            log "Raw/unfiltered compared to meterbg is $meterbg_raw_delta > 80, ignoring calibration"
+          if [ $(bc -l <<< "$meterbg_raw_delta > 100") -eq 1 ]; then
+            log "Raw/unfiltered compared to meterbg is $meterbg_raw_delta > 100, ignoring calibration"
           else
             echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid,$filtered,$unfiltered" >> ${LDIR}/calibrations.csv
             /usr/local/bin/cgm-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
