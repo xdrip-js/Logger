@@ -556,13 +556,11 @@ function compile_messages()
   rm -f $mfile
   touch $mfile
   
-  # if g6 sensor code is set, we're using no-calibration mode - avoid sending calibration to tx
-  if [ "${sensorCode}" == "" ]; then
-    if [ "${calibrationJSON}" != "" ]; then
-      tmp=$(mktemp)
-      echo "${calibrationJSON}" > $tmp
-      files="$tmp"
-    fi
+  # if g6 sensor code is set, we're using no-calibration mode - still use calibration if it's done
+  if [ "${calibrationJSON}" != "" ]; then
+    tmp=$(mktemp)
+    echo "${calibrationJSON}" > $tmp
+    files="$tmp"
   fi
   
   if [ "${stopJSON}" != "" ]; then
@@ -890,8 +888,8 @@ function calculate_calibrations()
           if [ $(bc -l <<< "$meterbg_raw_delta < 0") -eq 1 ]; then
             meterbg_raw_delta=$(bc -l <<< "0 - $meterbg_raw_delta")
           fi
-          if [ $(bc -l <<< "$meterbg_raw_delta > 100") -eq 1 ]; then
-            log "Raw/unfiltered compared to meterbg is $meterbg_raw_delta > 100, ignoring calibration"
+          if [ $(bc -l <<< "$meterbg_raw_delta > 150") -eq 1 ]; then
+            log "Raw/unfiltered compared to meterbg is $meterbg_raw_delta > 150, ignoring calibration"
           else
             echo "$raw,$meterbg,$datetime,$epochdate,$meterbgid,$filtered,$unfiltered" >> ${LDIR}/calibrations.csv
             /usr/local/bin/cgm-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
