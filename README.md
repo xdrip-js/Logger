@@ -12,9 +12,11 @@ Note: Resetting the G6 transmitter will prohibit using no-calibration mode (even
 
 * Start Sensor - Use the following command, wait > 5 minutes, and your sensor session will start. Use  this command after inserting your sensor so that Logger will start the process for sending glucose information. This feature is also available via the command line and you can also do it via Nightscout as a BG Treatment, entry type of Sensor Start.  ```cgm-start```
 
+* Set Transmitter - Use the following command, wait > 5 minutes, and your new transmitter id will be used.  This feature is only available if using the xdripjs.json configuration file & not calling Logger with the transmitter id as an argument.  ```cgm-transmitter```
+
 * Calibration via linear least squares regression (LSR) (similar to xdrip plus)
   * Calibrations must be input into Nightscout as BG Check treatments or command line ```calibrate bg_value```.
-  * Logger will not calculate or send any BG data out unless at least one  calibration has been done in Nightscout.
+  * Logger will not calculate or send any BG data out unless at least one  calibration has been done in Nightscout. Calibration is not required for a g6 when using no-calibration by sending it a valid sensor serial code in the cgm-start message.
   * LSR calibration only comes into play after 3 or more calibrations. When there one or two calibrations, single point linear calibration is used.
   * The calibration cache will be cleared for the first 15 minutes after a Nightscout "CGM Sensor Insert" has been posted as Nightscout treatment.
   * After 15 minutes, BG data will only be sent out after at least one calibration has been documented in Nightscout.
@@ -78,17 +80,25 @@ sudo npm run global-install
 sudo apt-get install bluez-tools
 ```
 
-Add cron job entry (replace "403BX6" with your transmitter id in both places below) ...
+Set your transmitter (replace 403BX6 with your actual 6 digit transmitter serial number)...
 ```
-* * * * * cd /root/src/Logger && ps aux | grep -v grep | grep -q '403BX6' || /usr/local/bin/Logger 403BX6 >> /var/log/openaps/logger-loop.log 2>&1
+cgm-transmitter 403BX6
 ```
 
-## Logger Command Line Arguments:
+Add cron job entry ...
+```
+* * * * * cd /root/src/Logger && ps aux | grep -v grep | grep -q Logger || /usr/local/bin/Logger >> /var/log/openaps/logger-loop.log 2>&1
+```
 
-	Arg 1 = 6 character tx serial number (i.e. 403BX6)
-	Arg 2 = Optional - if you specify "expired" then mode is hard-coded to expired tx mode and it uses local LSR calibration always.
-	Arg 3 = Optional - pumpUnits default is "mg/dl"
-	Arg 4 = Optional - meterid for fakemeter sending glucose records to pump, default is "000000"
+## Logger Configuration Options:
+
+You can edit the following options values in the configuration file (~/myopenaps/xdripjs.json)
+
+	"transmitter_id" = 6 character tx serial number (i.e. 403BX6).  Should be set using cgm-transmitter cmd.
+	"sensor_code" = Optional - Sensor code used for G6 only. Start a transmitter using this to use the G6 no-calibration mode. If set to a non-empty string, calibrations are not sent to the transmitter. To set a new sensor code you must set it using the cgm-start cmd or NS.
+	"mode" = Optional - if you specify "expired" then mode is hard-coded to expired tx mode and it uses local LSR and single-point algorithms to calculate BG always.  If empty, or set to "not-expired", then native Dexcom algorithms will be used (i.e., BG is calculated by transmitter itself), if available, otherwise the local algorithms will be used. If you specify "native-calibrates-lsr" then it will use the Dexcom algorithms, unless not available, and it will also calibrate the local LSR algorithm based on the values of the Dexcom algorithm, every 6 hours. "native-calibrates-lsr" is most useful for G6 without manual calibrations. Default is "not-expired".
+	"pump_units" = Optional - pumpUnits default is "mg/dl"
+	"fake_meter_id" = Optional - meterid for fakemeter sending glucose records to pump, default is "000000"
 
 ## Getting Started
 First, make sure you've checked the Prerequisites above and completed the Installation steps. Afterwords, perform the following steps:
