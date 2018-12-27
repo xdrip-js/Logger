@@ -1,6 +1,6 @@
 {
   "name": "Logger",
-  "version": "0.4.0",
+  "version": "1.1.0",
   "description": "Logger xdrip openaps",
   "main": "logger/index.js",
   "license": "MIT",
@@ -10,7 +10,7 @@
     "global-install": "./bin/upgrade-node.sh && npm install && ./bin/logger-setup.sh"
   },
   "dependencies": {
-    "xdrip-js": "xdrip-js/xdrip-js#dev"
+    "xdrip-js": "xdrip-js/xdrip-js#v2.0.0"
   },
   "repository": {
     "type": "git",
