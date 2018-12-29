@@ -1386,9 +1386,9 @@ function bt_watchdog()
     logfile=$logfiledir/$logfilename
     date >> $logfile
     echo "no entry.json for $minutes minutes - rebooting" | tee -a $logfile
-    wall "Rebooting to fix BT and xdrip-js!"
+    wall "Rebooting in 15 seconds to fix BT and xdrip-js - save your work quickly!"
     cd ${HOME}/myopenaps && /etc/init.d/cron stop && killall -g openaps ; killall -g oref0-pump-loop | tee -a $logfile
-    sleep 5
+    sleep 15
     reboot
   fi
 }
