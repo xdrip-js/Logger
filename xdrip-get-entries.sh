@@ -628,6 +628,7 @@ function  call_logger()
   else
     state_id=0x24
     error="No Response" 
+    bt_watchdog
   fi
   if [ "$error" != "" ]; then
       state=$error ; stateString=$state ; stateStringShort=$state
@@ -846,6 +847,9 @@ function check_ns_calibration()
     # be entered in either UTC or local time depending on how they were entered.
     curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${ns_url}/api/v1/treatments.json?find\[eventType\]\[\$regex\]=Check&count=1" 2>/dev/null > $METERBG_NS_RAW
     createdAt=$(jq -r ".[0].created_at" $METERBG_NS_RAW)
+    if [ "$createdAt" == "null" ] ; then 
+        return
+    fi
     secNow=`date +%s`
     secThen=`date +%s --date=$createdAt`
     elapsed=$(bc <<< "($secNow - $secThen)")
@@ -1369,6 +1373,24 @@ function check_last_glucose_time_smart_sleep()
 function check_sensitivity()
 {
   sensitivity=$(jq .ratio ${HOME}/myopenaps/settings/autosens.json)
+}
+
+function bt_watchdog()
+{
+  logfiledir=/var/log/openaps
+  logfilename=logger-reset-log.txt
+  minutes=14
+  xdrip_errors=`find ${HOME}/myopenaps/monitor/xdripjs -mmin -$minutes -type f -name "*entry.json" | grep entry.json; find $logfiledir -mmin -$minutes -type f -name $logfilename`
+  if [ -z "$xdrip_errors" ]
+  then
+    logfile=$logfiledir/$logfilename
+    date >> $logfile
+    echo "no entry.json for $minutes minutes - rebooting" | tee -a $logfile
+    wall "Rebooting in 15 seconds to fix BT and xdrip-js - save your work quickly!"
+    cd ${HOME}/myopenaps && /etc/init.d/cron stop && killall -g openaps ; killall -g oref0-pump-loop | tee -a $logfile
+    sleep 15
+    reboot
+  fi
 }
 
 main "$@"
