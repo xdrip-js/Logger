@@ -10,6 +10,15 @@ const messages =  JSON.parse(process.argv[3] || '[]');
 //const transmitter = new Transmitter(id); 
 //
 
+process.on('uncaughtException', function(e) {
+    console.error(e.stack);
+
+     /// Makesure error outputed before process exit.
+    process.stderr.write('', function () {
+        process.exit(1);
+    });
+});
+
 function TransmitterStatusString(status) {
  switch (status) {
    case null:
@@ -167,7 +176,7 @@ transmitter.on('glucose', glucose => {
 
 transmitter.on('batteryStatus', data => {
   const util = require('util')
-  console.log('got batteryStatus message inside logger msg: ' + data);
+  console.log('got batteryStatus message inside logger msg: ' + JSON.stringify(data));
   console.log(util.inspect(data, false, null))
 
 //  status: 0,
@@ -190,7 +199,40 @@ transmitter.on('batteryStatus', data => {
 transmitter.on('disconnect', process.exit);
 
 transmitter.on('messageProcessed', data => {
-  console.log('got message inside logger msg: ' + data);
+  console.log('got message inside logger msg: ' + JSON.stringify(data));
   console.log(util.inspect(data, false, null))
 });
 
+transmitter.on('backfillData', backfills => {
+  //console.log('got glucosebackfill: ' + JSON.stringify(backfills));
+
+   var newEntries = [];
+  var fs = require('fs');
+  for (var i = 0; i < backfills.length; ++i) {
+    const backfill = backfills[i];
+    //console.log('processing backfill entry:' + JSON.stringify(backfill));
+    const entry = {
+        'device': 'DexcomR4B',
+        'date': backfill.time,
+        'dateString': new Date(backfill.time).toISOString(),
+        'sgv': backfill.glucose,
+        'direction': 'None',
+        'type': 'sgv',
+        'trend': backfill.trend,
+        'state': SensorStateString(backfill.type), 
+        'glucose': Math.round(backfill.glucose)
+      };
+    //console.log('resulting backfill entry:' + JSON.stringify(entry));
+    newEntries.push(entry);
+  }
+  console.log('New backfill entries:' + JSON.stringify(newEntries));
+  fs.readFile('/root/myopenaps/monitor/xdripjs/entry-backfill2.json', function (err, data) {
+      var json = [];
+      if (data && data.length > 0) {
+        json = JSON.parse(data);
+      }
+      json = json.concat(newEntries);
+      console.log("full backfill entries to upload: " + JSON.stringify(json));
+      fs.writeFile('/root/myopenaps/monitor/xdripjs/entry-backfill2.json', JSON.stringify(json))
+  });
+});
