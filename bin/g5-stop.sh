@@ -4,7 +4,7 @@ minutesago=120
 MESSAGE="${HOME}/myopenaps/monitor/xdripjs/cgm-stop.json"
 
 if [ -n "$minutesago" ]; then
-  epochdate=$(date +'%s%3N' -d "$minutessago minutes ago")
+  epochdate=$(date +'%s%3N' -d "$minutesago minutes ago")
 else
   epochdate=$(date +'%s%3N')
 fi
