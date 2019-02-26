@@ -242,13 +242,21 @@ function log
 function fake_meter()
 {
   if [ -e "/usr/local/bin/fakemeter" ]; then
-    export MEDTRONIC_PUMP_ID=`grep serial ~/myopenaps/pump.ini | tr -cd 0-9`
-    export MEDTRONIC_FREQUENCY=`cat ~/myopenaps/monitor/medtronic_frequency.ini`
-    if ! listen -t 4s >& /dev/null ; then 
-      log "Sending BG of $calibratedBG to pump via meterid $meterid"
-      fakemeter -m $meterid  $calibratedBG 
+    if [ -d ~/myopenaps/plugins/once ]; then
+        scriptf=~/myopenaps/plugins/once/run_fakemeter.sh
+        log "Scheduling fakemeter run once at end of next OpenAPS loop to send BG of $calibratedBG to pump via meterid $meterid"
+      echo "#!/bin/bash" > $scriptf 
+      echo "fakemeter -m $meterid $calibratedBG" >> $scriptf 
+      chmod +x $scriptf 
     else
-      log "Timed out trying to send BG of $calibratedBG to pump via meterid $meterid"
+      export MEDTRONIC_PUMP_ID=`grep serial ~/myopenaps/pump.ini | tr -cd 0-9`
+      export MEDTRONIC_FREQUENCY=`cat ~/myopenaps/monitor/medtronic_frequency.ini`
+      if ! listen -t 4s >& /dev/null ; then 
+        log "Sending BG of $calibratedBG to pump via meterid $meterid"
+        fakemeter -m $meterid  $calibratedBG 
+      else
+        log "Timed out trying to send BG of $calibratedBG to pump via meterid $meterid"
+      fi
     fi
   fi
 }
@@ -1087,6 +1095,12 @@ function process_delta()
     da=$(bc <<< "0 - $da")
   fi
 
+# EYF try
+  if [ $(bc <<< "$dg > 20") -eq 1 -o $(bc <<< "$dg < (0 - 20)") -eq 1 ]; then
+    log "Change to smooth it out some"
+    calibratedBG=$(bc <<< "$calibratedBG - ($dg/2)")
+  fi
+
   if [ $(bc <<< "$dg > $maxDelta") -eq 1 -o $(bc <<< "$dg < (0 - $maxDelta)") -eq 1 ]; then
     log "Change $dg out of range [$maxDelta,-${maxDelta}] - setting noise=Heavy"
     noiseSend=4
@@ -1387,7 +1401,7 @@ function bt_watchdog()
     date >> $logfile
     echo "no entry.json for $minutes minutes - rebooting" | tee -a $logfile
     wall "Rebooting in 15 seconds to fix BT and xdrip-js - save your work quickly!"
-    cd ${HOME}/myopenaps && /etc/init.d/cron stop && killall -g openaps ; killall -g oref0-pump-loop | tee -a $logfile
+#    cd ${HOME}/myopenaps && /etc/init.d/cron stop && killall -g openaps ; killall -g oref0-pump-loop | tee -a $logfile
     sleep 15
     reboot
   fi
