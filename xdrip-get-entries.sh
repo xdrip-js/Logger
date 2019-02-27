@@ -1095,12 +1095,6 @@ function process_delta()
     da=$(bc <<< "0 - $da")
   fi
 
-# EYF try
-  if [ $(bc <<< "$dg > 20") -eq 1 -o $(bc <<< "$dg < (0 - 20)") -eq 1 ]; then
-    log "Change to smooth it out some"
-    calibratedBG=$(bc <<< "$calibratedBG - ($dg/2)")
-  fi
-
   if [ $(bc <<< "$dg > $maxDelta") -eq 1 -o $(bc <<< "$dg < (0 - $maxDelta)") -eq 1 ]; then
     log "Change $dg out of range [$maxDelta,-${maxDelta}] - setting noise=Heavy"
     noiseSend=4
