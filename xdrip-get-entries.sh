@@ -242,13 +242,21 @@ function log
 function fake_meter()
 {
   if [ -e "/usr/local/bin/fakemeter" ]; then
-    export MEDTRONIC_PUMP_ID=`grep serial ~/myopenaps/pump.ini | tr -cd 0-9`
-    export MEDTRONIC_FREQUENCY=`cat ~/myopenaps/monitor/medtronic_frequency.ini`
-    if ! listen -t 4s >& /dev/null ; then 
-      log "Sending BG of $calibratedBG to pump via meterid $meterid"
-      fakemeter -m $meterid  $calibratedBG 
+    if [ -d ~/myopenaps/plugins/once ]; then
+        scriptf=~/myopenaps/plugins/once/run_fakemeter.sh
+        log "Scheduling fakemeter run once at end of next OpenAPS loop to send BG of $calibratedBG to pump via meterid $meterid"
+      echo "#!/bin/bash" > $scriptf 
+      echo "fakemeter -m $meterid $calibratedBG" >> $scriptf 
+      chmod +x $scriptf 
     else
-      log "Timed out trying to send BG of $calibratedBG to pump via meterid $meterid"
+      export MEDTRONIC_PUMP_ID=`grep serial ~/myopenaps/pump.ini | tr -cd 0-9`
+      export MEDTRONIC_FREQUENCY=`cat ~/myopenaps/monitor/medtronic_frequency.ini`
+      if ! listen -t 4s >& /dev/null ; then 
+        log "Sending BG of $calibratedBG to pump via meterid $meterid"
+        fakemeter -m $meterid  $calibratedBG 
+      else
+        log "Timed out trying to send BG of $calibratedBG to pump via meterid $meterid"
+      fi
     fi
   fi
 }
