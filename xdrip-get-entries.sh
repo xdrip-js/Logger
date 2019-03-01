@@ -544,7 +544,7 @@ function  remove_dexcom_bt_pair()
   log "Removing existing Dexcom bluetooth connection = ${id}"
   bt-device -r $id 2> /dev/null
 
-  # Try
+  # Also remove the mac address tx pairing if exists 
   sfile="${LDIR}/saw-transmitter.json"
 
   if [ -e $sfile ]; then
