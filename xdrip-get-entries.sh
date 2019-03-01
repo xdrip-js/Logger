@@ -543,6 +543,21 @@ function  remove_dexcom_bt_pair()
 {
   log "Removing existing Dexcom bluetooth connection = ${id}"
   bt-device -r $id 2> /dev/null
+
+  # Try
+  sfile="${LDIR}/saw-transmitter.json"
+
+  if [ -e $sfile ]; then
+    mac=$(cat $sfile | jq -M '.address')
+    mac="${mac%\"}"
+    mac="${mac#\"}"
+    if [ ${#mac} -ge 8 ]; then
+      smac=${mac//:/-}
+      smac=${smac^^}
+      #echo $smac
+      bt-device -r $smac 2> /dev/null
+    fi
+  fi
 }
 
 function initialize_messages()

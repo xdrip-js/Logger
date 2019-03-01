@@ -173,18 +173,25 @@ transmitter.on('glucose', glucose => {
     });
 });
 
+transmitter.on('sawTransmitter', data => {
+  const util = require('util')
+  console.log('got sawTransmitter message inside logger msg: ' + JSON.stringify(data));
+  console.log(util.inspect(data, false, null))
+
+  var fs = require('fs');
+  const battery = JSON.stringify(data);
+  fs.writeFile("/root/myopenaps/monitor/xdripjs/saw-transmitter.json", battery, function(err) {
+  if(err) {
+      console.log("Error while writing saw-transmitter.json");
+      console.log(err);
+      }
+  });
+});
 
 transmitter.on('batteryStatus', data => {
   const util = require('util')
   console.log('got batteryStatus message inside logger msg: ' + JSON.stringify(data));
   console.log(util.inspect(data, false, null))
-
-//  status: 0,
-//  voltagea: 313,
-//  voltageb: 299,
-//  resist: 848,
-//  runtime: 5,
-//  temperature: 34 
 
   var fs = require('fs');
   const battery = JSON.stringify(data);
