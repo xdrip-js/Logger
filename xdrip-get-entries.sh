@@ -555,6 +555,7 @@ function  remove_dexcom_bt_pair()
       smac=${mac//:/-}
       smac=${smac^^}
       #echo $smac
+      log "Removing existing Dexcom bluetooth mac connection also = ${smac}"
       bt-device -r $smac 2> /dev/null
     fi
   fi
