@@ -179,8 +179,8 @@ transmitter.on('sawTransmitter', data => {
   console.log(util.inspect(data, false, null))
 
   var fs = require('fs');
-  const battery = JSON.stringify(data);
-  fs.writeFile("/root/myopenaps/monitor/xdripjs/saw-transmitter.json", battery, function(err) {
+  const sawTransmitter = JSON.stringify(data);
+  fs.writeFile("/root/myopenaps/monitor/xdripjs/saw-transmitter.json", sawTransmitter, function(err) {
   if(err) {
       console.log("Error while writing saw-transmitter.json");
       console.log(err);
