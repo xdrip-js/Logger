@@ -678,6 +678,10 @@ function  capture_entry_values()
 
   state_id=$(cat ${LDIR}/extra.json | jq -M '.[0].state_id')
   status_id=$(cat ${LDIR}/extra.json | jq -M '.[0].status_id')
+  transmitterStartDate=$(cat ${LDIR}/extra.json | jq -M '.[0].transmitterStartDate')
+  transmitterStartDate="${transmitterStartDate%\"}"
+  transmitterStartDate="${transmitterStartDate#\"}"
+  log "transmitterStartDate=$transmitterStartDate" 
 
   rssi=$(cat ${LDIR}/entry.json | jq -M '.[0].rssi')
 
@@ -1050,13 +1054,16 @@ function apply_lsr_calibration()
 function post_cgm_ns_pill()
 {
 #    \"sessionStart\":$sessionStart,\
-#    \"txActivation\":$txActivation,\
+
+
    # json required conversion to decimal values
 
    local cache="${LDIR}/calibration-linear.json"
    if [ -e $cache ]; then
      lastCalibrationDate=$(stat -c "%Y000" ${cache})
    fi
+
+   txActivation=`date +'%s%3N' -d "$transmitterStartDate"`
    xrig="xdripjs://$(hostname)"
    state_id=$(echo $(($state_id)))
    status_id=$(echo $(($status_id)))
@@ -1068,6 +1075,7 @@ function post_cgm_ns_pill()
     stateString "$state" \
     stateStringShort "$state" \
     txId "$transmitter" \
+    txActivation "$txActivation" \
     txStatusString "$status" \
     txStatusStringShort "$status" \
     mode "$mode" \
