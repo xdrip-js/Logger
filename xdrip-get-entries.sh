@@ -1063,7 +1063,10 @@ function post_cgm_ns_pill()
      lastCalibrationDate=$(stat -c "%Y000" ${cache})
    fi
 
-   txActivation=`date +'%s%3N' -d "$transmitterStartDate"`
+   # Don't send tx activation date to NS CGM pill if state is invalid
+   if [[ $state_id != 0x25 ]]; then
+     txActivation=`date +'%s%3N' -d "$transmitterStartDate"`
+   fi
    xrig="xdripjs://$(hostname)"
    state_id=$(echo $(($state_id)))
    status_id=$(echo $(($status_id)))
