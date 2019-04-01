@@ -249,8 +249,6 @@ function fake_meter()
       echo "fakemeter -m $meterid $calibratedBG" >> $scriptf 
       chmod +x $scriptf 
     else
-      export MEDTRONIC_PUMP_ID=`grep serial ~/myopenaps/pump.ini | tr -cd 0-9`
-      export MEDTRONIC_FREQUENCY=`cat ~/myopenaps/monitor/medtronic_frequency.ini`
       if ! listen -t 4s >& /dev/null ; then 
         log "Sending BG of $calibratedBG to pump via meterid $meterid"
         fakemeter -m $meterid  $calibratedBG 
