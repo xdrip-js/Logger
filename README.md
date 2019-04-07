@@ -10,8 +10,6 @@ Logger is a Bash (shell) based Dexcom g5 / g6 glucose pre-processor for OpenAPS.
 * Offline mode - Logger runs on the rig and sends bg data directly to openaps through via xdripAPS. Logger queues up NS updates while internet is down and fills in the gaps when internet is restored.
 * Reset Transmitter - Use the following command, wait > 10 minutes, and your expired transmitter is new again! Careful, though it will reset everything on your transmitter including your current session. Note this feature is only available via the command line.  ```cgm-reset```
 
-Note: Resetting the G6 transmitter will prohibit using no-calibration mode (even if you enter the code) so be extra careful when considering doing a reset on a g6 transmitter.
-
 * Stop Sensor - Use the following command, wait > 5 minutes, and your current sensor session will stop. Use  this command before changing out your sensor so that Logger will stop sending glucose information temporarily (while the sensor is stopped) This feature is also available via the command line only.  ```cgm-stop```
 
 * Start Sensor - Use the following command, wait > 5 minutes, and your sensor session will start. Use  this command after inserting your sensor so that Logger will start the process for sending glucose information. This feature is also available via the command line and you can also do it via Nightscout as a BG Treatment, entry type of Sensor Start.  ```cgm-start```
