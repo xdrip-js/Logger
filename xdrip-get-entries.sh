@@ -404,6 +404,10 @@ function check_send_battery_status()
 
 function check_sensor_start()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
+
   if [ "$mode" == "expired" ];then
     # can't start sensor on an expired tx
     #TODO: check if truly expired and return if so, otherwise process sensor start
@@ -459,6 +463,10 @@ function check_sensor_start()
 # calibrate after 15 minutes of sensor change time entered in NS
 function check_sensor_change()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
+
   curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
   if [ $? == 0 ]; then
     log "sensor change within last 15 minutes - clearing calibration files"
@@ -496,6 +504,9 @@ function check_last_entry_values()
 
 function  check_cmd_line_calibration()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
 ## look for a bg check from ${LDIR}/calibration.json
   if [ $found_meterbg == false ]; then
     CALFILE="${LDIR}/calibration.json"
@@ -640,7 +651,7 @@ function  call_logger()
     echo
     glucose=$(cat ${LDIR}/entry.json | jq -M '.[0].glucose')
     unfiltered=$(cat ${LDIR}/entry.json | jq -M '.[0].unfiltered')
-    unfiltered=$(bc -l <<< "scale=3; $unfiltered / 1000")
+    unfiltered=$(bc -l <<< "scale=0; $unfiltered / 1000")
     if [ $(bc  -l <<< "$unfiltered < 30") -eq 1 -o $(bc -l <<< "$unfiltered > 500") -eq 1 ]; then 
       error="Invalid response - Unfiltered = $unfiltered"
       state_id=0x25
@@ -667,8 +678,8 @@ function  capture_entry_values()
   filtered=$(cat ${LDIR}/entry.json | jq -M '.[0].filtered')
 
   # convert raw data to scale of 1 vs 1000x
-  unfiltered=$(bc -l <<< "scale=3; $unfiltered / 1000")
-  filtered=$(bc -l <<< "scale=3; $filtered / 1000")
+  unfiltered=$(bc -l <<< "scale=0; $unfiltered / 1000")
+  filtered=$(bc -l <<< "scale=0; $filtered / 1000")
   
   state=$(cat ${LDIR}/entry.json | jq -M '.[0].state')
   state="${state%\"}"
@@ -689,6 +700,9 @@ function  capture_entry_values()
   log "Sensor state = $state" 
   log "Transmitter status = $status" 
 
+  orig_status=$status
+  orig_state=$state
+
   # get dates for use in filenames and json entries
   datetime=$(date +"%Y-%m-%d %H:%M")
   epochdate=$(date +'%s')
@@ -707,6 +721,10 @@ function  set_glucose_type()
 
 function checkif_fallback_mode()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
+
   if [ "$mode" != "expired" ]; then
     if [[ $(bc <<< "$glucose > 9") -eq 1 && "$glucose" != "null" ]]; then 
       :
@@ -728,6 +746,9 @@ function initialize_mode()
   fi
   if [[ "$cmd_line_mode" == "native-calibrates-lsr" ]]; then
     mode="native-calibrates-lsr"
+  fi
+  if [[ "$cmd_line_mode" == "read-only" ]]; then
+    mode="read-only"
   fi
   echo "Logger mode=$mode"
 }
@@ -785,6 +806,10 @@ function process_announcements()
 
 function check_last_calibration()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
+
    if [ "$mode" == "expired" ]; then
    state="Needs Calibration" ; stateString=$state ; stateStringShort=$state
    state_id=0x07
@@ -823,6 +848,9 @@ function check_native_calibrates_lsr()
 
 function check_pump_history_calibration()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
 
   if [ $found_meterbg == false ]; then
     historyFile="$HOME/myopenaps/monitor/pumphistory-24h-zoned.json"
@@ -857,6 +885,9 @@ function check_pump_history_calibration()
 
 function check_variation()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
   variation=$(bc <<< "($filtered - $unfiltered) * 100 / $filtered")
   if [ $(bc <<< "$variation > 10") -eq 1 -o $(bc <<< "$variation < -10") -eq 1 ]; then
     log "would not allow meter calibration - filtered/unfiltered variation of $variation exceeds 10%"
@@ -868,6 +899,10 @@ function check_variation()
 
 function check_ns_calibration()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
+
   if [ $found_meterbg == false ]; then
     # can't use the Sensor insert UTC determination for BG since they can
     # be entered in either UTC or local time depending on how they were entered.
@@ -905,6 +940,9 @@ function check_ns_calibration()
 #call after posting to NS OpenAPS for not-expired mode
 function calculate_calibrations()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
   calibrationDone=0
   if [ -n $meterbg ]; then 
     if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
@@ -940,6 +978,9 @@ function calculate_calibrations()
 
 function apply_lsr_calibration()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
   if [ -e ${LDIR}/calibration-linear.json ]; then
     #TODO: store calibration date in json file and read here
     slope=`jq -M '.[0] .slope' ${LDIR}/calibration-linear.json` 
@@ -1068,6 +1109,10 @@ function post_cgm_ns_pill()
    xrig="xdripjs://$(hostname)"
    state_id=$(echo $(($state_id)))
    status_id=$(echo $(($status_id)))
+  if [ "$mode" == "read-only" ]; then
+    state=$orig_state
+    status=$orig_status
+  fi
 
    jstr="$(build_json \
       sessionStart "$lastSensorInsertDate" \
@@ -1314,6 +1359,9 @@ function check_messages()
 
 function check_recent_sensor_insert()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
   # check if sensor inserted in last 12 hours.
   # If so, clear calibration inputs and only calibrate using single point calibration
   # do not keep the calibration records within the first 12 hours as they might skew LSR
