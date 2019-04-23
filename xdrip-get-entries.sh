@@ -702,6 +702,8 @@ function  capture_entry_values()
 
   orig_status=$status
   orig_state=$state
+  orig_status_id=$status_id
+  orig_state_id=$state_id
 
   # get dates for use in filenames and json entries
   datetime=$(date +"%Y-%m-%d %H:%M")
@@ -1112,6 +1114,8 @@ function post_cgm_ns_pill()
   if [ "$mode" == "read-only" ]; then
     state=$orig_state
     status=$orig_status
+    state_id=$orig_state_id
+    status_id=$orig_status_id
   fi
 
    jstr="$(build_json \
