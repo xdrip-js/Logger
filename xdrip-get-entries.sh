@@ -44,22 +44,17 @@ main()
     fi
   fi
 
-  sensorCode=""
-  if [ -z  "$sensorCode" ]; then
-    # check config file
-    sensorCode=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.sensor_code')
-    if [ -z  "$sensorCode" ] || [ "$sensorCode" == "null" ]; then
-      sensorCode=""
-    fi
+  # check config file
+  sensorCode=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.sensor_code')
+  if [ -z  "$sensorCode" ] || [ "$sensorCode" == "null" ]; then
+    sensorCode=""
   fi
 
-  if [ -z  "$alternateBluetoothChannel" ]; then
-    # check config file
-    alternateBluetoothChannel=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.alternate_bluetooth_channel')
-    if [ -z  "$alternateBluetoothChannel" ] || [ "$alternateBluetoothChannel" == "null" ]; then
-      alternateBluetoothChannel=false
-    fi
+  alternateBluetoothChannel=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.alternate_bluetooth_channel')
+  if [ -z  "$alternateBluetoothChannel" ] || [ "$alternateBluetoothChannel" == "null" ]; then
+    alternateBluetoothChannel=false
   fi
+
   log "Using Alternate Bluetooth Channel: $alternateBluetoothChannel"
   log "Using transmitter: $transmitter"
 
