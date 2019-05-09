@@ -7,6 +7,7 @@
 Logger is a Bash (shell) based Dexcom g5 / g6 glucose pre-processor for OpenAPS. Logger runs on the OpenAPS rig and connects to the g5 or g6 transmitter via bluetooth, waits for the first bg, logs a json entry record, processes the entry record based on calibrations, updates NightScout and OpenAPS indepently, then exits. Logger is a wrapper shell script to xdrip-js that is called from cron every minute. The user interface is a mixture between unix command line scripts and NightScout. The current Logger features are below:
 
 * Preparation and sending of the blood glucose data to Nightscout and to OpenAPS.
+* Alternate Bluetooth connection - allows Logger to run alongside one other CGM app (besides the receiver). With this setting set to true, Logger can run alongside Xdrip+ or the Dexcom App.
 * Offline mode - Logger runs on the rig and sends bg data directly to openaps through via xdripAPS. Logger queues up NS updates while internet is down and fills in the gaps when internet is restored.
 * Reset Transmitter - Use the following command, wait > 10 minutes, and your expired transmitter is new again! Careful, though it will reset everything on your transmitter including your current session. Note this feature is only available via the command line.  ```cgm-reset```
 
@@ -101,6 +102,7 @@ You can edit the following options values in the configuration file (~/myopenaps
 	"mode" = Optional - if you specify "expired" then mode is hard-coded to expired tx mode and it uses local LSR and single-point algorithms to calculate BG always.  If empty, or set to "not-expired", then native Dexcom algorithms will be used (i.e., BG is calculated by transmitter itself), if available, otherwise the local algorithms will be used. If you specify "native-calibrates-lsr" then it will use the Dexcom algorithms, unless not available, and it will also calibrate the local LSR algorithm based on the values of the Dexcom algorithm, every 6 hours. "native-calibrates-lsr" is most useful for G6 without manual calibrations. If you specify "read-only" then the behavior is the same as "not-expired" with the exception that all start/stop/calibrations must be done by the receiver. The default is "not-expired".
 	"pump_units" = Optional - pumpUnits default is "mg/dl"
 	"fake_meter_id" = Optional - meterid for fakemeter sending glucose records to pump, default is "000000"
+	"alternate_bluetooth_channel" = true or false. Optional - Default is false. If set to true then Logger uses the alternate channel to connect to the Dexcom transmitter. If set to true the receiver cannot be used. However, when set to true, either the Xdip Plus android app or the Dexcom Iphone app can be used alongside Logger. Keep in mind that there is a higher chance for bluetooth conflict when connecting to the transmitter with both channels. You may be able to avoid some reconnects by keeping the rig and the phone app physically separated by several inches.
 
 ## Getting Started
 First, make sure you've checked the Prerequisites above and completed the Installation steps. Afterwords, perform the following steps:

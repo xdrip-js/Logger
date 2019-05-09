@@ -2,13 +2,10 @@ const Transmitter = require('xdrip-js');
 const util = require('util')
 
 const id = process.argv[2];
-// FIXME, process.argv[3] should probably just be a file containing an array of messages to send the transmitter instead of a json string.
 // examples mesages are: {date: Date.now(), type: "CalibrateSensor", glucose} or {date: Date.now(), type: "StopSensor"} or {date: Date.now(), type: "StartSensor"}
 const messages =  JSON.parse(process.argv[3] || '[]');
-//console.log('messages to send: ' + JSON.stringify(messages));
-//messages.push({date: Date.now(), type: "CalibrateSensor", glucose})
-//const transmitter = new Transmitter(id); 
-//
+// arg 4 is boolean - true if using alternate transmitter bluetooth channel
+const alternateBluetooth = process.argv[4];
 
 process.on('uncaughtException', function(e) {
     console.error(e.stack);
@@ -120,7 +117,7 @@ function SensorStateString(state) {
   }
 }
 
-const transmitter = new Transmitter(id, () => messages); 
+const transmitter = new Transmitter(id, () => messages, alternateBluetooth); 
 
 transmitter.on('glucose', glucose => {
   //console.log('got glucose: ' + glucose.glucose);

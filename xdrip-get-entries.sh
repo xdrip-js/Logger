@@ -44,15 +44,18 @@ main()
     fi
   fi
 
-  sensorCode=""
-  if [ -z  "$sensorCode" ]; then
-    # check config file
-    sensorCode=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.sensor_code')
-    if [ -z  "$sensorCode" ] || [ "$sensorCode" == "null" ]; then
-      sensorCode=""
-    fi
+  # check config file
+  sensorCode=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.sensor_code')
+  if [ -z  "$sensorCode" ] || [ "$sensorCode" == "null" ]; then
+    sensorCode=""
   fi
 
+  alternateBluetoothChannel=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.alternate_bluetooth_channel')
+  if [ -z  "$alternateBluetoothChannel" ] || [ "$alternateBluetoothChannel" == "null" ]; then
+    alternateBluetoothChannel=false
+  fi
+
+  log "Using Alternate Bluetooth Channel: $alternateBluetoothChannel"
   log "Using transmitter: $transmitter"
 
   id2=$(echo "${transmitter: -2}")
@@ -641,8 +644,8 @@ function  call_logger()
   log "Calling xdrip-js ... node logger $transmitter"
   DEBUG=smp,transmitter,bluetooth-manager,backfill-parser
   export DEBUG
-  timeout 420 node logger $transmitter "${messages}"
-  #"[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\" glucose\": $meterbg}]"
+  # added cmd line arg #4 boolean true if use alternate receiver bt channel
+  timeout 420 node logger $transmitter "${messages}" $alternateBluetoothChannel
   echo
   local error=""
   log "after xdrip-js bg record below ..."
@@ -723,6 +726,7 @@ function  set_glucose_type()
 
 function checkif_fallback_mode()
 {
+  fallback=false
   if [ "$mode" == "read-only" ]; then
     return
   fi
@@ -734,6 +738,7 @@ function checkif_fallback_mode()
     else
       # fallback to try to use unfiltered in this case
       mode="expired"
+      fallback=true
       echo "Due to glucose out of range, Logger will temporarily fallback to mode=$mode"
     fi
   fi
@@ -809,6 +814,14 @@ function process_announcements()
 function check_last_calibration()
 {
   if [ "$mode" == "read-only" ]; then
+    return
+  fi
+
+  if $fallback ; then
+    state=$orig_state
+    status=$orig_status
+    state_id=$orig_state_id
+    status_id=$orig_status_id
     return
   fi
 
