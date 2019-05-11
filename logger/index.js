@@ -5,7 +5,15 @@ const id = process.argv[2];
 // examples mesages are: {date: Date.now(), type: "CalibrateSensor", glucose} or {date: Date.now(), type: "StopSensor"} or {date: Date.now(), type: "StartSensor"}
 const messages =  JSON.parse(process.argv[3] || '[]');
 // arg 4 is boolean - true if using alternate transmitter bluetooth channel
-const alternateBluetooth = process.argv[4];
+const arg4 = process.argv[4];
+alternateBluetooth = false;
+
+switch (arg4) {
+   case "true":
+    alternateBluetooth = true;
+   default:
+    alternateBluetooth = false;
+   }
 
 process.on('uncaughtException', function(e) {
     console.error(e.stack);
