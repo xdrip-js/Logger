@@ -268,6 +268,7 @@ function fake_meter()
 function check_environment
 {
   source ~/.bash_profile
+  cd ~/src/Logger
   export API_SECRET
   export NIGHTSCOUT_HOST
   if [ "$API_SECRET" = "" ]; then
