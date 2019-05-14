@@ -108,8 +108,6 @@ main()
   remove_dexcom_bt_pair
   compile_messages
   call_logger
-  rm -f $cgm_stop_file
-  rm -f $cgm_start_file
   epochdate=$(date +'%s')
   epochdatems=$(date +'%s%3N')
   dateString=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
@@ -1490,6 +1488,11 @@ function bt_watchdog()
     cd ${HOME}/myopenaps && /etc/init.d/cron stop && killall -g openaps ; killall -g oref0-pump-loop | tee -a $logfile
     sleep 15
     reboot
+  else
+    # remove start/stop message files only if not rebooting
+    rm -f $cgm_stop_file
+    rm -f $cgm_start_file
+
   fi
 }
 
