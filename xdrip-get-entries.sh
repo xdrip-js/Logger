@@ -96,6 +96,7 @@ main()
 
   check_send_battery_status
   check_sensor_start
+  check_sensor_stop
 
 # begin calibration logic - look for calibration from NS, use existing calibration or none
   maxDelta=30
@@ -404,6 +405,45 @@ function check_send_battery_status()
        log "Sending Message to Transmitter to request battery status"
    fi
  }
+
+function check_sensor_stop()
+{
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
+
+  if [ "$mode" == "expired" ];then
+    # can't stop sensor on an expired tx
+    #TODO: check if truly expired and return if so, otherwise process sensor stop
+    log "Mode is expired, but checking for sensor stop regardless"
+  fi
+
+  file="${LDIR}/nightscout_sensor_stop_treatment.json"
+  rm -f $file
+  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "3 hours ago" -Ihours $UTC)&find\[eventType\]\[\$regex\]=Sensor.Stop" 2>/dev/null > $file
+  if [ $? == 0 ]; then
+    len=$(jq '. | length' $file)
+    index=$(bc <<< "$len - 1")
+
+    if [ $(bc <<< "$index >= 0") -eq 1 ]; then
+      createdAt=$(jq ".[$index].created_at" $file)
+      createdAt="${createdAt%\"}"
+      createdAt="${createdAt#\"}"
+      if [ ${#createdAt} -ge 8 ]; then
+        touch ${LDIR}/nightscout-treatments.log
+        if ! cat ${LDIR}/nightscout-treatments.log | egrep "$createdAt"; then
+          stop_date=$(date "+%s%3N" -d "$createdAt")
+          echo "Processing sensor stop retrieved from Nightscout - stopdate = $createdAt"
+          # comment out below line for testing sensor stop without actually sending tx message
+          stopJSON="[{\"date\":\"${stop_date}\",\"type\":\"StopSensor\"}]"
+          echo "stopJSON = $stopJSON"
+          # below done so that next time the egrep returns positive for this specific message and the log reads right
+          echo "Already Processed Sensor Stop Message from Nightscout at $createdAt" >> ${LDIR}/nightscout-treatments.log
+        fi
+      fi
+    fi
+  fi
+}
 
 function check_sensor_start()
 {
@@ -1356,14 +1396,14 @@ function check_messages()
   if [ -e "$cgm_stop_file" ]; then
     stopJSON=$(cat $cgm_stop_file)
     log "stopJSON=$stopJSON"
-    # remove command line file after call_logger (Tx/Rx processing)
+    # wait to remove command line file after call_logger (Tx/Rx processing)
   fi
 
   cgm_start_file="${LDIR}/cgm-start.json"
   if [ -e "$cgm_start_file" ]; then
     startJSON=$(cat $cgm_start_file)
     log "startJSON=$startJSON"
-    # remove command line file after call_logger (Tx/Rx processing)
+    # wait to remove command line file after call_logger (Tx/Rx processing)
   fi
 
   file="${LDIR}/cgm-reset.json"
