@@ -108,6 +108,8 @@ main()
   remove_dexcom_bt_pair
   compile_messages
   call_logger
+  rm -f $cgm_stop_file
+  rm -f $cgm_start_file
   epochdate=$(date +'%s')
   epochdatems=$(date +'%s%3N')
   dateString=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
@@ -1352,18 +1354,18 @@ function check_messages()
     fi
   fi
   
-  file="${LDIR}/cgm-stop.json"
-  if [ -e "$file" ]; then
-    stopJSON=$(cat $file)
+  cgm_stop_file="${LDIR}/cgm-stop.json"
+  if [ -e "$cgm_stop_file" ]; then
+    stopJSON=$(cat $cgm_stop_file)
     log "stopJSON=$stopJSON"
-    rm -f $file
+    # remove command line file after call_logger (Tx/Rx processing)
   fi
 
-  file="${LDIR}/cgm-start.json"
-  if [ -e "$file" ]; then
-    startJSON=$(cat $file)
+  cgm_start_file="${LDIR}/cgm-start.json"
+  if [ -e "$cgm_start_file" ]; then
+    startJSON=$(cat $cgm_start_file)
     log "startJSON=$startJSON"
-    rm -f $file
+    # remove command line file after call_logger (Tx/Rx processing)
   fi
 
   file="${LDIR}/cgm-reset.json"
