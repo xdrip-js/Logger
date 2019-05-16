@@ -137,7 +137,7 @@ transmitter.on('glucose', glucose => {
     }];
     const extraData = JSON.stringify(extra);
   const entry = [{
-      'device': 'DexcomR4',
+      'device': id,
       'date': d.getTime(),
       'dateString': d.toISOString(),
       //'sgv': Math.round(glucose.unfiltered/1000),
@@ -216,7 +216,7 @@ transmitter.on('backfillData', backfills => {
     const backfill = backfills[i];
     //console.log('processing backfill entry:' + JSON.stringify(backfill));
     const entry = {
-        'device': 'DexcomR4B',
+        'device': id,
         'date': backfill.time,
         'dateString': new Date(backfill.time).toISOString(),
         'sgv': backfill.glucose,
