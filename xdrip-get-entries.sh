@@ -770,7 +770,7 @@ function  initialize_calibrate_bg()
 function set_entry_fields()
 {
   tmp=$(mktemp)
-  jq ".[0].device = \"${id}\"" ${LDIR}/entry.json > "$tmp" && mv "$tmp" ${LDIR}/entry.json
+  jq ".[0].device = \"${transmitter}\"" ${LDIR}/entry.json > "$tmp" && mv "$tmp" ${LDIR}/entry.json
   tmp=$(mktemp)
   jq ".[0].filtered = ${filtered}" ${LDIR}/entry.json > "$tmp" && mv "$tmp" ${LDIR}/entry.json
   tmp=$(mktemp)
