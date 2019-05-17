@@ -969,6 +969,7 @@ function check_ns_calibration()
     fi
     secNow=`date +%s`
     secThen=`date +%s --date=$createdAt`
+    secThenMs=`date +%s%3N --date=$createdAt`
     elapsed=$(bc <<< "($secNow - $secThen)")
     log "meterbg date=$createdAt, secNow=$secNow, secThen=$secThen, elapsed=$elapsed"
     if [ $(bc <<< "$elapsed < 540") -eq 1 ]; then
@@ -989,7 +990,7 @@ function check_ns_calibration()
       rm $METERBG_NS_RAW
     fi
     log "meterbg from nightscout: $meterbg"
-    calDate=$(date +'%s%3N') # TODO: use NS BG Check date
+    calDate=$secThenMs
   fi
 }
 
