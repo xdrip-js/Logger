@@ -949,7 +949,6 @@ function check_ns_calibration()
       rm $METERBG_NS_RAW
     fi
     log "meterbg from nightscout: $meterbg"
-    #calDate=$(date +'%s%3N') # TODO: use NS BG Check date
     calDate=$secThenMs
   fi
 }
