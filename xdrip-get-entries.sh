@@ -44,15 +44,18 @@ main()
     fi
   fi
 
-  sensorCode=""
-  if [ -z  "$sensorCode" ]; then
-    # check config file
-    sensorCode=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.sensor_code')
-    if [ -z  "$sensorCode" ] || [ "$sensorCode" == "null" ]; then
-      sensorCode=""
-    fi
+  # check config file
+  sensorCode=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.sensor_code')
+  if [ -z  "$sensorCode" ] || [ "$sensorCode" == "null" ]; then
+    sensorCode=""
   fi
 
+  alternateBluetoothChannel=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.alternate_bluetooth_channel')
+  if [ -z  "$alternateBluetoothChannel" ] || [ "$alternateBluetoothChannel" == "null" ]; then
+    alternateBluetoothChannel=false
+  fi
+
+  log "Using Alternate Bluetooth Channel: $alternateBluetoothChannel"
   log "Using transmitter: $transmitter"
 
   id2=$(echo "${transmitter: -2}")
@@ -93,6 +96,7 @@ main()
 
   check_send_battery_status
   check_sensor_start
+  check_sensor_stop
 
 # begin calibration logic - look for calibration from NS, use existing calibration or none
   maxDelta=30
@@ -242,13 +246,19 @@ function log
 function fake_meter()
 {
   if [ -e "/usr/local/bin/fakemeter" ]; then
-    export MEDTRONIC_PUMP_ID=`grep serial ~/myopenaps/pump.ini | tr -cd 0-9`
-    export MEDTRONIC_FREQUENCY=`cat ~/myopenaps/monitor/medtronic_frequency.ini`
-    if ! listen -t 4s >& /dev/null ; then 
-      log "Sending BG of $calibratedBG to pump via meterid $meterid"
-      fakemeter -m $meterid  $calibratedBG 
+    if [ -d ~/myopenaps/plugins/once ]; then
+        scriptf=~/myopenaps/plugins/once/run_fakemeter.sh
+        log "Scheduling fakemeter run once at end of next OpenAPS loop to send BG of $calibratedBG to pump via meterid $meterid"
+      echo "#!/bin/bash" > $scriptf 
+      echo "fakemeter -m $meterid $calibratedBG" >> $scriptf 
+      chmod +x $scriptf 
     else
-      log "Timed out trying to send BG of $calibratedBG to pump via meterid $meterid"
+      if ! listen -t 4s >& /dev/null ; then 
+        log "Sending BG of $calibratedBG to pump via meterid $meterid"
+        fakemeter -m $meterid  $calibratedBG 
+      else
+        log "Timed out trying to send BG of $calibratedBG to pump via meterid $meterid"
+      fi
     fi
   fi
 }
@@ -258,6 +268,7 @@ function fake_meter()
 function check_environment
 {
   source ~/.bash_profile
+  cd ~/src/Logger
   export API_SECRET
   export NIGHTSCOUT_HOST
   if [ "$API_SECRET" = "" ]; then
@@ -396,8 +407,51 @@ function check_send_battery_status()
    fi
  }
 
+function check_sensor_stop()
+{
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
+
+  if [ "$mode" == "expired" ];then
+    # can't stop sensor on an expired tx
+    #TODO: check if truly expired and return if so, otherwise process sensor stop
+    log "Mode is expired, but checking for sensor stop regardless"
+  fi
+
+  file="${LDIR}/nightscout_sensor_stop_treatment.json"
+  rm -f $file
+  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "3 hours ago" -Ihours $UTC)&find\[eventType\]\[\$regex\]=Sensor.Stop" 2>/dev/null > $file
+  if [ $? == 0 ]; then
+    len=$(jq '. | length' $file)
+    index=$(bc <<< "$len - 1")
+
+    if [ $(bc <<< "$index >= 0") -eq 1 ]; then
+      createdAt=$(jq ".[$index].created_at" $file)
+      createdAt="${createdAt%\"}"
+      createdAt="${createdAt#\"}"
+      if [ ${#createdAt} -ge 8 ]; then
+        touch ${LDIR}/nightscout-treatments.log
+        if ! cat ${LDIR}/nightscout-treatments.log | egrep "$createdAt"; then
+          stop_date=$(date "+%s%3N" -d "$createdAt")
+          echo "Processing sensor stop retrieved from Nightscout - stopdate = $createdAt"
+          # comment out below line for testing sensor stop without actually sending tx message
+          stopJSON="[{\"date\":\"${stop_date}\",\"type\":\"StopSensor\"}]"
+          echo "stopJSON = $stopJSON"
+          # below done so that next time the egrep returns positive for this specific message and the log reads right
+          echo "Already Processed Sensor Stop Message from Nightscout at $createdAt" >> ${LDIR}/nightscout-treatments.log
+        fi
+      fi
+    fi
+  fi
+}
+
 function check_sensor_start()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
+
   if [ "$mode" == "expired" ];then
     # can't start sensor on an expired tx
     #TODO: check if truly expired and return if so, otherwise process sensor start
@@ -453,6 +507,10 @@ function check_sensor_start()
 # calibrate after 15 minutes of sensor change time entered in NS
 function check_sensor_change()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
+
   curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" -Iminutes $UTC)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
   if [ $? == 0 ]; then
     log "sensor change within last 15 minutes - clearing calibration files"
@@ -490,6 +548,9 @@ function check_last_entry_values()
 
 function  check_cmd_line_calibration()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
 ## look for a bg check from ${LDIR}/calibration.json
   if [ $found_meterbg == false ]; then
     CALFILE="${LDIR}/calibration.json"
@@ -535,6 +596,22 @@ function  remove_dexcom_bt_pair()
 {
   log "Removing existing Dexcom bluetooth connection = ${id}"
   bt-device -r $id 2> /dev/null
+
+  # Also remove the mac address tx pairing if exists 
+  sfile="${LDIR}/saw-transmitter.json"
+
+  if [ -e $sfile ]; then
+    mac=$(cat $sfile | jq -M '.address')
+    mac="${mac%\"}"
+    mac="${mac#\"}"
+    if [ ${#mac} -ge 8 ]; then
+      smac=${mac//:/-}
+      smac=${smac^^}
+      #echo $smac
+      log "Removing existing Dexcom bluetooth mac connection also = ${smac}"
+      bt-device -r $smac 2> /dev/null
+    fi
+  fi
 }
 
 function initialize_messages()
@@ -608,8 +685,8 @@ function  call_logger()
   log "Calling xdrip-js ... node logger $transmitter"
   DEBUG=smp,transmitter,bluetooth-manager,backfill-parser
   export DEBUG
-  timeout 420 node logger $transmitter "${messages}"
-  #"[{\"date\": ${calDate}000, \"type\": \"CalibrateSensor\",\" glucose\": $meterbg}]"
+  # added cmd line arg #4 boolean true if use alternate receiver bt channel
+  timeout 420 node logger $transmitter "${messages}" $alternateBluetoothChannel
   echo
   local error=""
   log "after xdrip-js bg record below ..."
@@ -618,7 +695,7 @@ function  call_logger()
     echo
     glucose=$(cat ${LDIR}/entry.json | jq -M '.[0].glucose')
     unfiltered=$(cat ${LDIR}/entry.json | jq -M '.[0].unfiltered')
-    unfiltered=$(bc -l <<< "scale=3; $unfiltered / 1000")
+    unfiltered=$(bc -l <<< "scale=0; $unfiltered / 1000")
     if [ $(bc  -l <<< "$unfiltered < 30") -eq 1 -o $(bc -l <<< "$unfiltered > 500") -eq 1 ]; then 
       error="Invalid response - Unfiltered = $unfiltered"
       state_id=0x25
@@ -645,8 +722,8 @@ function  capture_entry_values()
   filtered=$(cat ${LDIR}/entry.json | jq -M '.[0].filtered')
 
   # convert raw data to scale of 1 vs 1000x
-  unfiltered=$(bc -l <<< "scale=3; $unfiltered / 1000")
-  filtered=$(bc -l <<< "scale=3; $filtered / 1000")
+  unfiltered=$(bc -l <<< "scale=0; $unfiltered / 1000")
+  filtered=$(bc -l <<< "scale=0; $filtered / 1000")
   
   state=$(cat ${LDIR}/entry.json | jq -M '.[0].state')
   state="${state%\"}"
@@ -654,6 +731,10 @@ function  capture_entry_values()
 
   state_id=$(cat ${LDIR}/extra.json | jq -M '.[0].state_id')
   status_id=$(cat ${LDIR}/extra.json | jq -M '.[0].status_id')
+  transmitterStartDate=$(cat ${LDIR}/extra.json | jq -M '.[0].transmitterStartDate')
+  transmitterStartDate="${transmitterStartDate%\"}"
+  transmitterStartDate="${transmitterStartDate#\"}"
+  log "transmitterStartDate=$transmitterStartDate" 
 
   rssi=$(cat ${LDIR}/entry.json | jq -M '.[0].rssi')
 
@@ -662,6 +743,11 @@ function  capture_entry_values()
   status="${status#\"}"
   log "Sensor state = $state" 
   log "Transmitter status = $status" 
+
+  orig_status=$status
+  orig_state=$state
+  orig_status_id=$status_id
+  orig_state_id=$state_id
 
   # get dates for use in filenames and json entries
   datetime=$(date +"%Y-%m-%d %H:%M")
@@ -681,6 +767,11 @@ function  set_glucose_type()
 
 function checkif_fallback_mode()
 {
+  fallback=false
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
+
   if [ "$mode" != "expired" ]; then
     if [[ $(bc <<< "$glucose > 9") -eq 1 && "$glucose" != "null" ]]; then 
       :
@@ -688,6 +779,7 @@ function checkif_fallback_mode()
     else
       # fallback to try to use unfiltered in this case
       mode="expired"
+      fallback=true
       echo "Due to glucose out of range, Logger will temporarily fallback to mode=$mode"
     fi
   fi
@@ -703,6 +795,9 @@ function initialize_mode()
   if [[ "$cmd_line_mode" == "native-calibrates-lsr" ]]; then
     mode="native-calibrates-lsr"
   fi
+  if [[ "$cmd_line_mode" == "read-only" ]]; then
+    mode="read-only"
+  fi
   echo "Logger mode=$mode"
 }
 
@@ -716,7 +811,7 @@ function  initialize_calibrate_bg()
 function set_entry_fields()
 {
   tmp=$(mktemp)
-  jq ".[0].device = \"${id}\"" ${LDIR}/entry.json > "$tmp" && mv "$tmp" ${LDIR}/entry.json
+  jq ".[0].device = \"${transmitter}\"" ${LDIR}/entry.json > "$tmp" && mv "$tmp" ${LDIR}/entry.json
   tmp=$(mktemp)
   jq ".[0].filtered = ${filtered}" ${LDIR}/entry.json > "$tmp" && mv "$tmp" ${LDIR}/entry.json
   tmp=$(mktemp)
@@ -759,6 +854,18 @@ function process_announcements()
 
 function check_last_calibration()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
+
+  if $fallback ; then
+    state=$orig_state
+    status=$orig_status
+    state_id=$orig_state_id
+    status_id=$orig_status_id
+    return
+  fi
+
    if [ "$mode" == "expired" ]; then
    state="Needs Calibration" ; stateString=$state ; stateStringShort=$state
    state_id=0x07
@@ -797,6 +904,9 @@ function check_native_calibrates_lsr()
 
 function check_pump_history_calibration()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
 
   if [ $found_meterbg == false ]; then
     historyFile="$HOME/myopenaps/monitor/pumphistory-24h-zoned.json"
@@ -831,6 +941,9 @@ function check_pump_history_calibration()
 
 function check_variation()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
   variation=$(bc <<< "($filtered - $unfiltered) * 100 / $filtered")
   if [ $(bc <<< "$variation > 10") -eq 1 -o $(bc <<< "$variation < -10") -eq 1 ]; then
     log "would not allow meter calibration - filtered/unfiltered variation of $variation exceeds 10%"
@@ -842,6 +955,10 @@ function check_variation()
 
 function check_ns_calibration()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
+
   if [ $found_meterbg == false ]; then
     # can't use the Sensor insert UTC determination for BG since they can
     # be entered in either UTC or local time depending on how they were entered.
@@ -852,6 +969,7 @@ function check_ns_calibration()
     fi
     secNow=`date +%s`
     secThen=`date +%s --date=$createdAt`
+    secThenMs=`date +%s%3N --date=$createdAt`
     elapsed=$(bc <<< "($secNow - $secThen)")
     log "meterbg date=$createdAt, secNow=$secNow, secThen=$secThen, elapsed=$elapsed"
     if [ $(bc <<< "$elapsed < 540") -eq 1 ]; then
@@ -872,13 +990,16 @@ function check_ns_calibration()
       rm $METERBG_NS_RAW
     fi
     log "meterbg from nightscout: $meterbg"
-    calDate=$(date +'%s%3N') # TODO: use NS BG Check date
+    calDate=$secThenMs
   fi
 }
 
 #call after posting to NS OpenAPS for not-expired mode
 function calculate_calibrations()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
   calibrationDone=0
   if [ -n $meterbg ]; then 
     if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
@@ -914,6 +1035,9 @@ function calculate_calibrations()
 
 function apply_lsr_calibration()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
   if [ -e ${LDIR}/calibration-linear.json ]; then
     #TODO: store calibration date in json file and read here
     slope=`jq -M '.[0] .slope' ${LDIR}/calibration-linear.json` 
@@ -1026,16 +1150,28 @@ function apply_lsr_calibration()
 function post_cgm_ns_pill()
 {
 #    \"sessionStart\":$sessionStart,\
-#    \"txActivation\":$txActivation,\
+
+
    # json required conversion to decimal values
 
    local cache="${LDIR}/calibration-linear.json"
    if [ -e $cache ]; then
      lastCalibrationDate=$(stat -c "%Y000" ${cache})
    fi
+
+   # Don't send tx activation date to NS CGM pill if state is invalid
+   if [[ $state_id != 0x25 ]]; then
+     txActivation=`date +'%s%3N' -d "$transmitterStartDate"`
+   fi
    xrig="xdripjs://$(hostname)"
    state_id=$(echo $(($state_id)))
    status_id=$(echo $(($status_id)))
+  if [ "$mode" == "read-only" ]; then
+    state=$orig_state
+    status=$orig_status
+    state_id=$orig_state_id
+    status_id=$orig_status_id
+  fi
 
    jstr="$(build_json \
       sessionStart "$lastSensorInsertDate" \
@@ -1044,6 +1180,7 @@ function post_cgm_ns_pill()
     stateString "$state" \
     stateStringShort "$state" \
     txId "$transmitter" \
+    txActivation "$txActivation" \
     txStatusString "$status" \
     txStatusStringShort "$status" \
     mode "$mode" \
@@ -1257,18 +1394,18 @@ function check_messages()
     fi
   fi
   
-  file="${LDIR}/cgm-stop.json"
-  if [ -e "$file" ]; then
-    stopJSON=$(cat $file)
+  cgm_stop_file="${LDIR}/cgm-stop.json"
+  if [ -e "$cgm_stop_file" ]; then
+    stopJSON=$(cat $cgm_stop_file)
     log "stopJSON=$stopJSON"
-    rm -f $file
+    # wait to remove command line file after call_logger (Tx/Rx processing)
   fi
 
-  file="${LDIR}/cgm-start.json"
-  if [ -e "$file" ]; then
-    startJSON=$(cat $file)
+  cgm_start_file="${LDIR}/cgm-start.json"
+  if [ -e "$cgm_start_file" ]; then
+    startJSON=$(cat $cgm_start_file)
     log "startJSON=$startJSON"
-    rm -f $file
+    # wait to remove command line file after call_logger (Tx/Rx processing)
   fi
 
   file="${LDIR}/cgm-reset.json"
@@ -1281,6 +1418,9 @@ function check_messages()
 
 function check_recent_sensor_insert()
 {
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
   # check if sensor inserted in last 12 hours.
   # If so, clear calibration inputs and only calibrate using single point calibration
   # do not keep the calibration records within the first 12 hours as they might skew LSR
@@ -1351,8 +1491,8 @@ function check_last_glucose_time_smart_sleep()
     seconds_since_last_entry=$(bc <<< "$epochdate - $entry_timestamp")
     log "check_last_glucose_time - epochdate=$epochdate,  entry_timestamp=$entry_timestamp"
     log "Time since last glucose entry in seconds = $seconds_since_last_entry seconds"
-    sleep_time=$(bc <<< "240 - $seconds_since_last_entry") 
-    if [ $(bc <<< "$sleep_time > 0") -eq 1 -a $(bc <<< "$sleep_time < 240") -eq 1 ]; then
+    sleep_time=$(bc <<< "180 - $seconds_since_last_entry") 
+    if [ $(bc <<< "$sleep_time > 0") -eq 1 -a $(bc <<< "$sleep_time < 180") -eq 1 ]; then
       log "Waiting $sleep_time seconds because glucose records only happen every 5 minutes"
       wait_with_echo $sleep_time
     elif [ $(bc <<< "$sleep_time < -60") -eq 1 ]; then
@@ -1390,6 +1530,11 @@ function bt_watchdog()
     cd ${HOME}/myopenaps && /etc/init.d/cron stop && killall -g openaps ; killall -g oref0-pump-loop | tee -a $logfile
     sleep 15
     reboot
+  else
+    # remove start/stop message files only if not rebooting
+    rm -f $cgm_stop_file
+    rm -f $cgm_start_file
+
   fi
 }
 

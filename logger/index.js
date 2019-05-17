@@ -2,13 +2,15 @@ const Transmitter = require('xdrip-js');
 const util = require('util')
 
 const id = process.argv[2];
-// FIXME, process.argv[3] should probably just be a file containing an array of messages to send the transmitter instead of a json string.
 // examples mesages are: {date: Date.now(), type: "CalibrateSensor", glucose} or {date: Date.now(), type: "StopSensor"} or {date: Date.now(), type: "StartSensor"}
 const messages =  JSON.parse(process.argv[3] || '[]');
-//console.log('messages to send: ' + JSON.stringify(messages));
-//messages.push({date: Date.now(), type: "CalibrateSensor", glucose})
-//const transmitter = new Transmitter(id); 
-//
+// arg 4 is "true" if using alternate transmitter bluetooth channel
+const arg4 = process.argv[4];
+var alternateBluetooth = false;
+
+if ( arg4 == "true" ) {
+    alternateBluetooth = true;
+}
 
 process.on('uncaughtException', function(e) {
     console.error(e.stack);
@@ -120,7 +122,7 @@ function SensorStateString(state) {
   }
 }
 
-const transmitter = new Transmitter(id, () => messages); 
+const transmitter = new Transmitter(id, () => messages, alternateBluetooth); 
 
 transmitter.on('glucose', glucose => {
   //console.log('got glucose: ' + glucose.glucose);
@@ -131,10 +133,11 @@ transmitter.on('glucose', glucose => {
   const extra = [{
       'state_id': glucose.state, 
       'status_id': glucose.status, 
+      'transmitterStartDate': glucose.transmitterStartDate 
     }];
     const extraData = JSON.stringify(extra);
   const entry = [{
-      'device': 'DexcomR4',
+      'device': id,
       'date': d.getTime(),
       'dateString': d.toISOString(),
       //'sgv': Math.round(glucose.unfiltered/1000),
@@ -152,12 +155,6 @@ transmitter.on('glucose', glucose => {
     }];
     const data = JSON.stringify(entry);
 
-/*  if(glucose.unfiltered > 500000 || glucose.unfiltered < 30000) // for safety, I'm assuming it is erroneous and ignoring
-    {
-      console.log("Error - bad glucose data, not processing");
-      process.exit();
-    }
-*/
     fs.writeFile("/root/myopenaps/monitor/xdripjs/extra.json", extraData, function(err) {
     if(err) {
         console.log("Error while writing extra.json");
@@ -173,18 +170,25 @@ transmitter.on('glucose', glucose => {
     });
 });
 
+transmitter.on('sawTransmitter', data => {
+  const util = require('util')
+  console.log('got sawTransmitter message inside logger msg: ' + JSON.stringify(data));
+  console.log(util.inspect(data, false, null))
+
+  var fs = require('fs');
+  const sawTransmitter = JSON.stringify(data);
+  fs.writeFile("/root/myopenaps/monitor/xdripjs/saw-transmitter.json", sawTransmitter, function(err) {
+  if(err) {
+      console.log("Error while writing saw-transmitter.json");
+      console.log(err);
+      }
+  });
+});
 
 transmitter.on('batteryStatus', data => {
   const util = require('util')
   console.log('got batteryStatus message inside logger msg: ' + JSON.stringify(data));
   console.log(util.inspect(data, false, null))
-
-//  status: 0,
-//  voltagea: 313,
-//  voltageb: 299,
-//  resist: 848,
-//  runtime: 5,
-//  temperature: 34 
 
   var fs = require('fs');
   const battery = JSON.stringify(data);
@@ -212,7 +216,7 @@ transmitter.on('backfillData', backfills => {
     const backfill = backfills[i];
     //console.log('processing backfill entry:' + JSON.stringify(backfill));
     const entry = {
-        'device': 'DexcomR4B',
+        'device': id,
         'date': backfill.time,
         'dateString': new Date(backfill.time).toISOString(),
         'sgv': backfill.glucose,
