@@ -36,7 +36,7 @@ Logger LSR calibration is a new feature as of Feb/2018. Only those who closely m
 
 [![Join the chat at https://gitter.im/thebookins/xdrip-js](https://badges.gitter.im/thebookins/xdrip-js.svg)](https://gitter.im/thebookins/xdrip-js?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-*Please note this project is neither created nor backed by Dexcom, Inc. This software is not intended for use in therapy.*
+*Please note this project is neither created nor backed by Dexcom, Inc.*
 ## Prerequisites
 * Openaps must be installed using the CGM method of xdrip.
 * Logger does not currently support token-based authentication with Nightscout
