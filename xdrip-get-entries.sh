@@ -291,6 +291,9 @@ function check_environment
      post_cgm_ns_pill
      exit
   fi
+
+  type bt-device 2> /dev/null || echo "Error: bt-device is not found. Use sudo apt-get install bluez-tools"
+
 }
 
 function ClearCalibrationInput()
