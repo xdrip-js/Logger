@@ -67,6 +67,7 @@ main()
   lastGlucose=0
   lastGlucoseDate=0
   lastSensorInsertDate=0
+  variation=0
   messages="[]"
   calibrationJSON=""
   ns_url="${NIGHTSCOUT_HOST}"
@@ -1378,6 +1379,12 @@ function calculate_noise()
       noiseSend=4  
       noiseString="Heavy"
     fi
+  fi
+
+  if [ $((bc <<< "$variation >= 20" -eq 1) || (bc  <<< "$variation <= -20" -eq 1)) ]; then
+      noiseSend=4  
+      noiseString="Heavy"
+      log "setting noise to heavy because - filtered/unfiltered variation of $variation exceeds 20%"
   fi
 
   tmp=$(mktemp)
