@@ -949,11 +949,13 @@ function check_variation()
     return
   fi
   variation=$(bc <<< "($filtered - $unfiltered) * 100 / $filtered")
-  if [ $(bc <<< "$variation > 10") -eq 1 -o $(bc <<< "$variation < -10") -eq 1 ]; then
-    log "would not allow meter calibration - filtered/unfiltered variation of $variation exceeds 10%"
-    meterbg=""
-  else
-    log "filtered/unfiltered variation ok for meter calibration, $variation"
+  if [ $found_meterbg == false ]; then
+    if [ $(bc <<< "$variation > 10") -eq 1 -o $(bc <<< "$variation < -10") -eq 1 ]; then
+      log "would not allow meter calibration - filtered/unfiltered variation of $variation exceeds 10%"
+      meterbg=""
+    else
+      log "filtered/unfiltered variation ok for meter calibration, $variation"
+    fi
   fi
 }
 
