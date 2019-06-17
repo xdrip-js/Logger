@@ -55,6 +55,7 @@ main()
     watchdog=true
   fi
 
+  log "Using Bluetooth Watchdog: $watchdog"
 
   alternateBluetoothChannel=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.alternate_bluetooth_channel')
   if [ -z  "$alternateBluetoothChannel" ] || [ "$alternateBluetoothChannel" == "null" ]; then
@@ -1544,7 +1545,7 @@ function bt_watchdog()
     logfile=$logfiledir/$logfilename
     date >> $logfile
     echo "no entry.json for $minutes minutes" | tee -a $logfile
-    if [[ "$watchdog" == false ]]; then
+    if [[ "$watchdog" == true ]]; then
       echo "Rebooting" | tee -a $logfile
       wall "Rebooting in 15 seconds to fix BT and xdrip-js - save your work quickly!"
       cd ${HOME}/myopenaps && /etc/init.d/cron stop && killall -g openaps ; killall -g oref0-pump-loop | tee -a $logfile
