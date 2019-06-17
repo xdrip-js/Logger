@@ -67,6 +67,7 @@ main()
   lastGlucose=0
   lastGlucoseDate=0
   lastSensorInsertDate=0
+  variation=0
   messages="[]"
   calibrationJSON=""
   ns_url="${NIGHTSCOUT_HOST}"
@@ -555,7 +556,7 @@ function  check_cmd_line_calibration()
     return
   fi
 ## look for a bg check from ${LDIR}/calibration.json
-  if [ $found_meterbg == false ]; then
+  if [[ "$found_meterbg" == false ]]; then
     CALFILE="${LDIR}/calibration.json"
     if [ -e $CALFILE ]; then
       epochdatems=$(date +'%s%3N')
@@ -911,7 +912,7 @@ function check_pump_history_calibration()
     return
   fi
 
-  if [ $found_meterbg == false ]; then
+  if [[ "$found_meterbg" == false ]]; then
     historyFile="$HOME/myopenaps/monitor/pumphistory-24h-zoned.json"
     if [ ! -e "$historyFile" ]; then
       # support the old file name in case of older version of OpenAPS
@@ -948,11 +949,13 @@ function check_variation()
     return
   fi
   variation=$(bc <<< "($filtered - $unfiltered) * 100 / $filtered")
-  if [ $(bc <<< "$variation > 10") -eq 1 -o $(bc <<< "$variation < -10") -eq 1 ]; then
-    log "would not allow meter calibration - filtered/unfiltered variation of $variation exceeds 10%"
-    meterbg=""
-  else
-    log "filtered/unfiltered variation ok for meter calibration, $variation"
+  if [[ "$found_meterbg" == true ]]; then
+    if [ $(bc <<< "$variation > 10") -eq 1 -o $(bc <<< "$variation < -10") -eq 1 ]; then
+      log "would not allow meter calibration - filtered/unfiltered variation of $variation exceeds 10%"
+      meterbg=""
+    else
+      log "filtered/unfiltered variation ok for meter calibration, $variation"
+    fi
   fi
 }
 
@@ -962,7 +965,7 @@ function check_ns_calibration()
     return
   fi
 
-  if [ $found_meterbg == false ]; then
+  if [[ "$found_meterbg" == false ]]; then
     # can't use the Sensor insert UTC determination for BG since they can
     # be entered in either UTC or local time depending on how they were entered.
     curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${ns_url}/api/v1/treatments.json?find\[eventType\]\[\$regex\]=Check&count=1" 2>/dev/null > $METERBG_NS_RAW
@@ -1380,6 +1383,12 @@ function calculate_noise()
     fi
   fi
 
+  if [ $(bc <<< "$variation >= 20") -eq 1 -o  $(bc  <<< "$variation <= -20") -eq 1 ]; then
+      noiseSend=4  
+      noiseString="Heavy"
+      log "setting noise to heavy because - filtered/unfiltered variation of $variation exceeds 20%"
+  fi
+
   tmp=$(mktemp)
   #noiseSend=1
   jq ".[0].noise = $noiseSend" ${LDIR}/entry-xdrip.json > "$tmp" && mv "$tmp" ${LDIR}/entry-xdrip.json
@@ -1388,7 +1397,7 @@ function calculate_noise()
 function check_messages()
 {
   # use found_meterbg here to avoid sending duplicate meterbg's to dexcom
-  if [ $found_meterbg ]; then
+  if [[ "$found_meterbg" == true ]]; then
     if [ -n $meterbg ]; then 
       if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
         calibrationJSON="[{\"date\": ${calDate}, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
