@@ -50,6 +50,13 @@ main()
     sensorCode=""
   fi
 
+  watchdog=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.watchdog')
+  if [ -z  "$watchdog" ] || [ "$watchdog" == "null" ]; then
+    watchdog=true
+  fi
+
+  log "Using Bluetooth Watchdog: $watchdog"
+
   alternateBluetoothChannel=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.alternate_bluetooth_channel')
   if [ -z  "$alternateBluetoothChannel" ] || [ "$alternateBluetoothChannel" == "null" ]; then
     alternateBluetoothChannel=false
@@ -67,6 +74,7 @@ main()
   lastGlucose=0
   lastGlucoseDate=0
   lastSensorInsertDate=0
+  variation=0
   messages="[]"
   calibrationJSON=""
   ns_url="${NIGHTSCOUT_HOST}"
@@ -291,6 +299,9 @@ function check_environment
      post_cgm_ns_pill
      exit
   fi
+
+  type bt-device 2> /dev/null || echo "Error: bt-device is not found. Use sudo apt-get install bluez-tools"
+
 }
 
 function ClearCalibrationInput()
@@ -421,7 +432,7 @@ function check_sensor_stop()
 
   file="${LDIR}/nightscout_sensor_stop_treatment.json"
   rm -f $file
-  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "3 hours ago" -Ihours $UTC)&find\[eventType\]\[\$regex\]=Sensor.Stop" 2>/dev/null > $file
+  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "3 hours ago" -Ihours $UTC)&find\[eventType\]\[\$regex\]=Sensor.Stop&count=1" 2>/dev/null > $file
   if [ $? == 0 ]; then
     len=$(jq '. | length' $file)
     index=$(bc <<< "$len - 1")
@@ -460,7 +471,7 @@ function check_sensor_start()
 
   file="${LDIR}/nightscout_sensor_start_treatment.json"
   rm -f $file
-  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "3 hours ago" -Ihours $UTC)&find\[eventType\]\[\$regex\]=Sensor.Start" 2>/dev/null > $file
+  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "3 hours ago" -Ihours $UTC)&find\[eventType\]\[\$regex\]=Sensor.Start&count=1" 2>/dev/null > $file
   if [ $? == 0 ]; then
     len=$(jq '. | length' $file)
     index=$(bc <<< "$len - 1")
@@ -552,7 +563,7 @@ function  check_cmd_line_calibration()
     return
   fi
 ## look for a bg check from ${LDIR}/calibration.json
-  if [ $found_meterbg == false ]; then
+  if [[ "$found_meterbg" == false ]]; then
     CALFILE="${LDIR}/calibration.json"
     if [ -e $CALFILE ]; then
       epochdatems=$(date +'%s%3N')
@@ -908,7 +919,7 @@ function check_pump_history_calibration()
     return
   fi
 
-  if [ $found_meterbg == false ]; then
+  if [[ "$found_meterbg" == false ]]; then
     historyFile="$HOME/myopenaps/monitor/pumphistory-24h-zoned.json"
     if [ ! -e "$historyFile" ]; then
       # support the old file name in case of older version of OpenAPS
@@ -945,11 +956,13 @@ function check_variation()
     return
   fi
   variation=$(bc <<< "($filtered - $unfiltered) * 100 / $filtered")
-  if [ $(bc <<< "$variation > 10") -eq 1 -o $(bc <<< "$variation < -10") -eq 1 ]; then
-    log "would not allow meter calibration - filtered/unfiltered variation of $variation exceeds 10%"
-    meterbg=""
-  else
-    log "filtered/unfiltered variation ok for meter calibration, $variation"
+  if [[ "$found_meterbg" == true ]]; then
+    if [ $(bc <<< "$variation > 10") -eq 1 -o $(bc <<< "$variation < -10") -eq 1 ]; then
+      log "would not allow meter calibration - filtered/unfiltered variation of $variation exceeds 10%"
+      meterbg=""
+    else
+      log "filtered/unfiltered variation ok for meter calibration, $variation"
+    fi
   fi
 }
 
@@ -959,7 +972,7 @@ function check_ns_calibration()
     return
   fi
 
-  if [ $found_meterbg == false ]; then
+  if [[ "$found_meterbg" == false ]]; then
     # can't use the Sensor insert UTC determination for BG since they can
     # be entered in either UTC or local time depending on how they were entered.
     curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${ns_url}/api/v1/treatments.json?find\[eventType\]\[\$regex\]=Check&count=1" 2>/dev/null > $METERBG_NS_RAW
@@ -1377,6 +1390,12 @@ function calculate_noise()
     fi
   fi
 
+  if [ $(bc <<< "$variation >= 20") -eq 1 -o  $(bc  <<< "$variation <= -20") -eq 1 ]; then
+      noiseSend=4  
+      noiseString="Heavy"
+      log "setting noise to heavy because - filtered/unfiltered variation of $variation exceeds 20%"
+  fi
+
   tmp=$(mktemp)
   #noiseSend=1
   jq ".[0].noise = $noiseSend" ${LDIR}/entry-xdrip.json > "$tmp" && mv "$tmp" ${LDIR}/entry-xdrip.json
@@ -1385,7 +1404,7 @@ function calculate_noise()
 function check_messages()
 {
   # use found_meterbg here to avoid sending duplicate meterbg's to dexcom
-  if [ $found_meterbg ]; then
+  if [[ "$found_meterbg" == true ]]; then
     if [ -n $meterbg ]; then 
       if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
         calibrationJSON="[{\"date\": ${calDate}, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
@@ -1525,16 +1544,20 @@ function bt_watchdog()
   then
     logfile=$logfiledir/$logfilename
     date >> $logfile
-    echo "no entry.json for $minutes minutes - rebooting" | tee -a $logfile
-    wall "Rebooting in 15 seconds to fix BT and xdrip-js - save your work quickly!"
-    cd ${HOME}/myopenaps && /etc/init.d/cron stop && killall -g openaps ; killall -g oref0-pump-loop | tee -a $logfile
-    sleep 15
-    reboot
+    echo "no entry.json for $minutes minutes" | tee -a $logfile
+    if [[ "$watchdog" == true ]]; then
+      echo "Rebooting" | tee -a $logfile
+      wall "Rebooting in 15 seconds to fix BT and xdrip-js - save your work quickly!"
+      cd ${HOME}/myopenaps && /etc/init.d/cron stop && killall -g openaps ; killall -g oref0-pump-loop | tee -a $logfile
+      sleep 15
+      reboot
+    else
+      echo "Not rebooting because watchdog preference is false" | tee -a $logfile
+    fi
   else
     # remove start/stop message files only if not rebooting
     rm -f $cgm_stop_file
     rm -f $cgm_start_file
-
   fi
 }
 
