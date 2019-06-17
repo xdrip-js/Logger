@@ -140,7 +140,7 @@ If timing out, recheck the configuration of the transmitter id, make sure the bt
 
 
 Since the timer only allows communications for a few seconds every 5 minutes, isolation of any timeout issues are key.  The following are some suggestions:
-1) Turn off Logger, run Xdrip+ and see if it can connect to the tx. If not, then it's mostly isolated to a tx or rig issue. If Xdrip works then it is not a tx issue.
+1) Turn off Logger and receiver, run Xdrip+ and see if it can connect to the tx. If Xdrip+ can connect, then it may be a rig issue. If Xdrip+ cannot connect, then it's mostly isolated to a tx issue. 
 2) Check your network log. BT PAN may be trying to do something and restarting bluetoothd. Check /var/log/openaps/network.log and any bluetooth log (if it exists) in that directory. Also, check for bluetooth errors in /var/log/syslog as well.
 3) Turn off every other possible dexcom connection and try connecting with the tx with the official Dexcom app. This will only work if you have a non-expired tx or have successfully reset it earlier.
 4) Try a different transmitter (if you have one). If this works, then the other tx has an issue, usually battery related.
