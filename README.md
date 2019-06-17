@@ -137,3 +137,11 @@ After calibration(s), you should see BG values in Nightscout and in the log.
 If both unfiltered and filtered values are showing up as 0 in the Logger logfile, then you may be able to solve the problem by doing a ```cgm-reset```. Note: This will reset the session and you will lose any transmitter stored calibrations so this technique is probably best used when unfiltered is 0 upon new sensor insertion. 
 
 If timing out, recheck the configuration of the transmitter id, make sure the bt-device command is available, ensure there are no conflicting bluetooth connections on the same channel (i.e. Dexcom App, Receiver, or XDrip+).
+
+
+Since the timer only allows communications for a few seconds every 5 minutes, isolation of any timeout issues are key.  The following are some suggestions:
+1) Turn off Logger, run Xdrip+ and see if it can connect to the tx. If not, then it's mostly isolated to a tx or rig issue. If Xdrip works then it is not a tx issue.
+2) Check your network log. BT PAN may be trying to do something and restarting bluetoothd. Check /var/log/openaps/network.log and any bluetooth log (if it exists) in that directory. Also, check for bluetooth errors in /var/log/syslog as well.
+3) Turn off every other possible dexcom connection and try connecting with the tx with the official Dexcom app. This will only work if you have a non-expired tx or have successfully reset it earlier.
+4) Try a different transmitter (if you have one). If this works, then the other tx has an issue, usually battery related.
+5) Try a different rig (if you have one). If this works, then the other rig or it's install/configuration is likely the culprit.
