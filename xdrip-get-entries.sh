@@ -50,6 +50,13 @@ main()
     sensorCode=""
   fi
 
+  watchdog=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.watchdog')
+  if [ -z  "$watchdog" ] || [ "$watchdog" == "null" ]; then
+    watchdog=true
+  fi
+
+  log "Using Bluetooth Watchdog: $watchdog"
+
   alternateBluetoothChannel=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.alternate_bluetooth_channel')
   if [ -z  "$alternateBluetoothChannel" ] || [ "$alternateBluetoothChannel" == "null" ]; then
     alternateBluetoothChannel=false
@@ -1537,16 +1544,20 @@ function bt_watchdog()
   then
     logfile=$logfiledir/$logfilename
     date >> $logfile
-    echo "no entry.json for $minutes minutes - rebooting" | tee -a $logfile
-    wall "Rebooting in 15 seconds to fix BT and xdrip-js - save your work quickly!"
-    cd ${HOME}/myopenaps && /etc/init.d/cron stop && killall -g openaps ; killall -g oref0-pump-loop | tee -a $logfile
-    sleep 15
-    reboot
+    echo "no entry.json for $minutes minutes" | tee -a $logfile
+    if [[ "$watchdog" == true ]]; then
+      echo "Rebooting" | tee -a $logfile
+      wall "Rebooting in 15 seconds to fix BT and xdrip-js - save your work quickly!"
+      cd ${HOME}/myopenaps && /etc/init.d/cron stop && killall -g openaps ; killall -g oref0-pump-loop | tee -a $logfile
+      sleep 15
+      reboot
+    else
+      echo "Not rebooting because watchdog preference is false" | tee -a $logfile
+    fi
   else
     # remove start/stop message files only if not rebooting
     rm -f $cgm_stop_file
     rm -f $cgm_start_file
-
   fi
 }
 

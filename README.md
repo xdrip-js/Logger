@@ -98,12 +98,13 @@ Add cron job entry ...
 
 You can edit the following options values in the configuration file (~/myopenaps/xdripjs.json)
 
-	"transmitter_id" = 6 character tx serial number (i.e. 403BX6).  Should be set using cgm-transmitter cmd.
-	"sensor_code" = Optional - Sensor code used for G6 only. Start a transmitter using this to use the G6 no-calibration mode. If set to a non-empty string, calibrations are not sent to the transmitter. To set a new sensor code you must set it using the cgm-start cmd or NS.
-	"mode" = Optional - if you specify "expired" then mode is hard-coded to expired tx mode and it uses local LSR and single-point algorithms to calculate BG always.  If empty, or set to "not-expired", then native Dexcom algorithms will be used (i.e., BG is calculated by transmitter itself), if available, otherwise the local algorithms will be used. If you specify "native-calibrates-lsr" then it will use the Dexcom algorithms, unless not available, and it will also calibrate the local LSR algorithm based on the values of the Dexcom algorithm, every 6 hours. "native-calibrates-lsr" is most useful for G6 without manual calibrations. If you specify "read-only" then the behavior is the same as "not-expired" with the exception that all start/stop/calibrations must be done by the receiver. The default is "not-expired".
-	"pump_units" = Optional - pumpUnits default is "mg/dl"
-	"fake_meter_id" = Optional - meterid for fakemeter sending glucose records to pump, default is "000000"
-	"alternate_bluetooth_channel" = true or false. Optional - Default is false. If set to true then Logger uses the alternate channel to connect to the Dexcom transmitter. If set to true the receiver cannot be used. However, when set to true, either the Xdip Plus android app or the Dexcom Iphone app can be used alongside Logger. Keep in mind that there is a higher chance for bluetooth conflict when connecting to the transmitter with both channels. You may be able to avoid some reconnects by keeping the rig and the phone app physically separated by several inches.
+	{"transmitter_id":"8XXXXX"}, Required - 6 character tx serial number (i.e. 403BX6).  Should be set using cgm-transmitter cmd.
+	{"sensor_code":"1234"}, Optional - Sensor code used for G6 only. Start a transmitter using this to use the G6 no-calibration mode. If set to a non-empty string, calibrations are not sent to the transmitter. To set a new sensor code you must set it using the cgm-start cmd or NS.
+	{"mode":"not-expired"}, Optional - if you specify "expired" then mode is hard-coded to expired tx mode and it uses local LSR and single-point algorithms to calculate BG always.  If empty, or set to "not-expired", then native Dexcom algorithms will be used (i.e., BG is calculated by transmitter itself), if available, otherwise the local algorithms will be used. If you specify "native-calibrates-lsr" then it will use the Dexcom algorithms, unless not available, and it will also calibrate the local LSR algorithm based on the values of the Dexcom algorithm, every 6 hours. "native-calibrates-lsr" is most useful for G6 without manual calibrations. If you specify "read-only" then the behavior is the same as "not-expired" with the exception that all start/stop/calibrations must be done by the receiver. The default is "not-expired".
+	{"pump_units":"mg/dl"}, Optional - pumpUnits default is "mg/dl"
+	{"fake_meter_id":"000000"}, Optional - meterid for fakemeter sending glucose records to pump, default is "000000"
+	{"alternate_bluetooth_channel":true or false} Optional - Default is false. If set to true then Logger uses the alternate channel to connect to the Dexcom transmitter. If set to true the receiver cannot be used. However, when set to true, either the Xdip Plus android app or the Dexcom Iphone app can be used alongside Logger. Keep in mind that there is a higher chance for bluetooth conflict when connecting to the transmitter with both channels. You may be able to avoid some reconnects by keeping the rig and the phone app physically separated by several inches.
+	{"watchdog":true or false}, Optional - Default is true. If set to true then Logger will automatically reboot the rig to resolve bluetooth issues if no glucose is seen from the transmitter in more than 14 minutes.
 
 ## Getting Started
 First, make sure you've checked the Prerequisites above and completed the Installation steps. Afterwords, perform the following steps:
@@ -133,5 +134,6 @@ After calibration(s), you should see BG values in Nightscout and in the log.
 
 ## Troubleshooting 
 
-If both unfiltered and filtered values are showing up as 0 in the Logger logfile, then you may be able to solve the problem by doing a ```cgm-reset```. Note: This will reset the session and you will lose any transmitter stored calibrations so this technique is probably best used when unfiltered is 0 upon new sensor insertion. Once again, it is not recommended to do a ```cgm-reset``` on a g6 transmitter because you will lose the ability to do no-calibration mode.
+If both unfiltered and filtered values are showing up as 0 in the Logger logfile, then you may be able to solve the problem by doing a ```cgm-reset```. Note: This will reset the session and you will lose any transmitter stored calibrations so this technique is probably best used when unfiltered is 0 upon new sensor insertion. 
 
+If timing out, recheck the configuration of the transmitter id, make sure the bt-device command is available, ensure there are no conflicting bluetooth connections on the same channel (i.e. Dexcom App, Receiver, or XDrip+).
