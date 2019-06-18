@@ -1390,10 +1390,10 @@ function calculate_noise()
     fi
   fi
 
-  if [ $(bc <<< "$variation >= 20") -eq 1 -o  $(bc  <<< "$variation <= -20") -eq 1 ]; then
+  if [ $(bc <<< "$variation >= 30") -eq 1 -o  $(bc  <<< "$variation <= -30") -eq 1 ]; then
       noiseSend=4  
       noiseString="Heavy"
-      log "setting noise to heavy because - filtered/unfiltered variation of $variation exceeds 20%"
+      log "setting noise to heavy because - filtered/unfiltered variation of $variation exceeds 30%"
   fi
 
   tmp=$(mktemp)
