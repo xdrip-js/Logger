@@ -145,3 +145,7 @@ Since the timer only allows communications for a few seconds every 5 minutes, is
 3) Turn off every other possible dexcom connection and try connecting with the tx with the official Dexcom app. This will only work if you have a non-expired tx or have successfully reset it earlier.
 4) Try a different transmitter (if you have one). If this works, then the other tx has an issue, usually battery related.
 5) Try a different rig (if you have one). If this works, then the other rig or it's install/configuration is likely the culprit.
+
+If you have network connectivity on the rig, but BG values are not showing up on NightScout, then run the following command which should retrieve the last BG Check Treatment posted to NightScout. Review any errors that the command returns and re-check your NIGHTSCOUT_HOST and API_SECRET environment variables.
+``` curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[eventType\]\[\$regex\]=Check&count=1"
+```
