@@ -1396,6 +1396,12 @@ function calculate_noise()
       log "setting noise to heavy because - filtered/unfiltered variation of $variation exceeds 30%"
   fi
 
+  if [ "$orig_status" == "Temporary Session Error" ]; then
+      noiseSend=4  
+      noiseString="Heavy"
+      log "setting noise to heavy because tx is in temporary session error"
+  fi
+
   tmp=$(mktemp)
   #noiseSend=1
   jq ".[0].noise = $noiseSend" ${LDIR}/entry-xdrip.json > "$tmp" && mv "$tmp" ${LDIR}/entry-xdrip.json
