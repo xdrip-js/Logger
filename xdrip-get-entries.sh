@@ -387,7 +387,7 @@ function check_battery_status()
 
    if [ "$battery_check" == "Yes" ]; then
      g5_status=$(jq ".status" $file)
-     battery_msg="g5_status=$g5_status, voltagea=$voltagea, voltageb=$voltageb, resist=$resist, runtime=$runtime days, temp=$temperature celcius"
+     battery_msg="tx_status=$g5_status, voltagea=$voltagea, voltageb=$voltageb, resist=$resist, runtime=$runtime days, temp=$temperature celcius"
     
      echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Note\",\"notes\":\"Battery $battery_msg\"}]" > ${LDIR}/cgm-battery-status.json
      /usr/local/bin/cgm-post-ns ${LDIR}/cgm-battery-status.json treatments && (echo; log "Upload to NightScout of battery status change worked") || (echo; log "Upload to NS of battery status change did not work")
@@ -1346,27 +1346,16 @@ function calculate_noise()
     usedRecords=${#gluc41[@]}
     log "usedRecords=$usedRecords last 41 minutes = ${gluc41[@]}"
 
-    truncate -s 0 ${LDIR}/noise-input41.csv
+    noise_input="${LDIR}/noise-input41.csv"
+    truncate -s 0 ${noise_input}
     for (( i=$usedRecords-1; i>=0; i-- ))
     do
       dateSeconds=$(bc <<< "${date41[$i]} / 1000")
-      echo "$dateSeconds,${unf41[$i]},${fil41[$i]},${gluc41[$i]}" >> ${LDIR}/noise-input41.csv
+      echo "$dateSeconds,${unf41[$i]},${fil41[$i]},${gluc41[$i]}" >> ${noise_input}
     done
-    echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ${LDIR}/noise-input41.csv
+    echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ${noise_input}
 
-    if [ -e "/usr/local/bin/cgm-calc-noise-go" ]; then
-      # use the go-based version
-      noise_cmd="/usr/local/bin/cgm-calc-noise-go"
-      #log "calculating noise using go-based version"
-    else 
-      noise_cmd="/usr/local/bin/cgm-calc-noise"
-      #log "calculating noise using bash-based version"
-    fi
-    # TODO: fix go-based version
-    # TODO: resolve issue with input41.csv
-    noise_cmd="/usr/local/bin/cgm-calc-noise"
-    log "calculating noise using bash-based version"
-    $noise_cmd 
+    cgm-calc-noise ${noise_input} 
 
     if [ -e ${LDIR}/noise.json ]; then
       noise=`jq -M '.[0] .noise' ${LDIR}/noise.json` 
@@ -1390,16 +1379,18 @@ function calculate_noise()
     fi
   fi
 
-  if [ $(bc <<< "$variation >= 30") -eq 1 -o  $(bc  <<< "$variation <= -30") -eq 1 ]; then
+  if [ $(bc <<< "$variation >= 35") -eq 1 -o  $(bc  <<< "$variation <= -35") -eq 1 ]; then
       noiseSend=4  
       noiseString="Heavy"
-      log "setting noise to heavy because - filtered/unfiltered variation of $variation exceeds 30%"
-  fi
-
-  if [ "$orig_status" == "Temporary Session Error" ]; then
-      noiseSend=4  
-      noiseString="Heavy"
-      log "setting noise to heavy because tx is in temporary session error"
+      log "setting noise to $noiseString because - filtered/unfiltered variation of $variation exceeds 35%"
+  elif [ $(bc <<< "$variation >= 30") -eq 1 -o  $(bc  <<< "$variation <= -30") -eq 1 ]; then
+      noiseSend=3  
+      noiseString="Medium"
+      log "setting noise to $noiseString because - filtered/unfiltered variation of $variation exceeds 30%"
+  elif [ $(bc <<< "$variation >= 25") -eq 1 -o  $(bc  <<< "$variation <= -25") -eq 1 ]; then
+      noiseSend=3  
+      noiseString="Light"
+      log "setting noise to $noiseString because - filtered/unfiltered variation of $variation exceeds 25%"
   fi
 
   tmp=$(mktemp)
