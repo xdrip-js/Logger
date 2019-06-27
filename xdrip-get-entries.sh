@@ -1388,7 +1388,7 @@ function calculate_noise()
       noiseString="Medium"
       log "setting noise to $noiseString because - filtered/unfiltered variation of $variation exceeds 30%"
   elif [ $(bc <<< "$variation >= 25") -eq 1 -o  $(bc  <<< "$variation <= -25") -eq 1 ]; then
-      noiseSend=3  
+      noiseSend=2  
       noiseString="Light"
       log "setting noise to $noiseString because - filtered/unfiltered variation of $variation exceeds 25%"
   fi
