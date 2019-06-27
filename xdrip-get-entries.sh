@@ -175,7 +175,7 @@ main()
 
   check_battery_status
 
-  log_g5_csv
+  log_cgm_csv
 
   process_announcements
   post_cgm_ns_pill
@@ -830,9 +830,9 @@ function set_entry_fields()
 }
 
 
-function log_g5_csv()
+function log_cgm_csv()
 {
-  file="/var/log/openaps/g5.csv"
+  file="/var/log/openaps/cgm.csv"
   noise_percentage=$(bc <<< "$noise * 100")
 
   if [ ! -f $file ]; then
@@ -1328,7 +1328,8 @@ function process_delta()
 
 function calculate_noise()
 {
-  echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ${LDIR}/noise-input.csv
+  noise_input="${LDIR}/noise-input41.csv"
+  echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" > ${noise_input}
 
   # calculate the noise and position it for updating the entry sent to NS and xdripAPS
   if [ $(bc -l <<< "$noiseSend == 0") -eq 1 ]; then
@@ -1346,8 +1347,6 @@ function calculate_noise()
     usedRecords=${#gluc41[@]}
     log "usedRecords=$usedRecords last 41 minutes = ${gluc41[@]}"
 
-    noise_input="${LDIR}/noise-input41.csv"
-    truncate -s 0 ${noise_input}
     for (( i=$usedRecords-1; i>=0; i-- ))
     do
       dateSeconds=$(bc <<< "${date41[$i]} / 1000")
