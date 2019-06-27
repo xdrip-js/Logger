@@ -47,13 +47,13 @@ fi
 firstDate=${xdate[0]}
 for (( i=0; i<$n; i++ ))
 do
-  xarr[$i]=$(bc <<< "(${xdate[$i]} - $firstDate) * 30") # use 30 multiplier to normalize axis
+  xarr[$i]=$(bc -l <<< "(${xdate[$i]} - $firstDate) / 3") 
 #  echo "x,y=${xarr[$i]},${yarr[$i]}"
 done
 
-#echo ${xarr[@]}
-#echo ${xdate[@]}
-#echo ${yarr[@]}
+echo ${xarr[@]}
+echo ${xdate[@]}
+echo ${yarr[@]}
 
 # sod = sum of distances
 sod=0
@@ -66,9 +66,9 @@ do
   # y2y1Delta adds a multiplier that gives 
   # higher priority to the latest BG's
   y2y1Delta=$(bc -l  <<< "(${yarr[$i]} - ${yarr[$i-1]}) * (1 +  $i/($n * 4))")
-  x2x1Delta=$(bc  <<< "${xarr[$i]} - ${xarr[$i-1]}")
+  x2x1Delta=$(bc -l <<< "${xarr[$i]} - ${xarr[$i-1]}")
   #echo "x delta=$x2x1Delta, y delta=$y2y1Delta" 
-  if [ $(bc <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$y2y1Delta < 0") -eq 1 ]; then
+  if [ $(bc -l <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$y2y1Delta < 0") -eq 1 ]; then
     # for this single point, bg switched from positive delta to negative, increase noise impact  
     # this will not effect noise to much for a normal peak, but will increase the overall noise value
     # in the case that the trend goes up/down multiple times such as the bounciness of a dying sensor's signal 
