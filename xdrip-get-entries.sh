@@ -1329,7 +1329,7 @@ function process_delta()
 function calculate_noise()
 {
   noise_input="${LDIR}/noise-input41.csv"
-  echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" > ${noise_input}
+  truncate -s 0 ${noise_input}
 
   # calculate the noise and position it for updating the entry sent to NS and xdripAPS
   if [ $(bc -l <<< "$noiseSend == 0") -eq 1 ]; then
