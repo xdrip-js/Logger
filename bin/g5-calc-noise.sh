@@ -51,9 +51,9 @@ do
 #  echo "x,y=${xarr[$i]},${yarr[$i]}"
 done
 
-echo ${xarr[@]}
-echo ${xdate[@]}
-echo ${yarr[@]}
+#echo ${xarr[@]}
+#echo ${xdate[@]}
+#echo ${yarr[@]}
 
 # sod = sum of distances
 sod=0
