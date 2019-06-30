@@ -72,12 +72,12 @@ do
     # for this single point, bg switched from positive delta to negative, increase noise impact  
     # this will not effect noise to much for a normal peak, but will increase the overall noise value
     # in the case that the trend goes up/down multiple times such as the bounciness of a dying sensor's signal 
-    y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.3")
+    y2y1Delta=$(bc -l <<< "${y2y1Delta} * 2.1")
   elif [ $(bc -l <<< "$lastDelta < 0") -eq 1 -a $(bc -l <<< "$y2y1Delta > 0") -eq 1 ]; then
     # switched from negative delta to positive, increase noise impact 
     # in this case count the noise a bit more because it could indicate a big "false" swing upwards which could
     # be troublesome if it is a false swing upwards and a loop algorithm takes it into account as "clean"
-    y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.4")
+    y2y1Delta=$(bc -l <<< "${y2y1Delta} * 3.6")
   fi
   lastDelta=$y2y1Delta
 
