@@ -47,7 +47,7 @@ fi
 firstDate=${xdate[0]}
 for (( i=0; i<$n; i++ ))
 do
-  xarr[$i]=$(bc -l <<< "(${xdate[$i]} - $firstDate) / 20") 
+  xarr[$i]=$(bc -l <<< "(${xdate[$i]} - $firstDate) / 15") 
 #  echo "x,y=${xarr[$i]},${yarr[$i]}"
 done
 
@@ -77,7 +77,7 @@ do
     # switched from negative delta to positive, increase noise impact 
     # in this case count the noise a bit more because it could indicate a big "false" swing upwards which could
     # be troublesome if it is a false swing upwards and a loop algorithm takes it into account as "clean"
-    y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.3")
+    y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.4")
   fi
   lastDelta=$y2y1Delta
 

@@ -1383,18 +1383,18 @@ function calculate_noise()
     fi
   fi
 
-  if [ $(bc <<< "$variation >= 45") -eq 1 -o  $(bc  <<< "$variation <= -45") -eq 1 ]; then
+  if [ $(bc <<< "$variation >= 50") -eq 1 -o  $(bc  <<< "$variation <= -50") -eq 1 ]; then
       noiseSend=4  
       noiseString="Heavy"
-      log "setting noise to $noiseString because - filtered/unfiltered variation of $variation exceeds 45%"
-  elif [ $(bc <<< "$variation >= 40") -eq 1 -o  $(bc  <<< "$variation <= -40") -eq 1 ]; then
+      log "setting noise to $noiseString because - filtered/unfiltered variation of $variation exceeds 50%"
+  elif [ $(bc <<< "$variation >= 45") -eq 1 -o  $(bc  <<< "$variation <= -45") -eq 1 ]; then
       noiseSend=3  
       noiseString="Medium"
-      log "setting noise to $noiseString because - filtered/unfiltered variation of $variation exceeds 40%"
-  elif [ $(bc <<< "$variation >= 35") -eq 1 -o  $(bc  <<< "$variation <= -35") -eq 1 ]; then
+      log "setting noise to $noiseString because - filtered/unfiltered variation of $variation exceeds 45%"
+  elif [ $(bc <<< "$variation >= 40") -eq 1 -o  $(bc  <<< "$variation <= -40") -eq 1 ]; then
       noiseSend=2  
       noiseString="Light"
-      log "setting noise to $noiseString because - filtered/unfiltered variation of $variation exceeds 35%"
+      log "setting noise to $noiseString because - filtered/unfiltered variation of $variation exceeds 40%"
   fi
 
   if [[ $orig_status != "OK" && $orig_status != *"alibration"*  ]]; then

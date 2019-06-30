@@ -1,22 +1,35 @@
 #!/bin/bash
 
-MAXRECORDS=${1:-45}
-INPUT=${2:-"/var/log/openaps/cgm.csv"}
+maxRecords=${1:-30}
+inputFile=${2:-"/var/log/openaps/cgm.csv"}
 
 n=0
 
+records=$(cat $inputFile | wc -l)
 
-if [ -e $INPUT ]; then
-  arrdate=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f1 ) )
-  unfiltered=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f3 ) )
-  filtered=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f4 ) )
-  arrlsrbg=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f6 ) )
-  arrtxbg=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f7 ) )
-  arrnoise=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f14 ) )
-  arrnoisesend=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f15 ) )
+echo records = $records
+
+if [ $(bc <<< "$records - 1 <  $maxRecords") -eq 1 ]; then
+  n=$((records-1))
+  echo "records of $records -1 < $maxRecords"
+  maxRecords=$n
+fi
+
+
+
+if [ -e $inputFile ]; then
+  arrdate=( $(tail -$maxRecords $inputFile | cut -d ',' -f1 ) )
+  unfiltered=( $(tail -$maxRecords $inputFile | cut -d ',' -f3 ) )
+  filtered=( $(tail -$maxRecords $inputFile | cut -d ',' -f4 ) )
+  arrlsrbg=( $(tail -$maxRecords $inputFile | cut -d ',' -f6 ) )
+  arrtxbg=( $(tail -$maxRecords $inputFile | cut -d ',' -f7 ) )
+  arrnoise=( $(tail -$maxRecords $inputFile | cut -d ',' -f14 ) )
+  arrnoisesend=( $(tail -$maxRecords $inputFile | cut -d ',' -f15 ) )
   
   n=${#arrdate[@]}
 fi
+
+
 
 for (( i=0; i<$n; i++ ))
 do
