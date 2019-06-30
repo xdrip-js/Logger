@@ -836,7 +836,7 @@ function log_cgm_csv()
   noise_percentage=$(bc <<< "$noise * 100")
 
   noiseToLog=${noise}
-  if [ "$noiseToLog" != "null" -a "$noiseToLog" != "" ]; then
+  if [ "$noiseToLog" == "null" -o "$noiseToLog" == "" ]; then
     noiseToLog="Other"
   fi
 
