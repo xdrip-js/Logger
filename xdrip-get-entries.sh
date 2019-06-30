@@ -1392,6 +1392,12 @@ function calculate_noise()
       log "setting noise to $noiseString because - filtered/unfiltered variation of $variation exceeds 35%"
   fi
 
+  if [[ $orig_status != "OK" && $orig_status != *"alibration"*  ]]; then
+      noiseSend=2  
+      noiseString="Light"
+      log "setting noise to $noiseString because of tx status of $orig_status"
+  fi
+
   tmp=$(mktemp)
   #noiseSend=1
   jq ".[0].noise = $noiseSend" ${LDIR}/entry-xdrip.json > "$tmp" && mv "$tmp" ${LDIR}/entry-xdrip.json
