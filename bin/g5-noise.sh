@@ -7,8 +7,6 @@ n=0
 
 records=$(cat $inputFile | wc -l)
 
-echo records = $records
-
 if [ $(bc <<< "$records - 1 <  $maxRecords") -eq 1 ]; then
   n=$((records-1))
   echo "records of $records -1 < $maxRecords"
