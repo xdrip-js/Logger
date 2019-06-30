@@ -1,6 +1,6 @@
 #!/bin/bash
 
-maxRecords=${1:-30}
+maxRecords=${1:-25}
 inputFile=${2:-"/var/log/openaps/cgm.csv"}
 
 n=0
