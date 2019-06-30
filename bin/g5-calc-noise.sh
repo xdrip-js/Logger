@@ -47,7 +47,7 @@ fi
 firstDate=${xdate[0]}
 for (( i=0; i<$n; i++ ))
 do
-  xarr[$i]=$(bc -l <<< "(${xdate[$i]} - $firstDate) / 15") 
+  xarr[$i]=$(bc -l <<< "(${xdate[$i]} - $firstDate) / 5") 
 #  echo "x,y=${xarr[$i]},${yarr[$i]}"
 done
 

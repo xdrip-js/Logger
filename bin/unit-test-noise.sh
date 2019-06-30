@@ -11,6 +11,14 @@ echo "1561932525,80,61,94" >> $inputFile
 echo "1561932825,92,72,110" >> $inputFile
 echo "1561933130,100,84,118" >> $inputFile
 
-cat $inputFile
+
+yarr=( $(tail -8 $inputFile | cut -d ',' -f2 ) )
+n=${#yarr[@]}
+
+echo -n "Unfiltered =  ${yarr[@]} - "
+
+
+
+#cat $inputFile
 cgm-calc-noise $inputFile
 
