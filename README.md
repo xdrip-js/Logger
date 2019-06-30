@@ -150,3 +150,5 @@ If you have network connectivity on the rig, but BG values are not showing up on
 ``` 
 curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[eventType\]\[\$regex\]=Check&count=1"
 ```
+
+To check recent reported BG noise levels, run the command line utility ```cgm-noise```
