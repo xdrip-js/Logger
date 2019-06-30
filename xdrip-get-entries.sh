@@ -835,10 +835,15 @@ function log_cgm_csv()
   file="/var/log/openaps/cgm.csv"
   noise_percentage=$(bc <<< "$noise * 100")
 
+  noiseToLog=${noise}
+  if [ "$noiseToLog" == "null" -o "$noiseToLog" == "" ]; then
+    noiseToLog="Other"
+  fi
+
   if [ ! -f $file ]; then
     echo "epochdate,datetime,unfiltered,filtered,direction,calibratedBG-lsr,cgm-glucose,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend,mode,noise*100,sensitivity,rssi" > $file 
   fi
-  echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${glucose},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend},${mode},${noise_percentage},${sensitivity},${rssi}" >> $file 
+  echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${glucose},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noiseToLog},${noiseSend},${mode},${noise_percentage},${sensitivity},${rssi}" >> $file 
 }
 
 
