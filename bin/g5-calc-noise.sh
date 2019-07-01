@@ -58,7 +58,7 @@ for (( i=1; i<$n; i++ ))
 do
   delta=$(bc <<< "${yarr[$i]} - ${yarr[$i-1]}")
   saveLastDelta=$delta
-  if [ $(bc -l <<< "$delta < 0") -eq 1 ]; then
+  if [ $(bc <<< "$delta < 0") -eq 1 ]; then
     delta=$(bc <<< "0 - $delta")
   fi
   remainder=$(bc <<< "$delta - 10")
@@ -67,13 +67,13 @@ do
     noise=$(bc -l <<< "$noise + $remainder/(200 - $i*10)") 
   fi
   
-  if [ $(bc <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$delta < 0") -eq 1 ]; then
+  if [ $(bc <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$saveLastDelta < 0") -eq 1 ]; then
     noise=$(bc -l <<< "$noise + 0.1")
-  elif [ $(bc  <<< "$lastDelta < 0") -eq 1 -a $(bc <<< "$delta > 0") -eq 1 ]; then
+  elif [ $(bc  <<< "$lastDelta < 0") -eq 1 -a $(bc <<< "$saveLastDelta > 0") -eq 1 ]; then
     noise=$(bc -l <<< "$noise + 0.15")
   fi
   lastDelta=$saveLastDelta
-  #echo "delta = $delta, remainder=$remainder, noise=$noise"
+  #echo "lastdelta=$lastDelta, delta = $delta, remainder=$remainder, noise=$noise"
 done
 
 if [ $(bc -l <<< "$noise > 1") -eq 1 ]; then
