@@ -57,23 +57,27 @@ noise=0
 for (( i=1; i<$n; i++ ))
 do
   delta=$(bc <<< "${yarr[$i]} - ${yarr[$i-1]}")
-  saveLastDelta=$delta
-  if [ $(bc <<< "$delta < 0") -eq 1 ]; then
-    delta=$(bc <<< "0 - $delta")
+  if [ $(bc <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$delta < 0") -eq 1 ]; then
+    noise=$(bc -l <<< "$noise + 0.12")
+elif [ $(bc <<< "$lastDelta < 0") -eq 1 -a $(bc <<< "$delta > 0") -eq 1 ]; then
+    noise=$(bc -l <<< "$noise + 0.17")
   fi
-  remainder=$(bc <<< "$delta - 18")
+
+  absDelta=$delta
+  if [ $(bc <<< "$delta < 0") -eq 1 ]; then
+    absDelta=$(bc <<< "0 - $delta")
+  fi
+  remainder=$(bc <<< "$absDelta - 18")
   if [ $(bc <<< "$remainder > 0") -eq 1 ]; then
     # noise higher impact for latest bg, thus the smaller denominator for the remainder fraction 
     noise=$(bc -l <<< "$noise + $remainder/(200 - $i*10)") 
+  else
+    remainder=0
   fi
   
-  if [ $(bc <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$saveLastDelta < 0") -eq 1 ]; then
-    noise=$(bc -l <<< "$noise + 0.12")
-  elif [ $(bc  <<< "$lastDelta < 0") -eq 1 -a $(bc <<< "$saveLastDelta > 0") -eq 1 ]; then
-    noise=$(bc -l <<< "$noise + 0.17")
-  fi
-  lastDelta=$saveLastDelta
-  #echo "lastdelta=$lastDelta, delta = $delta, remainder=$remainder, noise=$noise"
+  #echo "lastdelta=$lastDelta, delta=$delta, remainder=$remainder, noise=$noise, absDelta=$absDelta"
+
+  lastDelta=$delta
 done
 
 if [ $(bc -l <<< "$noise > 1") -eq 1 ]; then

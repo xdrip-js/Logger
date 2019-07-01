@@ -5,6 +5,7 @@ main()
 inputFile="/tmp/cgm.csv"
 outputFile="/tmp/cgm.json"
 
+a=(75 75 75 74 75 75 75 75) && unit_test
 a=(76 66 59 55 58 80 92 100) && unit_test
 a=(110 111 110 110 110 110 110 110) && unit_test
 a=(176 166 159 155 158 180 192 200) && unit_test
