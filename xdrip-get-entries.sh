@@ -69,7 +69,7 @@ main()
   id="Dexcom${id2}"
   rig="openaps://$(hostname)"
   glucoseType="unfiltered"
-  noiseSend=0 # default unknown
+  noiseSend=4 # default heavy
   UTC=" -u "
   lastGlucose=0
   lastGlucoseDate=0
@@ -1242,11 +1242,6 @@ function process_delta()
     da=$(bc <<< "0 - $da")
   fi
 
-  if [ $(bc <<< "$dg > $maxDelta") -eq 1 -o $(bc <<< "$dg < (0 - $maxDelta)") -eq 1 ]; then
-    log "Change $dg out of range [$maxDelta,-${maxDelta}] - setting noise=Heavy"
-    noiseSend=4
-  fi
-
   cp ${LDIR}/entry.json ${LDIR}/entry-before-calibration.json
 
   tmp=$(mktemp)
@@ -1337,64 +1332,45 @@ function calculate_noise()
   truncate -s 0 ${noise_input}
 
   # calculate the noise and position it for updating the entry sent to NS and xdripAPS
-  if [ $(bc -l <<< "$noiseSend == 0") -eq 1 ]; then
-    # means that noise was not already set before
-    # get last 41 minutes (approx 7 BG's) from monitor/glucose to better support multiple rigs
-    # be able to support multiple rigs running openaps / Logger at same time. 
-    epms41=$(bc -l <<< "$epochdate *1000  - 41*60000")
-    glucosejqstr="'[ .[] | select(.date > $epms41) | select(.unfiltered > 0) ]'"
-    bash -c "jq -c $glucosejqstr ~/myopenaps/monitor/glucose.json" > ${LDIR}/last41minutes.json
-    date41=( $(jq -r ".[].date" ${LDIR}/last41minutes.json) )
-    gluc41=( $(jq -r ".[].glucose" ${LDIR}/last41minutes.json) )
-    unf41=( $(jq -r ".[].unfiltered" ${LDIR}/last41minutes.json) )
-    fil41=( $(jq -r ".[].filtered" ${LDIR}/last41minutes.json) )
+  # get last 41 minutes (approx 7 BG's) from monitor/glucose to better support multiple rigs
+  # be able to support multiple rigs running openaps / Logger at same time. 
+  epms41=$(bc -l <<< "$epochdate *1000  - 41*60000")
+  glucosejqstr="'[ .[] | select(.date > $epms41) | select(.unfiltered > 0) ]'"
+  bash -c "jq -c $glucosejqstr ~/myopenaps/monitor/glucose.json" > ${LDIR}/last41minutes.json
+  date41=( $(jq -r ".[].date" ${LDIR}/last41minutes.json) )
+  gluc41=( $(jq -r ".[].glucose" ${LDIR}/last41minutes.json) )
+  unf41=( $(jq -r ".[].unfiltered" ${LDIR}/last41minutes.json) )
+  fil41=( $(jq -r ".[].filtered" ${LDIR}/last41minutes.json) )
 
-    usedRecords=${#gluc41[@]}
-    log "usedRecords=$usedRecords last 41 minutes = ${gluc41[@]}"
+  usedRecords=${#gluc41[@]}
+  log "usedRecords=$usedRecords last 41 minutes = ${gluc41[@]}"
 
-    for (( i=$usedRecords-1; i>=0; i-- ))
-    do
-      dateSeconds=$(bc <<< "${date41[$i]} / 1000")
-      echo "$dateSeconds,${unf41[$i]},${fil41[$i]},${gluc41[$i]}" >> ${noise_input}
-    done
-    echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ${noise_input}
+  for (( i=$usedRecords-1; i>=0; i-- ))
+  do
+    dateSeconds=$(bc <<< "${date41[$i]} / 1000")
+    echo "$dateSeconds,${unf41[$i]},${fil41[$i]},${gluc41[$i]}" >> ${noise_input}
+  done
+  echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ${noise_input}
 
-    cgm-calc-noise ${noise_input} 
+  cgm-calc-noise ${noise_input} 
 
-    if [ -e ${LDIR}/noise.json ]; then
-      noise=`jq -M '.[0] .noise' ${LDIR}/noise.json` 
-      noiseSend=`jq -M '.[0] .noiseSend' ${LDIR}/noise.json` 
-      noiseString=`jq -M '.[0] .noiseString' ${LDIR}/noise.json` 
-      noiseString="${noiseString%\"}"
-      noiseString="${noiseString#\"}"
-      # remove issue where jq returns scientific notation, convert to decimal
-      noise=$(awk -v noise="$noise" 'BEGIN { printf("%.2f", noise) }' </dev/null)
-      log "Raw noise of $noise will be used to determine noiseSend value."
-    fi
+  if [ -e ${LDIR}/noise.json ]; then
+    noise=`jq -M '.[0] .noise' ${LDIR}/noise.json` 
+    noiseSend=`jq -M '.[0] .noiseSend' ${LDIR}/noise.json` 
+    noiseString=`jq -M '.[0] .noiseString' ${LDIR}/noise.json` 
+    noiseString="${noiseString%\"}"
+    noiseString="${noiseString#\"}"
+    # remove issue where jq returns scientific notation, convert to decimal
+    noise=$(awk -v noise="$noise" 'BEGIN { printf("%.2f", noise) }' </dev/null)
   fi
 
-  if [ $(bc <<< "$variation >= 50") -eq 1 -o  $(bc  <<< "$variation <= -50") -eq 1 ]; then
-      noiseSend=4  
-      noiseString="Heavy"
-      log "setting noise to $noiseString because - filtered/unfiltered variation of $variation exceeds 50%"
-  elif [ $(bc <<< "$variation >= 45") -eq 1 -o  $(bc  <<< "$variation <= -45") -eq 1 ]; then
-      noiseSend=3  
-      noiseString="Medium"
-      log "setting noise to $noiseString because - filtered/unfiltered variation of $variation exceeds 45%"
-  elif [ $(bc <<< "$variation >= 40") -eq 1 -o  $(bc  <<< "$variation <= -40") -eq 1 ]; then
-      noiseSend=2  
-      noiseString="Light"
-      log "setting noise to $noiseString because - filtered/unfiltered variation of $variation exceeds 40%"
-  fi
-
-  if [[ $orig_status != "OK" && $orig_status != *"alibration"*  ]]; then
+  if [[ $noiseSend < 2 && $orig_status != "OK" && $orig_status != *"alibration"*  ]]; then
       noiseSend=2  
       noiseString="Light"
       log "setting noise to $noiseString because of tx status of $orig_status"
   fi
 
   tmp=$(mktemp)
-  #noiseSend=1
   jq ".[0].noise = $noiseSend" ${LDIR}/entry-xdrip.json > "$tmp" && mv "$tmp" ${LDIR}/entry-xdrip.json
 }
 

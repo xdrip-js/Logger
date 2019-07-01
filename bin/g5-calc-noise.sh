@@ -13,6 +13,8 @@ inputFile=${1:-"${HOME}/myopenaps/monitor/xdripjs/noise-input41.csv"}
 outputFile=${2:-"${HOME}/myopenaps/monitor/xdripjs/noise.json"}
 MAXRECORDS=12
 MINRECORDS=4
+# This variable will be native unless variation of filtered / unfiltered gives a higher noise, then it will be "variation"
+calculatedBy="native"
 
 function ReportNoiseAndExit()
 {
@@ -30,14 +32,15 @@ function ReportNoiseAndExit()
     noiseString="Heavy"
   fi
 
-  echo "[{\"noise\":$noise, \"noiseSend\":$noiseSend, \"noiseString\":\"$noiseString\"}]" > $outputFile
+  echo "[{\"noise\":$noise, \"noiseSend\":$noiseSend, \"noiseString\":\"$noiseString\",\"calculatedBy\":\"$calculatedBy\"}]" > $outputFile
   cat $outputFile
   exit
 }
 
 if [ -e $inputFile ]; then
-  yarr=( $(tail -$MAXRECORDS $inputFile | cut -d ',' -f2 ) )
-  n=${#yarr[@]}
+  unfilteredArray=( $(tail -$MAXRECORDS $inputFile | cut -d ',' -f2 ) )
+  filteredArray=( $(tail -$MAXRECORDS $inputFile | cut -d ',' -f3 ) )
+  n=${#unfilteredArray[@]}
 else
   noise=0.9  # Heavy noise -- no input file 
   ReportNoiseAndExit
@@ -50,13 +53,14 @@ if [ $(bc <<< "$n < $MINRECORDS") -eq 1 ]; then
   ReportNoiseAndExit
 fi
 
-#echo ${yarr[@]}
+#echo ${unfilteredArray[@]}
+#echo ${filteredArray[@]}
 
 lastDelta=0
 noise=0
 for (( i=1; i<$n; i++ ))
 do
-  delta=$(bc <<< "${yarr[$i]} - ${yarr[$i-1]}")
+  delta=$(bc <<< "${unfilteredArray[$i]} - ${unfilteredArray[$i-1]}")
   if [ $(bc <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$delta < 0") -eq 1 ]; then
     noise=$(bc -l <<< "$noise + 0.12")
 elif [ $(bc <<< "$lastDelta < 0") -eq 1 -a $(bc <<< "$delta > 0") -eq 1 ]; then
@@ -80,9 +84,26 @@ elif [ $(bc <<< "$lastDelta < 0") -eq 1 -a $(bc <<< "$delta > 0") -eq 1 ]; then
   lastDelta=$delta
 done
 
+# get latest filtered / unfiltered for variation check
+filtered=${filteredArray[$n-1]}
+unfiltered=${unfilteredArray[$n-1]}
+#echo "filtered=$filtered, unfiltered=$unfiltered"
+variationNoise=$(bc -l <<< "((($filtered - $unfiltered) * 1.3) / $filtered)")
+
+if [ $(bc -l <<< "$variationNoise < 0") -eq 1 ]; then
+  variationNoise=$(bc -l <<< "0 - $variationNoise")
+fi
+
+
+if [ $(bc -l <<< "$variationNoise > $noise") -eq 1 ]; then
+  noise=$variationNoise
+  calculatedBy="variation"
+fi 
+
 if [ $(bc -l <<< "$noise > 1") -eq 1 ]; then
   noise=1
 fi
+
 noise=$(printf "%.*f\n" 5 $noise)
 ReportNoiseAndExit
 

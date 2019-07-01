@@ -20,7 +20,7 @@ fi
 
 for (( i=8; i<=$(($numRecords - $records41Minutes + 1)); i++ ))
 do
-   tail -n+$i $inputFile | head -$records41Minutes | cut -d',' -f1,3 > ${tempFile}.csv
+   tail -n+$i $inputFile | head -$records41Minutes | cut -d',' -f1,3,4 > ${tempFile}.csv
    echo -n `tail -1 ${tempFile}.csv`
    echo -n " "
    $calcProg ${tempFile}.csv ${tempFile}.json
