@@ -11,6 +11,8 @@ a=(140 120 140 160 180 200 220 240) && unit_test
 a=(150 110 140 170 200 230 260 290) && unit_test
 a=(150 110 140 170 200 130 160 290) && unit_test
 a=(122 135 140 155 160 155 150 145) && unit_test
+a=(100 105 110 120 135 137 135 125) && unit_test
+a=(120 105 110 120 135 134 135 125) && unit_test
 
 }
 
@@ -27,7 +29,7 @@ function unit_test()
   numRecords=${#a[@]}
   yarr=( $(tail -$numRecords $inputFile | cut -d ',' -f2 ) )
 #  n=${#yarr[@]}
-  echo -n "Unfiltered =  ${yarr[@]} - "
+  echo -n "${yarr[@]} - "
   cgm-calc-noise $inputFile
 }
 

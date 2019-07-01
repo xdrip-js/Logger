@@ -16,7 +16,21 @@ MINRECORDS=4
 
 function ReportNoiseAndExit()
 {
-  echo "[{\"noise\":$noise}]" > $outputFile
+  if [ $(bc -l <<< "$noise < 0.45") -eq 1 ]; then
+      noiseSend=1
+      noiseString="Clean"
+  elif [ $(bc -l <<< "$noise < 0.55") -eq 1 ]; then
+    noiseSend=2
+    noiseString="Light"
+  elif [ $(bc -l <<< "$noise < 0.7") -eq 1 ]; then
+    noiseSend=3
+    noiseString="Medium"
+  elif [ $(bc -l <<< "$noise >= 0.7") -eq 1 ]; then
+    noiseSend=4
+    noiseString="Heavy"
+  fi
+
+  echo "[{\"noise\":$noise, \"noiseSend\":$noiseSend, \"noiseString\":\"$noiseString\"}]" > $outputFile
   cat $outputFile
   exit
 }
@@ -42,22 +56,24 @@ lastDelta=0
 noise=0
 for (( i=1; i<$n; i++ ))
 do
-  y2y1Delta=$(bc <<< "${yarr[$i]} - ${yarr[$i-1]}")
-  if [ $(bc -l <<< "$y2y1Delta < 0") -eq 1 ]; then
-    y2y1Delta=$(bc <<< "0 - $y2y1Delta")
+  delta=$(bc <<< "${yarr[$i]} - ${yarr[$i-1]}")
+  saveLastDelta=$delta
+  if [ $(bc -l <<< "$delta < 0") -eq 1 ]; then
+    delta=$(bc <<< "0 - $delta")
   fi
-  remainder=$(bc <<< "$y2y1Delta - 10")
+  remainder=$(bc <<< "$delta - 10")
   if [ $(bc <<< "$remainder > 0") -eq 1 ]; then
     # noise higher impact for latest bg, thus the smaller denominator for the remainder fraction 
     noise=$(bc -l <<< "$noise + $remainder/(200 - $i*10)") 
   fi
   
-  if [ $(bc -l <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$y2y1Delta < 0") -eq 1 ]; then
-    noise=$(bc -l "$noise + 0.1")
-  elif [ $(bc -l <<< "$lastDelta < 0") -eq 1 -a $(bc -l <<< "$y2y1Delta > 0") -eq 1 ]; then
-    noise=$(bc -l "$noise + 0.15")
+  if [ $(bc <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$delta < 0") -eq 1 ]; then
+    noise=$(bc -l <<< "$noise + 0.1")
+  elif [ $(bc  <<< "$lastDelta < 0") -eq 1 -a $(bc <<< "$delta > 0") -eq 1 ]; then
+    noise=$(bc -l <<< "$noise + 0.15")
   fi
-  #echo "y2y1Delta = $y2y1Delta, remainder=$remainder, noise=$noise"
+  lastDelta=$saveLastDelta
+  #echo "delta = $delta, remainder=$remainder, noise=$noise"
 done
 
 if [ $(bc -l <<< "$noise > 1") -eq 1 ]; then

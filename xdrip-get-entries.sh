@@ -1341,8 +1341,8 @@ function calculate_noise()
     # means that noise was not already set before
     # get last 41 minutes (approx 7 BG's) from monitor/glucose to better support multiple rigs
     # be able to support multiple rigs running openaps / Logger at same time. 
-    epms15=$(bc -l <<< "$epochdate *1000  - 41*60000")
-    glucosejqstr="'[ .[] | select(.date > $epms15) ]'"
+    epms41=$(bc -l <<< "$epochdate *1000  - 41*60000")
+    glucosejqstr="'[ .[] | select(.date > $epms41) | select(.unfiltered > 0) ]'"
     bash -c "jq -c $glucosejqstr ~/myopenaps/monitor/glucose.json" > ${LDIR}/last41minutes.json
     date41=( $(jq -r ".[].date" ${LDIR}/last41minutes.json) )
     gluc41=( $(jq -r ".[].glucose" ${LDIR}/last41minutes.json) )
@@ -1363,23 +1363,13 @@ function calculate_noise()
 
     if [ -e ${LDIR}/noise.json ]; then
       noise=`jq -M '.[0] .noise' ${LDIR}/noise.json` 
+      noiseSend=`jq -M '.[0] .noiseSend' ${LDIR}/noise.json` 
+      noiseString=`jq -M '.[0] .noiseString' ${LDIR}/noise.json` 
+      noiseString="${noiseString%\"}"
+      noiseString="${noiseString#\"}"
       # remove issue where jq returns scientific notation, convert to decimal
       noise=$(awk -v noise="$noise" 'BEGIN { printf("%.2f", noise) }' </dev/null)
       log "Raw noise of $noise will be used to determine noiseSend value."
-    fi
-
-    if [ $(bc -l <<< "$noise < 0.45") -eq 1 ]; then
-      noiseSend=1
-      noiseString="Clean"
-    elif [ $(bc -l <<< "$noise < 0.55") -eq 1 ]; then
-      noiseSend=2
-      noiseString="Light"
-    elif [ $(bc -l <<< "$noise < 0.7") -eq 1 ]; then
-      noiseSend=3 
-      noiseString="Medium"
-    elif [ $(bc -l <<< "$noise >= 0.7") -eq 1 ]; then
-      noiseSend=4  
-      noiseString="Heavy"
     fi
   fi
 
