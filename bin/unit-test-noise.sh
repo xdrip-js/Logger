@@ -6,6 +6,7 @@ inputFile="/tmp/cgm.csv"
 outputFile="/tmp/cgm.json"
 
 a=(76 66 59 55 58 80 92 100) && unit_test
+a=(110 111 110 110 110 110 110 110) && unit_test
 a=(176 166 159 155 158 180 192 200) && unit_test
 a=(122 135 140 155 160 155 150 145) && unit_test
 a=(100 105 110 120 135 137 135 125) && unit_test
