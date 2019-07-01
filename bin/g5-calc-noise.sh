@@ -70,7 +70,7 @@ elif [ $(bc <<< "$lastDelta < 0") -eq 1 -a $(bc <<< "$delta > 0") -eq 1 ]; then
   remainder=$(bc <<< "$absDelta - 18")
   if [ $(bc <<< "$remainder > 0") -eq 1 ]; then
     # noise higher impact for latest bg, thus the smaller denominator for the remainder fraction 
-    noise=$(bc -l <<< "$noise + $remainder/(200 - $i*10)") 
+    noise=$(bc -l <<< "$noise + $remainder/(300 - $i*30)") 
   else
     remainder=0
   fi
