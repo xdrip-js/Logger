@@ -27,7 +27,6 @@ function ReportNoiseAndExit()
 
 if [ -e $INPUT ]; then
   yarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f2 ) )
-  xdate=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f1 ) )
   n=${#yarr[@]}
 else
   noise=0.5
@@ -43,15 +42,6 @@ if [ $(bc <<< "$n < $MINRECORDS") -eq 1 ]; then
   ReportNoiseAndExit
 fi
 
-firstDate=${xdate[0]}
-for (( i=0; i<$n; i++ ))
-do
-  xarr[$i]=$(bc -l <<< "(${xdate[$i]} - $firstDate) / 5") 
-#  echo "x,y=${xarr[$i]},${yarr[$i]}"
-done
-
-#echo ${xarr[@]}
-#echo ${xdate[@]}
 #echo ${yarr[@]}
 
 # sod = sum of distances
@@ -87,42 +77,3 @@ fi
 noise=$(printf "%.*f\n" 5 $noise)
 ReportNoiseAndExit
 
-lastDelta=0
-for (( i=1; i<$n; i++ ))
-do
-  # time-based multiplier 
-  # y2y1Delta adds a multiplier that gives 
-  # higher priority to the latest BG's
-  y2y1Delta=$(bc -l  <<< "${yarr[$i]} - ${yarr[$i-1]}")
-  x2x1Delta=$(bc -l <<< "${xarr[$i]} - ${xarr[$i-1]}")
-  #echo "x delta=$x2x1Delta, y delta=$y2y1Delta" 
-  if [ $(bc -l <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$y2y1Delta < 0") -eq 1 ]; then
-    # for this single point, bg switched from positive delta to negative, increase noise impact  
-    # this will not effect noise to much for a normal peak, but will increase the overall noise value
-    # in the case that the trend goes up/down multiple times such as the bounciness of a dying sensor's signal 
-    y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.2")
-  elif [ $(bc -l <<< "$lastDelta < 0") -eq 1 -a $(bc -l <<< "$y2y1Delta > 0") -eq 1 ]; then
-    # switched from negative delta to positive, increase noise impact 
-    # in this case count the noise a bit more because it could indicate a big "false" swing upwards which could
-    # be troublesome if it is a false swing upwards and a loop algorithm takes it into account as "clean"
-    y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.3")
-  fi
-  lastDelta=$y2y1Delta
-
-  #echo "yDelta=$y2y1Delta, xDelta=$x2x1Delta"
-  sod=$(bc  -l <<< "$sod + sqrt(($x2x1Delta)^2 + ($y2y1Delta)^2)")
-done  
-
-overallDistance=$(bc -l <<< "sqrt((${yarr[$n-1]} - ${yarr[0]})^2 + (${xarr[$n-1]} - ${xarr[0]})^2)")
-
-if [ $(bc -l <<< "$sod == 0") -eq 1 ]; then
-  # assume no noise if no records
-  noise = 0
-	#echo "noise = sod == 0"
-else
-  #echo "sod=$sod, overallDistance=$overallDistance"
-  noise=$(bc -l <<< "1 - ($overallDistance/$sod)")
-	#echo "noise = $noise"
-fi
-noise=$(printf "%.*f\n" 5 $noise)
-ReportNoiseAndExit
