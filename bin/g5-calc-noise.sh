@@ -6,8 +6,8 @@
 # also added multiplier to get more weight to the latest BG values
 # also added weight for points where the delta shifts from pos to neg or neg to pos (peaks/valleys)
 # the more peaks and valleys, the more noise is amplified
-# add 0.1 for each peak and 0.15 for each valley
-# allow 10 point rises without adding noise
+# add 0.12 for each peak and 0.17 for each valley
+# allow 18 point rises without adding noise
 
 inputFile=${1:-"${HOME}/myopenaps/monitor/xdripjs/noise-input41.csv"}
 outputFile=${2:-"${HOME}/myopenaps/monitor/xdripjs/noise.json"}
@@ -61,16 +61,16 @@ do
   if [ $(bc <<< "$delta < 0") -eq 1 ]; then
     delta=$(bc <<< "0 - $delta")
   fi
-  remainder=$(bc <<< "$delta - 10")
+  remainder=$(bc <<< "$delta - 18")
   if [ $(bc <<< "$remainder > 0") -eq 1 ]; then
     # noise higher impact for latest bg, thus the smaller denominator for the remainder fraction 
     noise=$(bc -l <<< "$noise + $remainder/(200 - $i*10)") 
   fi
   
   if [ $(bc <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$saveLastDelta < 0") -eq 1 ]; then
-    noise=$(bc -l <<< "$noise + 0.1")
+    noise=$(bc -l <<< "$noise + 0.12")
   elif [ $(bc  <<< "$lastDelta < 0") -eq 1 -a $(bc <<< "$saveLastDelta > 0") -eq 1 ]; then
-    noise=$(bc -l <<< "$noise + 0.15")
+    noise=$(bc -l <<< "$noise + 0.17")
   fi
   lastDelta=$saveLastDelta
   #echo "lastdelta=$lastDelta, delta = $delta, remainder=$remainder, noise=$noise"
