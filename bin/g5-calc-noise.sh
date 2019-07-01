@@ -13,8 +13,8 @@ inputFile=${1:-"${HOME}/myopenaps/monitor/xdripjs/noise-input41.csv"}
 outputFile=${2:-"${HOME}/myopenaps/monitor/xdripjs/noise.json"}
 MAXRECORDS=12
 MINRECORDS=4
-# This variable will be native unless variation of filtered / unfiltered gives a higher noise, then it will be "variation"
-calculatedBy="native"
+# This variable will be 41minutes unless variation of filtered / unfiltered gives a higher noise, then it will be "lastVariation"
+calculatedBy="41minutes"
 
 function ReportNoiseAndExit()
 {
@@ -97,7 +97,7 @@ fi
 
 if [ $(bc -l <<< "$variationNoise > $noise") -eq 1 ]; then
   noise=$variationNoise
-  calculatedBy="variation"
+  calculatedBy="lastVariation"
 fi 
 
 if [ $(bc -l <<< "$noise > 1") -eq 1 ]; then
