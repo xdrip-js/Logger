@@ -6,7 +6,7 @@ records41Minutes=8
 
 numRecords=`wc -l $inputFile | cut -d' ' -f1`
 if [ "$inputFile" == "/var/log/openaps/cgm.csv" ]; then
-  numRecords=$(bc <<<  "$numRecords - 1")
+  numRecords=$(bc <<< "$numRecords - 1")
 fi
 
 if [ $(bc <<< "$numRecords > 50") -eq 1 ]; then
