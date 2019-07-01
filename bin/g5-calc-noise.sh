@@ -17,7 +17,6 @@ INPUT=${1:-"${HOME}/myopenaps/monitor/xdripjs/noise-input41.csv"}
 OUTPUT=${2:-"${HOME}/myopenaps/monitor/xdripjs/noise.json"}
 MAXRECORDS=12
 MINRECORDS=4
-noise=0
 
 function ReportNoiseAndExit()
 {
@@ -31,7 +30,7 @@ if [ -e $INPUT ]; then
   xdate=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f1 ) )
   n=${#yarr[@]}
 else
-  noise=0
+  noise=0.5
   ReportNoiseAndExit
 fi
 
@@ -39,7 +38,7 @@ fi
 
 if [ $(bc <<< "$n < $MINRECORDS") -eq 1 ]; then
   # set noise = 0 - unknown
-  noise=0
+  noise=0.5
 	#echo "noise = 0 no records"
   ReportNoiseAndExit
 fi
@@ -59,25 +58,54 @@ done
 sod=0
 overallDistance=0
 
+# add 0.1 for each bounce
+# allow 5 point rises without adding noise
+lastDelta=0
+noise=0
+for (( i=1; i<$n; i++ ))
+do
+  y2y1Delta=$(bc -l  <<< "${yarr[$i]} - ${yarr[$i-1]}")
+  if [ $(bc -l <<< "$y2y1Delta < 0") -eq 1 ]; then
+    y2y1Delta=$(bc -l <<< "0 - $y2y1Delta")
+  fi
+  remainder=$(bc -l <<< "$y2y1Delta - 10")
+  if [ $(bc -l <<< "$remainder > 0") -eq 1 ]; then
+    noise=$(bc -l <<< "$noise + $remainder/200") 
+  fi
+  
+  if [ $(bc -l <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$y2y1Delta < 0") -eq 1 ]; then
+    noise=$(bc -l "$noise + 0.1")
+  elif [ $(bc -l <<< "$lastDelta < 0") -eq 1 -a $(bc -l <<< "$y2y1Delta > 0") -eq 1 ]; then
+    noise=$(bc -l "$noise + 0.15")
+  fi
+  #echo "y2y1Delta = $y2y1Delta, remainder=$remainder, noise=$noise"
+done
+
+if [ $(bc -l <<< "$noise > 1") -eq 1 ]; then
+  noise=1
+fi
+noise=$(printf "%.*f\n" 5 $noise)
+ReportNoiseAndExit
+
 lastDelta=0
 for (( i=1; i<$n; i++ ))
 do
   # time-based multiplier 
   # y2y1Delta adds a multiplier that gives 
   # higher priority to the latest BG's
-  y2y1Delta=$(bc -l  <<< "(${yarr[$i]} - ${yarr[$i-1]}) * (1 +  $i/($n * 4))")
+  y2y1Delta=$(bc -l  <<< "${yarr[$i]} - ${yarr[$i-1]}")
   x2x1Delta=$(bc -l <<< "${xarr[$i]} - ${xarr[$i-1]}")
   #echo "x delta=$x2x1Delta, y delta=$y2y1Delta" 
   if [ $(bc -l <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$y2y1Delta < 0") -eq 1 ]; then
     # for this single point, bg switched from positive delta to negative, increase noise impact  
     # this will not effect noise to much for a normal peak, but will increase the overall noise value
     # in the case that the trend goes up/down multiple times such as the bounciness of a dying sensor's signal 
-    y2y1Delta=$(bc -l <<< "${y2y1Delta} * 2.1")
+    y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.2")
   elif [ $(bc -l <<< "$lastDelta < 0") -eq 1 -a $(bc -l <<< "$y2y1Delta > 0") -eq 1 ]; then
     # switched from negative delta to positive, increase noise impact 
     # in this case count the noise a bit more because it could indicate a big "false" swing upwards which could
     # be troublesome if it is a false swing upwards and a loop algorithm takes it into account as "clean"
-    y2y1Delta=$(bc -l <<< "${y2y1Delta} * 3.6")
+    y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.3")
   fi
   lastDelta=$y2y1Delta
 

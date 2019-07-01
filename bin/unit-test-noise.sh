@@ -54,3 +54,43 @@ n=${#yarr[@]}
 echo -n "Unfiltered =  ${yarr[@]} - "
 cgm-calc-noise $inputFile
 
+
+echo "1561930724,150,150,150" > $inputFile
+echo "1561931025,110,110,110" >> $inputFile
+echo "1561931325,140,140,140" >> $inputFile
+echo "1561931625,170,170,170" >> $inputFile
+echo "1561931925,200,200,200" >> $inputFile
+echo "1561932525,230,230,230" >> $inputFile
+echo "1561932825,260,260,260" >> $inputFile
+echo "1561933130,290,290,290" >> $inputFile
+yarr=( $(tail -8 $inputFile | cut -d ',' -f2 ) )
+n=${#yarr[@]}
+echo -n "Unfiltered =  ${yarr[@]} - "
+cgm-calc-noise $inputFile
+
+
+echo "1561930724,150,150,150" > $inputFile
+echo "1561931025,110,110,110" >> $inputFile
+echo "1561931325,140,140,140" >> $inputFile
+echo "1561931625,170,170,170" >> $inputFile
+echo "1561931925,200,200,200" >> $inputFile
+echo "1561932525,130,130,130" >> $inputFile
+echo "1561932825,160,160,160" >> $inputFile
+echo "1561933130,290,290,290" >> $inputFile
+yarr=( $(tail -8 $inputFile | cut -d ',' -f2 ) )
+n=${#yarr[@]}
+echo -n "Unfiltered =  ${yarr[@]} - "
+cgm-calc-noise $inputFile
+
+echo "1561930724,122,122,122" > $inputFile
+echo "1561931025,135,135,135" >> $inputFile
+echo "1561931325,140,140,140" >> $inputFile
+echo "1561931025,155,155,155" >> $inputFile
+echo "1561931325,160,160,160" >> $inputFile
+echo "1561931025,155,155,155" >> $inputFile
+echo "1561931325,150,150,150" >> $inputFile
+echo "1561931025,145,145,145" >> $inputFile
+yarr=( $(tail -8 $inputFile | cut -d ',' -f2 ) )
+n=${#yarr[@]}
+echo -n "Unfiltered =  ${yarr[@]} - "
+cgm-calc-noise $inputFile
