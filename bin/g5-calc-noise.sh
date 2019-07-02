@@ -95,18 +95,22 @@ done
 filtered=${filteredArray[$n-1]}
 unfiltered=${unfilteredArray[$n-1]}
 #echo "filtered=$filtered, unfiltered=$unfiltered"
+# calculate alternate form of noise from last variation
 variationNoise=$(bc -l <<< "((($filtered - $unfiltered) * 1.3) / $filtered)")
 
+# make sure the variationNoise is positive
 if [ $(bc -l <<< "$variationNoise < 0") -eq 1 ]; then
   variationNoise=$(bc -l <<< "0 - $variationNoise")
 fi
 
 
+# If the variationNoise is higher than the 41minute calculated noise, then use variationNoise it instead
 if [ $(bc -l <<< "$variationNoise > $noise") -eq 1 ]; then
   noise=$variationNoise
   calculatedBy="lastVariation"
 fi 
 
+# Cap noise at 1 as the highest value
 if [ $(bc -l <<< "$noise > 1") -eq 1 ]; then
   noise=1
 fi
