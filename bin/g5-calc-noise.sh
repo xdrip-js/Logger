@@ -59,6 +59,7 @@ fi
 #echo ${unfilteredArray[@]}
 #echo ${filteredArray[@]}
 
+sod=0
 lastDelta=0
 noise=0
 for (( i=1; i<$n; i++ ))
@@ -78,6 +79,10 @@ do
   if [ $(bc <<< "$delta < 0") -eq 1 ]; then
     absDelta=$(bc <<< "0 - $delta")
   fi
+  # calculate sum of distances (all deltas) 
+  sod=$(bc <<< "$sod + $absDelta")
+
+  # Any single jump amount over 18 increases noise linearly
   remainder=$(bc <<< "$absDelta - 18")
   if [ $(bc <<< "$remainder > 0") -eq 1 ]; then
     # noise higher impact for latest bg, thus the smaller denominator for the remainder fraction 
@@ -86,10 +91,16 @@ do
     remainder=0
   fi
   
-  #echo "lastdelta=$lastDelta, delta=$delta, remainder=$remainder, noise=$noise, absDelta=$absDelta"
+  #echo "lastdelta=$lastDelta, delta=$delta, remainder=$remainder, 
+  #echo "sod=$sod, noise=$noise, absDelta=$absDelta"
 
   lastDelta=$delta
 done
+
+# to ensure straight line with small bounces don't give heavy noise
+  if [ $(bc -l <<< "$noise >= 0.55") -eq 1 -a $(bc -l <<< "($sod / $n) < 4") -eq 1 ]; then
+     noise=0.45 # Light noise 
+  fi
 
 # get latest filtered / unfiltered for variation check
 filtered=${filteredArray[$n-1]}
