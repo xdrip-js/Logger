@@ -14,21 +14,26 @@ inputFile=${1:-"${HOME}/myopenaps/monitor/xdripjs/noise-input41.csv"}
 outputFile=${2:-"${HOME}/myopenaps/monitor/xdripjs/noise.json"}
 MAXRECORDS=12
 MINRECORDS=4
+NO_NOISE=0.00
+CLEAN_MAX_NOISE=0.45
+LIGHT_MAX_NOISE=0.55
+MEDIUM_MAX_NOISE=0.70
+HEAVY_MAX_NOISE=1.00
 # This variable will be "41minutes" unless variation of filtered / unfiltered gives a higher noise, then it will be "lastVariation"
 calculatedBy="41minutes"
 
 function ReportNoiseAndExit()
 {
-  if [ $(bc -l <<< "$noise < 0.45") -eq 1 ]; then
+  if [ $(bc -l <<< "$noise <= $CLEAN_MAX_NOISE ") -eq 1 ]; then
       noiseSend=1
       noiseString="Clean"
-  elif [ $(bc -l <<< "$noise < 0.55") -eq 1 ]; then
+  elif [ $(bc -l <<< "$noise <= $LIGHT_MAX_NOISE") -eq 1 ]; then
     noiseSend=2
     noiseString="Light"
-  elif [ $(bc -l <<< "$noise < 0.7") -eq 1 ]; then
+  elif [ $(bc -l <<< "$noise <= $MEDIUM_MAX_NOISE") -eq 1 ]; then
     noiseSend=3
     noiseString="Medium"
-  elif [ $(bc -l <<< "$noise >= 0.7") -eq 1 ]; then
+  elif [ $(bc -l <<< "$noise > $MEDIUM_MAX_NOISE") -eq 1 ]; then
     noiseSend=4
     noiseString="Heavy"
   fi
@@ -43,7 +48,7 @@ if [ -e $inputFile ]; then
   filteredArray=( $(tail -$MAXRECORDS $inputFile | cut -d ',' -f3 ) )
   n=${#unfilteredArray[@]}
 else
-  noise=0.9  # Heavy noise -- no input file 
+  noise=$HEAVY_MAX_NOISE  # Heavy if no input file 
   calculatedBy="noInput"
   ReportNoiseAndExit
 fi
@@ -51,7 +56,7 @@ fi
 
 if [ $(bc <<< "$n < $MINRECORDS") -eq 1 ]; then
   # set noise = 0 - unknown
-  noise=0.5 # Light noise - not enough records, just starting out
+  noise=$LIGHT_MAX_NOISE # Light if not enough records, just starting out
   calculatedBy="tooFewRecords"
   ReportNoiseAndExit
 fi
@@ -61,7 +66,7 @@ fi
 
 sod=0
 lastDelta=0
-noise=0
+noise=$NO_NOISE
 for (( i=1; i<$n; i++ ))
 do
   delta=$(bc <<< "${unfilteredArray[$i]} - ${unfilteredArray[$i-1]}")
@@ -97,9 +102,13 @@ do
   lastDelta=$delta
 done
 
-# to ensure straight line with small bounces don't give heavy noise
-  if [ $(bc -l <<< "$noise >= 0.55") -eq 1 -a $(bc -l <<< "($sod / $n) < 4") -eq 1 ]; then
-     noise=0.45 # Light noise 
+# to ensure mostly straight lines with small bounces don't give heavy noise
+  if [ $(bc -l <<< "$noise > $LIGHT_MAX_NOISE") -eq 1 ]; then
+    if [ $(bc -l <<< "($sod / $n) < 3") -eq 1 ]; then
+     noise=$CLEAN_MAX_NOISE # very small up/downs shouldn't cause noise 
+    elif [ $(bc -l <<< "($sod / $n) < 6") -eq 1 ]; then
+     noise=$LIGHT_MAX_NOISE # small up/downs shouldn't cause Medium Heavy noise
+    fi
   fi
 
 # get latest filtered / unfiltered for variation check
@@ -123,7 +132,7 @@ fi
 
 # Cap noise at 1 as the highest value
 if [ $(bc -l <<< "$noise > 1") -eq 1 ]; then
-  noise=1
+  noise=$HEAVY_MAX_NOISE
 fi
 
 noise=$(printf "%.*f\n" 5 $noise)
