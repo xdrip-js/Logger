@@ -6,14 +6,15 @@
 # also added multiplier to get more weight to the latest BG values
 # also added weight for points where the delta shifts from pos to neg or neg to pos (peaks/valleys)
 # the more peaks and valleys, the more noise is amplified
-# add 0.12 for each peak and 0.17 for each valley
+# add 0.15 (times oldness degrading factor) for each valley 
+# add 0.2 (times oldness degrading factor) for each peak
 # allow 18 point rises without adding noise
 
 inputFile=${1:-"${HOME}/myopenaps/monitor/xdripjs/noise-input41.csv"}
 outputFile=${2:-"${HOME}/myopenaps/monitor/xdripjs/noise.json"}
 MAXRECORDS=12
 MINRECORDS=4
-# This variable will be 41minutes unless variation of filtered / unfiltered gives a higher noise, then it will be "lastVariation"
+# This variable will be "41minutes" unless variation of filtered / unfiltered gives a higher noise, then it will be "lastVariation"
 calculatedBy="41minutes"
 
 function ReportNoiseAndExit()
@@ -43,6 +44,7 @@ if [ -e $inputFile ]; then
   n=${#unfilteredArray[@]}
 else
   noise=0.9  # Heavy noise -- no input file 
+  calculatedBy="noInput"
   ReportNoiseAndExit
 fi
 
@@ -50,6 +52,7 @@ fi
 if [ $(bc <<< "$n < $MINRECORDS") -eq 1 ]; then
   # set noise = 0 - unknown
   noise=0.5 # Light noise - not enough records, just starting out
+  calculatedBy="tooFewRecords"
   ReportNoiseAndExit
 fi
 
@@ -62,9 +65,13 @@ for (( i=1; i<$n; i++ ))
 do
   delta=$(bc <<< "${unfilteredArray[$i]} - ${unfilteredArray[$i-1]}")
   if [ $(bc <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$delta < 0") -eq 1 ]; then
-    noise=$(bc -l <<< "$noise + 0.12")
-elif [ $(bc <<< "$lastDelta < 0") -eq 1 -a $(bc <<< "$delta > 0") -eq 1 ]; then
-    noise=$(bc -l <<< "$noise + 0.17")
+    # this is a peak and change of direction
+    # the older the peak, the less add to noise
+    noise=$(bc -l <<< "$noise + 0.2 * (($n - $i * 0.5)/$n)")
+  elif [ $(bc <<< "$lastDelta < 0") -eq 1 -a $(bc <<< "$delta > 0") -eq 1 ]; then
+    # this is a valley and change of direction
+    # the older the valley, the less add to noise
+    noise=$(bc -l <<< "$noise + 0.15 * (($n - $i * 0.5)/$n)")
   fi
 
   absDelta=$delta
