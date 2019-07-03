@@ -18,7 +18,7 @@ else
   echo "numRecords=$numRecords"
 fi
 
-for (( i=8; i<=$(($numRecords - $records41Minutes + 1)); i++ ))
+for (( i=2; i<=$(($numRecords - $records41Minutes + 1)); i++ ))
 do
    tail -n+$i $inputFile | head -$records41Minutes | cut -d',' -f1,3,4 > ${tempFile}.csv
    echo -n `tail -1 ${tempFile}.csv`
