@@ -715,6 +715,7 @@ function  call_logger()
   log "after xdrip-js bg record below ..."
   if [ -e "${LDIR}/entry.json" ]; then
     cat ${LDIR}/entry.json
+    touch ${LDIR}/entry-watchdog
     echo
     glucose=$(cat ${LDIR}/entry.json | jq -M '.[0].glucose')
     unfiltered=$(cat ${LDIR}/entry.json | jq -M '.[0].unfiltered')
@@ -724,6 +725,13 @@ function  call_logger()
       state_id=0x25
       ls -al ${LDIR}/entry.json
       rm ${LDIR}/entry.json
+    fi
+    # remove start/stop message files only if not rebooting and we acted on them
+    if [[ -n "$stopJSON" ]]; then  
+        rm -f $cgm_stop_file
+    fi
+    if [[ -n "$startJSON" ]]; then  
+        rm -f $cgm_start_file
     fi
   else
     state_id=0x24
@@ -1524,7 +1532,7 @@ function bt_watchdog()
   logfiledir=/var/log/openaps
   logfilename=logger-reset-log.txt
   minutes=14
-  xdrip_errors=`find ${HOME}/myopenaps/monitor/xdripjs -mmin -$minutes -type f -name "*entry.json" | grep entry.json; find $logfiledir -mmin -$minutes -type f -name $logfilename`
+  xdrip_errors=`find ${LDIR} -mmin -$minutes -type f -name entry-watchdog; find $logfiledir -mmin -$minutes -type f -name $logfilename`
   if [ -z "$xdrip_errors" ]
   then
     logfile=$logfiledir/$logfilename
@@ -1539,10 +1547,6 @@ function bt_watchdog()
     else
       echo "Not rebooting because watchdog preference is false" | tee -a $logfile
     fi
-  else
-    # remove start/stop message files only if not rebooting
-    rm -f $cgm_stop_file
-    rm -f $cgm_start_file
   fi
 }
 
