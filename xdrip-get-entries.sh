@@ -57,6 +57,13 @@ main()
 
   log "Using Bluetooth Watchdog: $watchdog"
 
+  fakemeter_only_offline=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.fakemeter_only_offline')
+  if [ -z  "$fakemeter_only_offline" ] || [ "$fakemeter_only_offline" == "null" ]; then
+    fakemeter_only_offline=false
+  fi
+
+  log "Using fakemeter only while offline: $fakemeter_only_offline"
+
   alternateBluetoothChannel=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.alternate_bluetooth_channel')
   if [ -z  "$alternateBluetoothChannel" ] || [ "$alternateBluetoothChannel" == "null" ]; then
     alternateBluetoothChannel=false
@@ -69,7 +76,7 @@ main()
   id="Dexcom${id2}"
   rig="openaps://$(hostname)"
   glucoseType="unfiltered"
-  noiseSend=0 # default unknown
+  noiseSend=4 # default heavy
   UTC=" -u "
   lastGlucose=0
   lastGlucoseDate=0
@@ -175,7 +182,7 @@ main()
 
   check_battery_status
 
-  log_g5_csv
+  log_cgm_csv
 
   process_announcements
   post_cgm_ns_pill
@@ -253,6 +260,11 @@ function log
 
 function fake_meter()
 {
+  if [[ "$fakemeter_only_offline" == true && !$(~/src/Logger/bin/logger-online.sh) ]]; then
+    log  "Not running fakemeter because fakemeter_only_offline=true and not offline"
+    return
+  fi
+
   if [ -e "/usr/local/bin/fakemeter" ]; then
     if [ -d ~/myopenaps/plugins/once ]; then
         scriptf=~/myopenaps/plugins/once/run_fakemeter.sh
@@ -387,7 +399,7 @@ function check_battery_status()
 
    if [ "$battery_check" == "Yes" ]; then
      g5_status=$(jq ".status" $file)
-     battery_msg="g5_status=$g5_status, voltagea=$voltagea, voltageb=$voltageb, resist=$resist, runtime=$runtime days, temp=$temperature celcius"
+     battery_msg="tx_status=$g5_status, voltagea=$voltagea, voltageb=$voltageb, resist=$resist, runtime=$runtime days, temp=$temperature celcius"
     
      echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Note\",\"notes\":\"Battery $battery_msg\"}]" > ${LDIR}/cgm-battery-status.json
      /usr/local/bin/cgm-post-ns ${LDIR}/cgm-battery-status.json treatments && (echo; log "Upload to NightScout of battery status change worked") || (echo; log "Upload to NS of battery status change did not work")
@@ -707,7 +719,7 @@ function  call_logger()
     glucose=$(cat ${LDIR}/entry.json | jq -M '.[0].glucose')
     unfiltered=$(cat ${LDIR}/entry.json | jq -M '.[0].unfiltered')
     unfiltered=$(bc -l <<< "scale=0; $unfiltered / 1000")
-    if [ $(bc  -l <<< "$unfiltered < 30") -eq 1 -o $(bc -l <<< "$unfiltered > 500") -eq 1 ]; then 
+    if [ $(bc  -l <<< "$unfiltered < 20") -eq 1 -o $(bc -l <<< "$unfiltered > 500") -eq 1 ]; then 
       error="Invalid response - Unfiltered = $unfiltered"
       state_id=0x25
       ls -al ${LDIR}/entry.json
@@ -830,15 +842,20 @@ function set_entry_fields()
 }
 
 
-function log_g5_csv()
+function log_cgm_csv()
 {
-  file="/var/log/openaps/g5.csv"
+  file="/var/log/openaps/cgm.csv"
   noise_percentage=$(bc <<< "$noise * 100")
+
+  noiseToLog=${noise}
+  if [ "$noiseToLog" == "null" -o "$noiseToLog" == "" ]; then
+    noiseToLog="Other"
+  fi
 
   if [ ! -f $file ]; then
     echo "epochdate,datetime,unfiltered,filtered,direction,calibratedBG-lsr,cgm-glucose,meterbg,slope,yIntercept,slopeError,yError,rSquared,Noise,NoiseSend,mode,noise*100,sensitivity,rssi" > $file 
   fi
-  echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${glucose},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noise},${noiseSend},${mode},${noise_percentage},${sensitivity},${rssi}" >> $file 
+  echo "${epochdate},${datetime},${unfiltered},${filtered},${direction},${calibratedBG},${glucose},${meterbg},${slope},${yIntercept},${slopeError},${yError},${rSquared},${noiseToLog},${noiseSend},${mode},${noise_percentage},${sensitivity},${rssi}" >> $file 
 }
 
 
@@ -1237,11 +1254,6 @@ function process_delta()
     da=$(bc <<< "0 - $da")
   fi
 
-  if [ $(bc <<< "$dg > $maxDelta") -eq 1 -o $(bc <<< "$dg < (0 - $maxDelta)") -eq 1 ]; then
-    log "Change $dg out of range [$maxDelta,-${maxDelta}] - setting noise=Heavy"
-    noiseSend=4
-  fi
-
   cp ${LDIR}/entry.json ${LDIR}/entry-before-calibration.json
 
   tmp=$(mktemp)
@@ -1328,76 +1340,49 @@ function process_delta()
 
 function calculate_noise()
 {
-  echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ${LDIR}/noise-input.csv
+  noise_input="${LDIR}/noise-input41.csv"
+  truncate -s 0 ${noise_input}
 
   # calculate the noise and position it for updating the entry sent to NS and xdripAPS
-  if [ $(bc -l <<< "$noiseSend == 0") -eq 1 ]; then
-    # means that noise was not already set before
-    # get last 41 minutes (approx 7 BG's) from monitor/glucose to better support multiple rigs
-    # be able to support multiple rigs running openaps / Logger at same time. 
-    epms15=$(bc -l <<< "$epochdate *1000  - 41*60000")
-    glucosejqstr="'[ .[] | select(.date > $epms15) ]'"
-    bash -c "jq -c $glucosejqstr ~/myopenaps/monitor/glucose.json" > ${LDIR}/last41minutes.json
-    date41=( $(jq -r ".[].date" ${LDIR}/last41minutes.json) )
-    gluc41=( $(jq -r ".[].glucose" ${LDIR}/last41minutes.json) )
-    unf41=( $(jq -r ".[].unfiltered" ${LDIR}/last41minutes.json) )
-    fil41=( $(jq -r ".[].filtered" ${LDIR}/last41minutes.json) )
+  # get last 41 minutes (approx 7 BG's) from monitor/glucose to better support multiple rigs
+  # be able to support multiple rigs running openaps / Logger at same time. 
+  epms41=$(bc -l <<< "$epochdate *1000  - 41*60000")
+  glucosejqstr="'[ .[] | select(.date > $epms41) | select(.unfiltered > 0) ]'"
+  bash -c "jq -c $glucosejqstr ~/myopenaps/monitor/glucose.json" > ${LDIR}/last41minutes.json
+  date41=( $(jq -r ".[].date" ${LDIR}/last41minutes.json) )
+  gluc41=( $(jq -r ".[].glucose" ${LDIR}/last41minutes.json) )
+  unf41=( $(jq -r ".[].unfiltered" ${LDIR}/last41minutes.json) )
+  fil41=( $(jq -r ".[].filtered" ${LDIR}/last41minutes.json) )
 
-    usedRecords=${#gluc41[@]}
-    log "usedRecords=$usedRecords last 41 minutes = ${gluc41[@]}"
+  usedRecords=${#gluc41[@]}
+  log "usedRecords=$usedRecords last 41 minutes = ${gluc41[@]}"
 
-    truncate -s 0 ${LDIR}/noise-input41.csv
-    for (( i=$usedRecords-1; i>=0; i-- ))
-    do
-      dateSeconds=$(bc <<< "${date41[$i]} / 1000")
-      echo "$dateSeconds,${unf41[$i]},${fil41[$i]},${gluc41[$i]}" >> ${LDIR}/noise-input41.csv
-    done
-    echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ${LDIR}/noise-input41.csv
+  for (( i=$usedRecords-1; i>=0; i-- ))
+  do
+    dateSeconds=$(bc <<< "${date41[$i]} / 1000")
+    echo "$dateSeconds,${unf41[$i]},${fil41[$i]},${gluc41[$i]}" >> ${noise_input}
+  done
+  echo "${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ${noise_input}
 
-    if [ -e "/usr/local/bin/cgm-calc-noise-go" ]; then
-      # use the go-based version
-      noise_cmd="/usr/local/bin/cgm-calc-noise-go"
-      #log "calculating noise using go-based version"
-    else 
-      noise_cmd="/usr/local/bin/cgm-calc-noise"
-      #log "calculating noise using bash-based version"
-    fi
-    # TODO: fix go-based version
-    # TODO: resolve issue with input41.csv
-    noise_cmd="/usr/local/bin/cgm-calc-noise"
-    log "calculating noise using bash-based version"
-    $noise_cmd 
+  cgm-calc-noise ${noise_input} 
 
-    if [ -e ${LDIR}/noise.json ]; then
-      noise=`jq -M '.[0] .noise' ${LDIR}/noise.json` 
-      # remove issue where jq returns scientific notation, convert to decimal
-      noise=$(awk -v noise="$noise" 'BEGIN { printf("%.2f", noise) }' </dev/null)
-      log "Raw noise of $noise will be used to determine noiseSend value."
-    fi
-
-    if [ $(bc -l <<< "$noise < 0.45") -eq 1 ]; then
-      noiseSend=1
-      noiseString="Clean"
-    elif [ $(bc -l <<< "$noise < 0.55") -eq 1 ]; then
-      noiseSend=2
-      noiseString="Light"
-    elif [ $(bc -l <<< "$noise < 0.7") -eq 1 ]; then
-      noiseSend=3 
-      noiseString="Medium"
-    elif [ $(bc -l <<< "$noise >= 0.7") -eq 1 ]; then
-      noiseSend=4  
-      noiseString="Heavy"
-    fi
+  if [ -e ${LDIR}/noise.json ]; then
+    noise=`jq -M '.[0] .noise' ${LDIR}/noise.json` 
+    noiseSend=`jq -M '.[0] .noiseSend' ${LDIR}/noise.json` 
+    noiseString=`jq -M '.[0] .noiseString' ${LDIR}/noise.json` 
+    noiseString="${noiseString%\"}"
+    noiseString="${noiseString#\"}"
+    # remove issue where jq returns scientific notation, convert to decimal
+    noise=$(awk -v noise="$noise" 'BEGIN { printf("%.2f", noise) }' </dev/null)
   fi
 
-  if [ $(bc <<< "$variation >= 20") -eq 1 -o  $(bc  <<< "$variation <= -20") -eq 1 ]; then
-      noiseSend=4  
-      noiseString="Heavy"
-      log "setting noise to heavy because - filtered/unfiltered variation of $variation exceeds 20%"
+  if [[ $noiseSend < 2 && $orig_status != "OK" && $orig_status != *"alibration"*  ]]; then
+      noiseSend=2  
+      noiseString="Light"
+      log "setting noise to $noiseString because of tx status of $orig_status"
   fi
 
   tmp=$(mktemp)
-  #noiseSend=1
   jq ".[0].noise = $noiseSend" ${LDIR}/entry-xdrip.json > "$tmp" && mv "$tmp" ${LDIR}/entry-xdrip.json
 }
 

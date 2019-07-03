@@ -105,6 +105,7 @@ You can edit the following options values in the configuration file (~/myopenaps
 	{"fake_meter_id":"000000"}, Optional - meterid for fakemeter sending glucose records to pump, default is "000000"
 	{"alternate_bluetooth_channel":true or false} Optional - Default is false. If set to true then Logger uses the alternate channel to connect to the Dexcom transmitter. If set to true the receiver cannot be used. However, when set to true, either the Xdip Plus android app or the Dexcom Iphone app can be used alongside Logger. Keep in mind that there is a higher chance for bluetooth conflict when connecting to the transmitter with both channels. You may be able to avoid some reconnects by keeping the rig and the phone app physically separated by several inches.
 	{"watchdog":true or false}, Optional - Default is true. If set to true then Logger will automatically reboot the rig to resolve bluetooth issues if no glucose is seen from the transmitter in more than 14 minutes.
+	{"fakemeter_only_offline":true or false}, Optional - Default is false. If set to false then Logger will not attempt to call fakemeter unless the rig is offline. 
 
 ## Getting Started
 First, make sure you've checked the Prerequisites above and completed the Installation steps. Afterwords, perform the following steps:
@@ -145,3 +146,10 @@ Since the timer only allows communications for a few seconds every 5 minutes, is
 3) Turn off every other possible dexcom connection and try connecting with the tx with the official Dexcom app. This will only work if you have a non-expired tx or have successfully reset it earlier.
 4) Try a different transmitter (if you have one). If this works, then the other tx has an issue, usually battery related.
 5) Try a different rig (if you have one). If this works, then the other rig or it's install/configuration is likely the culprit.
+
+If you have network connectivity on the rig, but BG values are not showing up on NightScout, then run the following command which should retrieve the last BG Check Treatment posted to NightScout. Review any errors that the command returns and re-check your NIGHTSCOUT_HOST and API_SECRET environment variables.
+``` 
+curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[eventType\]\[\$regex\]=Check&count=1"
+```
+
+To check recent reported BG noise levels, run the command line utility ```cgm-noise```

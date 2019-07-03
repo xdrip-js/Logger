@@ -2,99 +2,139 @@
 
 #"${epochdate},${unfiltered},${filtered},${calibratedBG}" >> ./noise-input.csv
 # calculate the noise from csv input (format shown above) and put the noise in ./noise.json
-# calculated noise is a floating point number from 0 to 1 where 0 is the cleanest and 1 is the noisiest
-#
-# Calculate the sum of the distance of all points (overallDistance)
-# Calculate the overall distance of between the first and last point (sod)
-# Calculate noise as the following formula 1 - sod/overallDistance
-# noise will get closer to zero as the sum of the individual lines are mostly in a straight or straight moving curve
-# noise will get closer to one as the sum of the distance of the individual lines gets large 
+# noise is a floating point number from 0 to 1 where 0 is the cleanest and 1 is the noisiest
 # also added multiplier to get more weight to the latest BG values
 # also added weight for points where the delta shifts from pos to neg or neg to pos (peaks/valleys)
 # the more peaks and valleys, the more noise is amplified
+# add 0.15 (times oldness degrading factor) for each valley 
+# add 0.2 (times oldness degrading factor) for each peak
+# allow 18 point rises without adding noise
 
-INPUT=${1:-"${HOME}/myopenaps/monitor/xdripjs/noise-input.csv"}
-OUTPUT=${2:-"${HOME}/myopenaps/monitor/xdripjs/noise.json"}
+inputFile=${1:-"${HOME}/myopenaps/monitor/xdripjs/noise-input41.csv"}
+outputFile=${2:-"${HOME}/myopenaps/monitor/xdripjs/noise.json"}
 MAXRECORDS=12
 MINRECORDS=4
-noise=0
+NO_NOISE=0.00
+CLEAN_MAX_NOISE=0.45
+LIGHT_MAX_NOISE=0.55
+MEDIUM_MAX_NOISE=0.70
+HEAVY_MAX_NOISE=1.00
+# This variable will be "41minutes" unless variation of filtered / unfiltered gives a higher noise, then it will be "lastVariation"
+calculatedBy="41minutes"
 
 function ReportNoiseAndExit()
 {
-  echo "[{\"noise\":$noise}]" > $OUTPUT
-  cat $OUTPUT
+  if [ $(bc -l <<< "$noise <= $CLEAN_MAX_NOISE ") -eq 1 ]; then
+      noiseSend=1
+      noiseString="Clean"
+  elif [ $(bc -l <<< "$noise <= $LIGHT_MAX_NOISE") -eq 1 ]; then
+    noiseSend=2
+    noiseString="Light"
+  elif [ $(bc -l <<< "$noise <= $MEDIUM_MAX_NOISE") -eq 1 ]; then
+    noiseSend=3
+    noiseString="Medium"
+  elif [ $(bc -l <<< "$noise > $MEDIUM_MAX_NOISE") -eq 1 ]; then
+    noiseSend=4
+    noiseString="Heavy"
+  fi
+
+  echo "[{\"noise\":$noise, \"noiseSend\":$noiseSend, \"noiseString\":\"$noiseString\",\"calculatedBy\":\"$calculatedBy\"}]" > $outputFile
+  cat $outputFile
   exit
 }
 
-if [ -e $INPUT ]; then
-  yarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f2 ) )
-  xdate=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f1 ) )
-  n=${#yarr[@]}
+if [ -e $inputFile ]; then
+  unfilteredArray=( $(tail -$MAXRECORDS $inputFile | cut -d ',' -f2 ) )
+  filteredArray=( $(tail -$MAXRECORDS $inputFile | cut -d ',' -f3 ) )
+  n=${#unfilteredArray[@]}
 else
-  noise=0
+  noise=$HEAVY_MAX_NOISE  # Heavy if no input file 
+  calculatedBy="noInput"
   ReportNoiseAndExit
 fi
 
-#    set initial x values based on date differences
 
 if [ $(bc <<< "$n < $MINRECORDS") -eq 1 ]; then
   # set noise = 0 - unknown
-  noise=0
-	#echo "noise = 0 no records"
+  noise=$LIGHT_MAX_NOISE # Light if not enough records, just starting out
+  calculatedBy="tooFewRecords"
   ReportNoiseAndExit
 fi
 
-firstDate=${xdate[0]}
-for (( i=0; i<$n; i++ ))
-do
-  xarr[$i]=$(bc <<< "(${xdate[$i]} - $firstDate) * 30") # use 30 multiplier to normalize axis
-#  echo "x,y=${xarr[$i]},${yarr[$i]}"
-done
+#echo ${unfilteredArray[@]}
+#echo ${filteredArray[@]}
 
-#echo ${xarr[@]}
-#echo ${xdate[@]}
-#echo ${yarr[@]}
-
-# sod = sum of distances
 sod=0
-overallDistance=0
-
 lastDelta=0
+noise=$NO_NOISE
 for (( i=1; i<$n; i++ ))
 do
-  # time-based multiplier 
-  # y2y1Delta adds a multiplier that gives 
-  # higher priority to the latest BG's
-  y2y1Delta=$(bc -l  <<< "(${yarr[$i]} - ${yarr[$i-1]}) * (1 +  $i/($n * 4))")
-  x2x1Delta=$(bc  <<< "${xarr[$i]} - ${xarr[$i-1]}")
-  #echo "x delta=$x2x1Delta, y delta=$y2y1Delta" 
-  if [ $(bc <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$y2y1Delta < 0") -eq 1 ]; then
-    # for this single point, bg switched from positive delta to negative, increase noise impact  
-    # this will not effect noise to much for a normal peak, but will increase the overall noise value
-    # in the case that the trend goes up/down multiple times such as the bounciness of a dying sensor's signal 
-    y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.3")
-  elif [ $(bc -l <<< "$lastDelta < 0") -eq 1 -a $(bc -l <<< "$y2y1Delta > 0") -eq 1 ]; then
-    # switched from negative delta to positive, increase noise impact 
-    # in this case count the noise a bit more because it could indicate a big "false" swing upwards which could
-    # be troublesome if it is a false swing upwards and a loop algorithm takes it into account as "clean"
-    y2y1Delta=$(bc -l <<< "${y2y1Delta} * 1.3")
+  delta=$(bc <<< "${unfilteredArray[$i]} - ${unfilteredArray[$i-1]}")
+  if [ $(bc <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$delta < 0") -eq 1 ]; then
+    # this is a peak and change of direction
+    # the older the peak, the less add to noise
+    noise=$(bc -l <<< "$noise + 0.2 * (($n - $i * 0.5)/$n)")
+  elif [ $(bc <<< "$lastDelta < 0") -eq 1 -a $(bc <<< "$delta > 0") -eq 1 ]; then
+    # this is a valley and change of direction
+    # the older the valley, the less add to noise
+    noise=$(bc -l <<< "$noise + 0.15 * (($n - $i * 0.5)/$n)")
   fi
-  lastDelta=$y2y1Delta
 
-  #echo "yDelta=$y2y1Delta, xDelta=$x2x1Delta"
-  sod=$(bc  -l <<< "$sod + sqrt(($x2x1Delta)^2 + ($y2y1Delta)^2)")
-done  
+  absDelta=$delta
+  if [ $(bc <<< "$delta < 0") -eq 1 ]; then
+    absDelta=$(bc <<< "0 - $delta")
+  fi
+  # calculate sum of distances (all deltas) 
+  sod=$(bc <<< "$sod + $absDelta")
 
-overallDistance=$(bc -l <<< "sqrt((${yarr[$n-1]} - ${yarr[0]})^2 + (${xarr[$n-1]} - ${xarr[0]})^2)")
+  # Any single jump amount over 18 increases noise linearly
+  remainder=$(bc <<< "$absDelta - 18")
+  if [ $(bc <<< "$remainder > 0") -eq 1 ]; then
+    # noise higher impact for latest bg, thus the smaller denominator for the remainder fraction 
+    noise=$(bc -l <<< "$noise + $remainder/(300 - $i*30)") 
+  else
+    remainder=0
+  fi
+  
+  #echo "lastdelta=$lastDelta, delta=$delta, remainder=$remainder, 
+  #echo "sod=$sod, noise=$noise, absDelta=$absDelta"
 
-if [ $(bc -l <<< "$sod == 0") -eq 1 ]; then
-  # assume no noise if no records
-  noise = 0
-	#echo "noise = sod == 0"
-else
-  #echo "sod=$sod, overallDistance=$overallDistance"
-  noise=$(bc -l <<< "1 - ($overallDistance/$sod)")
-	#echo "noise = $noise"
+  lastDelta=$delta
+done
+
+# to ensure mostly straight lines with small bounces don't give heavy noise
+  if [ $(bc -l <<< "$noise > $LIGHT_MAX_NOISE") -eq 1 ]; then
+    if [ $(bc -l <<< "($sod / $n) < 3") -eq 1 ]; then
+     noise=$CLEAN_MAX_NOISE # very small up/downs shouldn't cause noise 
+    elif [ $(bc -l <<< "($sod / $n) < 6") -eq 1 ]; then
+     noise=$LIGHT_MAX_NOISE # small up/downs shouldn't cause Medium Heavy noise
+    fi
+  fi
+
+# get latest filtered / unfiltered for variation check
+filtered=${filteredArray[$n-1]}
+unfiltered=${unfilteredArray[$n-1]}
+#echo "filtered=$filtered, unfiltered=$unfiltered"
+# calculate alternate form of noise from last variation
+variationNoise=$(bc -l <<< "((($filtered - $unfiltered) * 1.3) / $filtered)")
+
+# make sure the variationNoise is positive
+if [ $(bc -l <<< "$variationNoise < 0") -eq 1 ]; then
+  variationNoise=$(bc -l <<< "0 - $variationNoise")
 fi
+
+
+# If the variationNoise is higher than the 41minute calculated noise, then use variationNoise it instead
+if [ $(bc -l <<< "$variationNoise > $noise") -eq 1 ]; then
+  noise=$variationNoise
+  calculatedBy="lastVariation"
+fi 
+
+# Cap noise at 1 as the highest value
+if [ $(bc -l <<< "$noise > 1") -eq 1 ]; then
+  noise=$HEAVY_MAX_NOISE
+fi
+
 noise=$(printf "%.*f\n" 5 $noise)
 ReportNoiseAndExit
+
