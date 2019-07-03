@@ -719,7 +719,7 @@ function  call_logger()
     glucose=$(cat ${LDIR}/entry.json | jq -M '.[0].glucose')
     unfiltered=$(cat ${LDIR}/entry.json | jq -M '.[0].unfiltered')
     unfiltered=$(bc -l <<< "scale=0; $unfiltered / 1000")
-    if [ $(bc  -l <<< "$unfiltered < 30") -eq 1 -o $(bc -l <<< "$unfiltered > 500") -eq 1 ]; then 
+    if [ $(bc  -l <<< "$unfiltered < 20") -eq 1 -o $(bc -l <<< "$unfiltered > 500") -eq 1 ]; then 
       error="Invalid response - Unfiltered = $unfiltered"
       state_id=0x25
       ls -al ${LDIR}/entry.json
