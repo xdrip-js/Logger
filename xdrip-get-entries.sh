@@ -57,6 +57,13 @@ main()
 
   log "Using Bluetooth Watchdog: $watchdog"
 
+  fakemeter_only_offline=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.fakemeter_only_offline')
+  if [ -z  "$fakemeter_only_offline" ] || [ "$fakemeter_only_offline" == "null" ]; then
+    fakemeter_only_offline=false
+  fi
+
+  log "Using fakemeter only while offline: $fakemeter_only_offline"
+
   alternateBluetoothChannel=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.alternate_bluetooth_channel')
   if [ -z  "$alternateBluetoothChannel" ] || [ "$alternateBluetoothChannel" == "null" ]; then
     alternateBluetoothChannel=false
@@ -253,6 +260,11 @@ function log
 
 function fake_meter()
 {
+  if [[ "$fakemeter_only_offline" == true && !$(~/src/Logger/bin/logger-online.sh) ]]; then
+    log  "Not running fakemeter because fakemeter_only_offline=true and not offline"
+    return
+  fi
+
   if [ -e "/usr/local/bin/fakemeter" ]; then
     if [ -d ~/myopenaps/plugins/once ]; then
         scriptf=~/myopenaps/plugins/once/run_fakemeter.sh
