@@ -6,7 +6,7 @@
 # also added multiplier to get more weight to the latest BG values
 # also added weight for points where the delta shifts from pos to neg or neg to pos (peaks/valleys)
 # the more peaks and valleys, the more noise is amplified
-# add 0.09 (times oldness degrading factor) for each peak/valley 
+# add 0.06 (times oldness degrading factor) for each peak/valley 
 # allow 7 point rises without adding noise
 
 inputFile=${1:-"${HOME}/myopenaps/monitor/xdripjs/noise-input41.csv"}
