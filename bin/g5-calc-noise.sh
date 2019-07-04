@@ -6,18 +6,19 @@
 # also added multiplier to get more weight to the latest BG values
 # also added weight for points where the delta shifts from pos to neg or neg to pos (peaks/valleys)
 # the more peaks and valleys, the more noise is amplified
-# add 0.15 (times oldness degrading factor) for each valley 
-# add 0.2 (times oldness degrading factor) for each peak
-# allow 18 point rises without adding noise
+# add 0.09 (times oldness degrading factor) for each peak/valley 
+# allow 7 point rises without adding noise
 
 inputFile=${1:-"${HOME}/myopenaps/monitor/xdripjs/noise-input41.csv"}
 outputFile=${2:-"${HOME}/myopenaps/monitor/xdripjs/noise.json"}
 MAXRECORDS=12
 MINRECORDS=4
+PEAK_VALLEY_FACTOR=0.06 # Higher means more weight on peaks / valleys
+RISE_WITHOUT_ADDED_NOISE=7 # Lower means more weight on deltas
 NO_NOISE=0.00
 CLEAN_MAX_NOISE=0.45
-LIGHT_MAX_NOISE=0.55
-MEDIUM_MAX_NOISE=0.70
+LIGHT_MAX_NOISE=0.65
+MEDIUM_MAX_NOISE=0.75
 HEAVY_MAX_NOISE=1.00
 # This variable will be "41minutes" unless variation of filtered / unfiltered gives a higher noise, then it will be "lastVariation"
 calculatedBy="41minutes"
@@ -73,11 +74,11 @@ do
   if [ $(bc <<< "$lastDelta > 0") -eq 1 -a $(bc <<< "$delta < 0") -eq 1 ]; then
     # this is a peak and change of direction
     # the older the peak, the less add to noise
-    noise=$(bc -l <<< "$noise + 0.2 * (($n - $i * 0.5)/$n)")
+    noise=$(bc -l <<< "$noise + $PEAK_VALLEY_FACTOR * (($n - $i * 0.5)/$n)")
   elif [ $(bc <<< "$lastDelta < 0") -eq 1 -a $(bc <<< "$delta > 0") -eq 1 ]; then
     # this is a valley and change of direction
     # the older the valley, the less add to noise
-    noise=$(bc -l <<< "$noise + 0.15 * (($n - $i * 0.5)/$n)")
+    noise=$(bc -l <<< "$noise + $PEAK_VALLEY_FACTOR * (($n - $i * 0.5)/$n)")
   fi
 
   absDelta=$delta
@@ -87,8 +88,8 @@ do
   # calculate sum of distances (all deltas) 
   sod=$(bc <<< "$sod + $absDelta")
 
-  # Any single jump amount over 18 increases noise linearly
-  remainder=$(bc <<< "$absDelta - 18")
+  # Any single jump amount over a certain limit increases noise linearly
+  remainder=$(bc <<< "$absDelta - $RISE_WITHOUT_ADDED_NOISE")
   if [ $(bc <<< "$remainder > 0") -eq 1 ]; then
     # noise higher impact for latest bg, thus the smaller denominator for the remainder fraction 
     noise=$(bc -l <<< "$noise + $remainder/(300 - $i*30)") 
@@ -96,17 +97,17 @@ do
     remainder=0
   fi
   
-  #echo "lastdelta=$lastDelta, delta=$delta, remainder=$remainder, 
+  #echo "lastdelta=$lastDelta, delta=$delta, remainder=$remainder" 
   #echo "sod=$sod, noise=$noise, absDelta=$absDelta"
 
   lastDelta=$delta
 done
 
 # to ensure mostly straight lines with small bounces don't give heavy noise
-  if [ $(bc -l <<< "$noise > $LIGHT_MAX_NOISE") -eq 1 ]; then
-    if [ $(bc -l <<< "($sod / $n) < 3") -eq 1 ]; then
+  if [ $(bc -l <<< "$noise > $CLEAN_MAX_NOISE") -eq 1 ]; then
+    if [ $(bc -l <<< "($sod / $n) < 6") -eq 1 ]; then
      noise=$CLEAN_MAX_NOISE # very small up/downs shouldn't cause noise 
-    elif [ $(bc -l <<< "($sod / $n) < 6") -eq 1 ]; then
+    elif [ $(bc -l <<< "($sod / $n) < 9") -eq 1 ]; then
      noise=$LIGHT_MAX_NOISE # small up/downs shouldn't cause Medium Heavy noise
     fi
   fi
