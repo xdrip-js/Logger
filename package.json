@@ -1,6 +1,6 @@
 {
   "name": "Logger",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Logger xdrip openaps",
   "main": "logger/index.js",
   "license": "MIT",
