@@ -17,7 +17,7 @@ PEAK_VALLEY_FACTOR=0.06 # Higher means more weight on peaks / valleys
 RISE_WITHOUT_ADDED_NOISE=7 # Lower means more weight on deltas
 NO_NOISE=0.00
 CLEAN_MAX_NOISE=0.45
-LIGHT_MAX_NOISE=0.65
+LIGHT_MAX_NOISE=0.60
 MEDIUM_MAX_NOISE=0.75
 HEAVY_MAX_NOISE=1.00
 # This variable will be "41minutes" unless variation of filtered / unfiltered gives a higher noise, then it will be "lastVariation"
