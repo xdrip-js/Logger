@@ -581,8 +581,8 @@ function  check_cmd_line_calibration()
       epochdatems=$(date +'%s%3N')
       if test  `find $CALFILE -mmin -7`
       then
-        log "calibration file $CALFILE contents below"
-        cat $CALFILE
+        log "last 20 records from calibration file $CALFILE contents below"
+        tail -20 $CALFILE
         echo
         calDate=$(jq ".[0].date" $CALFILE)
         # check the date inside to make sure we don't calibrate using old record
@@ -1058,7 +1058,7 @@ function calculate_calibrations()
             /usr/local/bin/cgm-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
             maxDelta=80
             calibrationDone=1
-            cat ${LDIR}/calibrations.csv
+            #cat ${LDIR}/calibrations.csv
             cat ${LDIR}/calibration-linear.json
           fi
         else 
