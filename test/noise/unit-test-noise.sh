@@ -21,7 +21,6 @@ variationTests=(0)
   a=(310 315 320 325) && unit_test
   a=(310 335 305 395) && unit_test
   a=(310 335 480 325) && unit_test
-  return
   a=(110 111 110 110 110 110 110 160) && unit_test
   a=(97 94 96 93 93 94 93 96) && unit_test
   a=(125 123 124 122 122 122 123 124) && unit_test
