@@ -581,8 +581,8 @@ function  check_cmd_line_calibration()
       epochdatems=$(date +'%s%3N')
       if test  `find $CALFILE -mmin -7`
       then
-        log "calibration file $CALFILE contents below"
-        cat $CALFILE
+        log "last 20 records from calibration file $CALFILE contents below"
+        tail -20 $CALFILE
         echo
         calDate=$(jq ".[0].date" $CALFILE)
         # check the date inside to make sure we don't calibrate using old record
@@ -715,6 +715,7 @@ function  call_logger()
   log "after xdrip-js bg record below ..."
   if [ -e "${LDIR}/entry.json" ]; then
     cat ${LDIR}/entry.json
+    touch ${LDIR}/entry-watchdog
     echo
     glucose=$(cat ${LDIR}/entry.json | jq -M '.[0].glucose')
     unfiltered=$(cat ${LDIR}/entry.json | jq -M '.[0].unfiltered')
@@ -724,6 +725,13 @@ function  call_logger()
       state_id=0x25
       ls -al ${LDIR}/entry.json
       rm ${LDIR}/entry.json
+    fi
+    # remove start/stop message files only if not rebooting and we acted on them
+    if [[ -n "$stopJSON" ]]; then  
+        rm -f $cgm_stop_file
+    fi
+    if [[ -n "$startJSON" ]]; then  
+        rm -f $cgm_start_file
     fi
   else
     state_id=0x24
@@ -810,7 +818,9 @@ function checkif_fallback_mode()
 
 function initialize_mode()
 {
-  mode="not-expired"
+  # This is the default so that calibrations from tx generated BG values 
+  #  to reflect in LSR in order to make it safer to allow seamless transition to LSR calibration
+  mode="native-calibrates-lsr"
 
   if [[ "$cmd_line_mode" == "expired" ]]; then
     mode="expired"
@@ -1050,7 +1060,7 @@ function calculate_calibrations()
             /usr/local/bin/cgm-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
             maxDelta=80
             calibrationDone=1
-            cat ${LDIR}/calibrations.csv
+            #cat ${LDIR}/calibrations.csv
             cat ${LDIR}/calibration-linear.json
           fi
         else 
@@ -1524,7 +1534,7 @@ function bt_watchdog()
   logfiledir=/var/log/openaps
   logfilename=logger-reset-log.txt
   minutes=14
-  xdrip_errors=`find ${HOME}/myopenaps/monitor/xdripjs -mmin -$minutes -type f -name "*entry.json" | grep entry.json; find $logfiledir -mmin -$minutes -type f -name $logfilename`
+  xdrip_errors=`find ${LDIR} -mmin -$minutes -type f -name entry-watchdog; find $logfiledir -mmin -$minutes -type f -name $logfilename`
   if [ -z "$xdrip_errors" ]
   then
     logfile=$logfiledir/$logfilename
@@ -1539,10 +1549,6 @@ function bt_watchdog()
     else
       echo "Not rebooting because watchdog preference is false" | tee -a $logfile
     fi
-  else
-    # remove start/stop message files only if not rebooting
-    rm -f $cgm_stop_file
-    rm -f $cgm_start_file
   fi
 }
 
