@@ -14,7 +14,9 @@ outputFile=${2:-"${HOME}/myopenaps/monitor/xdripjs/noise.json"}
 MAXRECORDS=12
 MINRECORDS=3
 PEAK_VALLEY_FACTOR=0.06 # Higher means more weight on peaks / valleys
-RISE_WITHOUT_ADDED_NOISE=7 # Lower means more weight on deltas
+RISE_WITHOUT_ADDED_NOISE=12 # Lower means more weight on deltas
+CLEAN_MAX_AVG_DELTA=6
+LIGHT_MAX_AVG_DELTA=9
 NO_NOISE=0.00
 CLEAN_MAX_NOISE=0.45
 LIGHT_MAX_NOISE=0.60
@@ -105,9 +107,9 @@ done
 
 # to ensure mostly straight lines with small bounces don't give heavy noise
   if [ $(bc -l <<< "$noise > $CLEAN_MAX_NOISE") -eq 1 ]; then
-    if [ $(bc -l <<< "($sod / $n) < 6") -eq 1 ]; then
+    if [ $(bc -l <<< "($sod / $n) < $CLEAN_MAX_AVG_DELTA") -eq 1 ]; then
      noise=$CLEAN_MAX_NOISE # very small up/downs shouldn't cause noise 
-    elif [ $(bc -l <<< "($sod / $n) < 9") -eq 1 ]; then
+    elif [ $(bc -l <<< "($sod / $n) < $LIGHT_MAX_AVG_DELTA") -eq 1 ]; then
      noise=$LIGHT_MAX_NOISE # small up/downs shouldn't cause Medium Heavy noise
     fi
   fi
