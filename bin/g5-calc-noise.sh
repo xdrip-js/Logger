@@ -12,7 +12,7 @@
 inputFile=${1:-"${HOME}/myopenaps/monitor/xdripjs/noise-input41.csv"}
 outputFile=${2:-"${HOME}/myopenaps/monitor/xdripjs/noise.json"}
 MAXRECORDS=12
-MINRECORDS=4
+MINRECORDS=3
 PEAK_VALLEY_FACTOR=0.06 # Higher means more weight on peaks / valleys
 RISE_WITHOUT_ADDED_NOISE=7 # Lower means more weight on deltas
 NO_NOISE=0.00
@@ -57,7 +57,7 @@ fi
 
 if [ $(bc <<< "$n < $MINRECORDS") -eq 1 ]; then
   # set noise = 0 - unknown
-  noise=$LIGHT_MAX_NOISE # Light if not enough records, just starting out
+  noise=$MEDIUM_MAX_NOISE # Light if not enough records, just starting out
   calculatedBy="tooFewRecords"
   ReportNoiseAndExit
 fi
