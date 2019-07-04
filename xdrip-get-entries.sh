@@ -818,7 +818,9 @@ function checkif_fallback_mode()
 
 function initialize_mode()
 {
-  mode="not-expired"
+  # This is the default so that calibrations from tx generated BG values 
+  #  to reflect in LSR in order to make it safer to allow seamless transition to LSR calibration
+  mode="native-calibrates-lsr"
 
   if [[ "$cmd_line_mode" == "expired" ]]; then
     mode="expired"
