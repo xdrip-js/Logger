@@ -7,11 +7,21 @@ outputFile="/tmp/cgm.json"
 
 variation=0
 
-variationTests=(0 5 10 15 20)
+# comment/uncomment based on which test to run
+#variationTests=(0 5 10 15 20)
+variationTests=(0) 
+
   for j in ${variationTests[@]}; do
   variation=$j 
   echo ""
   echo "Testing scenarios where unfiltered / filtered variation = $variation"
+  a=(310) && unit_test
+  a=(310 315) && unit_test
+  a=(310 315 320) && unit_test
+  a=(310 315 320 325) && unit_test
+  a=(310 335 305 395) && unit_test
+  a=(310 335 480 325) && unit_test
+  return
   a=(110 111 110 110 110 110 110 160) && unit_test
   a=(97 94 96 93 93 94 93 96) && unit_test
   a=(125 123 124 122 122 122 123 124) && unit_test
@@ -53,6 +63,7 @@ function unit_test()
   cgmTime=1000000000
   for t in ${a[@]}; do
     filtered=$(($t+$variation))
+    #echo "t=$t, variation=$variation"
     echo "$cgmTime,$t,$filtered,$t" >> $inputFile
     cgmTime=$(bc <<< "$cgmTime + 300")
   done
@@ -60,6 +71,7 @@ function unit_test()
   numRecords=${#a[@]}
   yarr=( $(tail -$numRecords $inputFile | cut -d ',' -f2 ) )
 #  n=${#yarr[@]}
+  #cat $inputFile
   echo -n "${yarr[@]} - "
   cgm-calc-noise $inputFile $outputFile
 }
