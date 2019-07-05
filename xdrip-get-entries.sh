@@ -358,12 +358,9 @@ function check_utc()
     if [ ${#createdAt} -le 4 ]; then
       log "You must record a \"Sensor Insert\" in Nightscout before Logger will run" 
       log "If you are offline at the moment (no internet) then this warning is OK"
-      #log "exiting\n"
       state_id=0x23
       state="Needs NS CGM Sensor Insert" ; stateString=$state ; stateStringShort=$state
       post_cgm_ns_pill
-      # don't exit here -- offline mode will not work if exit here
-      # exit
     elif [[ $createdAt == *"Z"* ]]; then
       UTC=" -u "
       log "NS is using UTC $UTC"      
@@ -436,12 +433,6 @@ function check_sensor_stop()
     return
   fi
 
-  if [ "$mode" == "expired" ];then
-    # can't stop sensor on an expired tx
-    #TODO: check if truly expired and return if so, otherwise process sensor stop
-    log "Mode is expired, but checking for sensor stop regardless"
-  fi
-
   file="${LDIR}/nightscout_sensor_stop_treatment.json"
   rm -f $file
   curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "3 hours ago" -Ihours $UTC)&find\[eventType\]\[\$regex\]=Sensor.Stop&count=1" 2>/dev/null > $file
@@ -473,12 +464,6 @@ function check_sensor_start()
 {
   if [ "$mode" == "read-only" ]; then
     return
-  fi
-
-  if [ "$mode" == "expired" ];then
-    # can't start sensor on an expired tx
-    #TODO: check if truly expired and return if so, otherwise process sensor start
-    log "Mode is expired, but checking for sensor start regardless"
   fi
 
   file="${LDIR}/nightscout_sensor_start_treatment.json"
@@ -811,7 +796,7 @@ function checkif_fallback_mode()
       # fallback to try to use unfiltered in this case
       mode="expired"
       fallback=true
-      echo "Due to glucose out of range, Logger will temporarily fallback to mode=$mode"
+      echo "Due to tx calibrated glucose of $glucose, Logger will temporarily fallback to mode=$mode"
     fi
   fi
 }
@@ -822,12 +807,6 @@ function initialize_mode()
   #  to reflect in LSR in order to make it safer to allow seamless transition to LSR calibration
   mode="native-calibrates-lsr"
 
-  if [[ "$cmd_line_mode" == "expired" ]]; then
-    mode="expired"
-  fi
-  if [[ "$cmd_line_mode" == "native-calibrates-lsr" ]]; then
-    mode="native-calibrates-lsr"
-  fi
   if [[ "$cmd_line_mode" == "read-only" ]]; then
     mode="read-only"
   fi
@@ -927,7 +906,7 @@ function check_native_calibrates_lsr()
     # every 6 hours, calibrate LSR algo. via native dexcom glucose value:
     # (note: _does not_ calibrate tx, since this is only called after the tx comm is over.)
     if [ $(bc <<< "$(date +'%H') % 6") -eq 0 ]; then
-      if [ $(bc <<< "$(date +'%M')") -lt 5 ]; then
+      if [ $(bc <<< "$(date +'%M')") -lt 6 ]; then
         if [ $(bc <<< "$glucose < 400") -eq 1  -a $(bc <<< "$glucose > 40") -eq 1 ]; then
           meterbg=$glucose
           meterbgid=$(date +"%Y-%m-%dT%H:%M:%S%:z")
@@ -982,6 +961,7 @@ function check_variation()
   if [ "$mode" == "read-only" ]; then
     return
   fi
+
   variation=$(bc <<< "($filtered - $unfiltered) * 100 / $filtered")
   if [[ "$found_meterbg" == true ]]; then
     if [ $(bc <<< "$variation > 10") -eq 1 -o $(bc <<< "$variation < -10") -eq 1 ]; then
@@ -1040,6 +1020,7 @@ function calculate_calibrations()
   if [ "$mode" == "read-only" ]; then
     return
   fi
+
   calibrationDone=0
   if [ -n $meterbg ]; then 
     if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
@@ -1078,6 +1059,7 @@ function apply_lsr_calibration()
   if [ "$mode" == "read-only" ]; then
     return
   fi
+
   if [ -e ${LDIR}/calibration-linear.json ]; then
     #TODO: store calibration date in json file and read here
     slope=`jq -M '.[0] .slope' ${LDIR}/calibration-linear.json` 
@@ -1435,6 +1417,7 @@ function check_recent_sensor_insert()
   if [ "$mode" == "read-only" ]; then
     return
   fi
+
   # check if sensor inserted in last 12 hours.
   # If so, clear calibration inputs and only calibrate using single point calibration
   # do not keep the calibration records within the first 12 hours as they might skew LSR
