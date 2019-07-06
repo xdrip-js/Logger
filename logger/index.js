@@ -124,6 +124,23 @@ function SensorStateString(state) {
 
 const transmitter = new Transmitter(id, () => messages, alternateBluetooth); 
 
+transmitter.on('calibrationData', (data) => {
+  const util = require('util')
+  console.log(util.inspect(data, false, null))
+
+  var fs = require('fs');
+  const calibrationData = JSON.stringify(data);
+  fs.writeFile("/root/myopenaps/monitor/xdripjs/tx-calibration-data.json", calibrationData, function(err) {
+  if(err) {
+      console.log("Error while writing tx-calibration-data.json");
+      console.log(err);
+      }
+  });
+}
+
+  process.exit();
+});
+
 transmitter.on('glucose', glucose => {
   //console.log('got glucose: ' + glucose.glucose);
   var d= new Date(glucose.readDate);
@@ -165,14 +182,13 @@ transmitter.on('glucose', glucose => {
             console.log("Error while writing entry.json");
             console.log(err);
             }
-        process.exit();
+       // process.exit();
         });
     });
 });
 
 transmitter.on('sawTransmitter', data => {
   const util = require('util')
-  console.log('got sawTransmitter message inside logger msg: ' + JSON.stringify(data));
   console.log(util.inspect(data, false, null))
 
   var fs = require('fs');
