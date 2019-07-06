@@ -135,9 +135,9 @@ transmitter.on('calibrationData', (data) => {
       console.log("Error while writing tx-calibration-data.json");
       console.log(err);
       }
+    process.exit();
   });
 
-  process.exit();
 });
 
 transmitter.on('glucose', glucose => {
