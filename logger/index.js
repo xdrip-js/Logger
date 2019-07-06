@@ -136,7 +136,6 @@ transmitter.on('calibrationData', (data) => {
       console.log(err);
       }
   });
-}
 
   process.exit();
 });
