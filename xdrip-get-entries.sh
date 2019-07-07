@@ -566,17 +566,17 @@ function check_tx_calibration()
     txdatetime="${txdatetime%\"}"
     txdatetime="${txdatetime#\"}"
     txmeterbg=$(jq ".glucose" $TXCALFILE)
-    txmeterbgid=$txdatetime
-    echo txdatetime=$txdatetime, txmeterbg=$txmeterbg
-    # grep txdatetime in calibrations.csv to see if this tx calibration is known yet or not
-    if ! cat ${LDIR}/calibrations.csv | egrep "$txmeterbgid"; then
+    txepochdate=`date --date="$txdatetime" +"%s"`
+    txmeterbgid=$txepochdate
+    echo txepochdate=$txepochdate, txdatetime=$txdatetime, txmeterbg=$txmeterbg
+    # grep txepochdate in calibrations.csv to see if this tx calibration is known yet or not
+    if ! cat ${LDIR}/calibrations.csv | egrep "$txepochdate"; then
       #  calibrations.csv "raw,meterbg,datetime,epochdate,meterbgid,filtered,unfiltered"
 
       log "Calibration of $txmeterbg from $TXCALFILE being considered - id = $txmeterbgid"
 
       epochdateNow=$(date +'%s')
 
-      txepochdate=`date --date="$txdatetime" +"%s"`
       echo 
       echo epochdateNow=$epochdateNow, txepochdate=$txepochdate
 
@@ -609,7 +609,7 @@ function check_tx_calibration()
         if [ $(bc <<< "$txvariation > 10") -eq 1 -o $(bc <<< "$txvariation < -10") -eq 1 ]; then
           log "would not allow txmeter calibration - txfiltered/txunfiltered txvariation of $txvariation exceeds 10%"
         else
-          log "Calibration of is new and within bounds - adding to calibrations.csv"
+          log "Calibration is new and within bounds - adding to calibrations.csv"
           log "txraw=$txraw,txmeterbg=$txmeterbg,itxdatetime=$txdatetime,txepochdate=$txepochdate,txmeterbgid=$txmeterbgid,txfiltered=$txfiltered,txunfiltered=$txunfiltered"
           echo "$txraw,$txmeterbg,$txdatetime,$txepochdate,$txmeterbgid,$txfiltered,$txunfiltered" >> ${LDIR}/calibrations.csv
           /usr/local/bin/cgm-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
