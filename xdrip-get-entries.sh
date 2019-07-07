@@ -558,6 +558,8 @@ function check_tx_calibration()
   if [ "$mode" == "read-only" ]; then
     return
   fi
+  TXCALFILE="${LDIR}/tx-calibration-data.json"
+
 
   if [ -e $TXCALFILE ]; then
     txdatetime=$(jq ".date" $TXCALFILE)
