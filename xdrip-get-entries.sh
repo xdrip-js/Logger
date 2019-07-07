@@ -552,7 +552,78 @@ function check_last_entry_values()
   fi
 }
 
+function check_tx_calibration()
+{
+  if [ "$mode" == "read-only" ]; then
+    return
+  fi
 
+  if [ -e $TXCALFILE ]; then
+    txdatetime=$(jq ".date" $TXCALFILE)
+    txdatetime="${txdatetime%\"}"
+    txdatetime="${txdatetime#\"}"
+    txmeterbg=$(jq ".glucose" $TXCALFILE)
+    txmeterbgid=$txdatetime
+    echo txdatetime=$txdatetime, txmeterbg=$txmeterbg
+    # grep txdatetime in calibrations.csv to see if this tx calibration is known yet or not
+    if ! cat ${LDIR}/calibrations.csv | egrep "$txmeterbgid"; then
+      #  calibrations.csv "raw,meterbg,datetime,epochdate,meterbgid,filtered,unfiltered"
+
+      log "Calibration of $txmeterbg from $TXCALFILE being considered - id = $txmeterbgid"
+
+      epochdateNow=$(date +'%s')
+
+      txepochdate=`date --date="$txdatetime" +"%s"`
+      echo 
+      echo epochdateNow=$epochdateNow, txepochdate=$txepochdate
+
+      echo
+
+      if [ $(bc <<< "($epochdateNow - $txepochdate) < 420") -eq 1 ]; then
+       log "tx meterbg is within 7 minutes so use current filtered/unfiltered values "
+       txfiltered=$filtered
+        txunfiltered=$unfiltered
+       txraw=$raw
+      else
+       log "tx meterbg is older than 7 minutes so queryfiltered/unfiltered values"
+       #  after=$(date -d "15 minutes ago" -Iminutes)
+       #  glucosejqstr="'[ .[] | select(.dateString > \"$after\") ]'"
+       before=$(bc -l <<< "$txepochdate *1000  + 240*1000")
+       after=$(bc -l <<< "$txepochdate *1000  - 240*1000")
+       glucosejqstr="'[ .[] | select(.date > $after) | select(.date < $before) ]'"
+
+       bash -c "jq -c $glucosejqstr ~/myopenaps/monitor/glucose.json" > ${LDIR}/test.json
+       txunfiltered=( $(jq -r ".[0].unfiltered" ${LDIR}/test.json) )
+       txfiltered=( $(jq -r ".[0].filtered" ${LDIR}/test.json) )
+       txraw=$txunfiltered
+      fi
+      #check validity of tx record
+      # TODO - convert this check into a function since used in 2 places
+      if [ $(bc  -l <<< "$txunfiltered < 20") -eq 1 -o $(bc -l <<< "$txunfiltered > 500") -eq 1 ]; then
+        log "Calibration of $txmeterbg not being used due to txunfiltered of $txunfiltered"
+      else
+        txvariation=$(bc <<< "($txfiltered - $txunfiltered) * 100 / $txfiltered")
+        if [ $(bc <<< "$txvariation > 10") -eq 1 -o $(bc <<< "$txvariation < -10") -eq 1 ]; then
+          log "would not allow txmeter calibration - txfiltered/txunfiltered txvariation of $txvariation exceeds 10%"
+        else
+          log "Calibration of is new and within bounds - adding to calibrations.csv"
+          log "txraw=$txraw,txmeterbg=$txmeterbg,itxdatetime=$txdatetime,txepochdate=$txepochdate,txmeterbgid=$txmeterbgid,txfiltered=$txfiltered,txunfiltered=$txunfiltered"
+          echo "$txraw,$txmeterbg,$txdatetime,$txepochdate,$txmeterbgid,$txfiltered,$txunfiltered" >> ${LDIR}/calibrations.csv
+          /usr/local/bin/cgm-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
+          # put in backfill so that the command line calibration will be sent up to NS 
+          # now (or later if offline)
+          log "Setting up to send calibration to NS now if online (or later with backfill)"
+          # use enteredBy Logger-from-Tx so that it can be filtered and not reprocessed by Logger again
+          echo "[{\"created_at\":\"$txcalDate\",\"enteredBy\":\"Logger-from-Tx\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ${LDIR}/calibration-backfill.json
+        cat ${LDIR}/calibration-backfill.json
+        jq -s add ${LDIR}/calibration-backfill.json ${LDIR}/treatments-backfill.json > ${LDIR}/treatments-backfill.json
+        fi
+      fi
+    else
+      log "Already processed calibration of $txmeterbg from $TXCALFILE id = $txmeterbgid"
+    fi
+  fi
+}
 
 function  check_cmd_line_calibration()
 {
@@ -997,10 +1068,16 @@ function check_ns_calibration()
       meterbgid=$(jq ".[0].created_at" $METERBG_NS_RAW)
       meterbgid="${meterbgid%\"}"
       meterbgid="${meterbgid#\"}"
+      enteredBy=$(jq ".[0].enteredBy" $METERBG_NS_RAW)
+      enteredBy="${enteredBy%\"}"
+      enteredBy="${enteredBy#\"}"
       meterbgunits=$(cat $METERBG_NS_RAW | jq -M '.[0] | .units')
       meterbg=`jq -M '.[0] .glucose' $METERBG_NS_RAW`
       meterbg="${meterbg%\"}"
       meterbg="${meterbg#\"}"
+      if [[ "$enteredBy" == "Logger-from-Tx" ]]; then
+        return
+      fi
       if [[ "$meterbgunits" == *"mmol"* ]]; then
         meterbg=$(bc <<< "($meterbg *18)/1")
       fi
