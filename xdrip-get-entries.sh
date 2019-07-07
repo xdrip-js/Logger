@@ -617,7 +617,7 @@ function check_tx_calibration()
           # now (or later if offline)
           log "Setting up to send calibration to NS now if online (or later with backfill)"
           # use enteredBy Logger-from-Tx so that it can be filtered and not reprocessed by Logger again
-          echo "[{\"created_at\":\"$txcalDate\",\"enteredBy\":\"Logger-from-Tx\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ${LDIR}/calibration-backfill.json
+          echo "[{\"created_at\":\"$txdatetime\",\"enteredBy\":\"Logger-from-Tx\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$txmeterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ${LDIR}/calibration-backfill.json
         cat ${LDIR}/calibration-backfill.json
         jq -s add ${LDIR}/calibration-backfill.json ${LDIR}/treatments-backfill.json > ${LDIR}/treatments-backfill.json
         fi
