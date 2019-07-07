@@ -140,6 +140,7 @@ main()
   set_entry_fields
 
   check_native_calibrates_lsr
+  check_tx_calibration
 
   check_variation
   #call after posting to NS OpenAPS for not-expired mode
