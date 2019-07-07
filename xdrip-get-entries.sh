@@ -1368,10 +1368,10 @@ function calculate_noise()
     noise=$(awk -v noise="$noise" 'BEGIN { printf("%.2f", noise) }' </dev/null)
   fi
 
-  if [[ $noiseSend < 2 && $orig_status != "OK" && $orig_status != *"alibration"*  ]]; then
+  if [[ $noiseSend < 2 && $orig_state != "OK" && $orig_state != *"alibration"*  ]]; then
       noiseSend=2  
       noiseString="Light"
-      log "setting noise to $noiseString because of tx status of $orig_status"
+      log "setting noise to $noiseString because of tx status of $orig_state"
   fi
 
   tmp=$(mktemp)
