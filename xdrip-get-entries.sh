@@ -570,22 +570,23 @@ function check_tx_calibration()
     txmeterbgid=$txepochdate
     echo txepochdate=$txepochdate, txdatetime=$txdatetime, txmeterbg=$txmeterbg
     # grep txepochdate in calibrations.csv to see if this tx calibration is known yet or not
-    if ! cat ${LDIR}/calibrations.csv | egrep "$txepochdate"; then
+    # The tx reports a time in milliseconds that shifts each and every time, so to be sure
+    # to not have duplicates, we need to grep for the second before and second after
+    after=$(($txmeterbgid+1))
+    before=$(($txmeterbgid-1))
+    f=${LDIR}/calibrations.csv
+    if cat $f | egrep "$txepochdate" || cat $f | egrep "$after" || cat $f | egrep "$before"; then
+      log "Already processed tx calibration of $txmeterbg with id = $txmeterbgid"
+    else
       #  calibrations.csv "raw,meterbg,datetime,epochdate,meterbgid,filtered,unfiltered"
-
-      log "Calibration of $txmeterbg from $TXCALFILE being considered - id = $txmeterbgid"
+      log "Tx calibration of $txmeterbg being considered - id = $txmeterbgid"
 
       epochdateNow=$(date +'%s')
-
-      echo 
-      echo epochdateNow=$epochdateNow, txepochdate=$txepochdate
-
-      echo
 
       if [ $(bc <<< "($epochdateNow - $txepochdate) < 420") -eq 1 ]; then
        log "tx meterbg is within 7 minutes so use current filtered/unfiltered values "
        txfiltered=$filtered
-        txunfiltered=$unfiltered
+       txunfiltered=$unfiltered
        txraw=$raw
       else
        log "tx meterbg is older than 7 minutes so queryfiltered/unfiltered values"
@@ -622,8 +623,6 @@ function check_tx_calibration()
         jq -s add ${LDIR}/calibration-backfill.json ${LDIR}/treatments-backfill.json > ${LDIR}/treatments-backfill.json
         fi
       fi
-    else
-      log "Already processed calibration of $txmeterbg from $TXCALFILE id = $txmeterbgid"
     fi
   fi
 }
