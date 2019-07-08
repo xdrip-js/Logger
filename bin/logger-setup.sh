@@ -71,14 +71,3 @@ link_install ${root_dir}/bin/g5-transmitter.sh cgm-transmitter
 
 link_install ${root_dir}/xdrip-get-entries.sh Logger
 
-if [ -e "/usr/local/go/bin/go" ]; then
-  file="g5-calc-noise-go"
-  build_go_exe ${file}
-  link_install ${root_dir}/cmd/${file}/${file} ${file}
-
-  # go-based version of calc-calibration is still a work in progress
-#  build_go_exe "g5-calc-calibration-go"
-fi
-
-
-
