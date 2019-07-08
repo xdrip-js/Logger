@@ -1,5 +1,9 @@
 #!/bin/bash
 
+SECONDS_IN_10_DAYS=864000
+SECONDS_IN_7_DAYS=604800
+SECONDS_IN_30_MINUTES=1800
+
 main()
 {
   log "Starting Logger"
