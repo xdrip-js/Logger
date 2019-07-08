@@ -150,6 +150,7 @@ transmitter.on('glucose', glucose => {
       'state_id': glucose.state, 
       'status_id': glucose.status, 
       'transmitterStartDate': glucose.transmitterStartDate 
+      'sessionStartDate': glucose.sessionStartDate 
     }];
     const extraData = JSON.stringify(extra);
   const entry = [{

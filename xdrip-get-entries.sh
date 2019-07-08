@@ -568,7 +568,7 @@ function check_tx_calibration()
     txmeterbg=$(jq ".glucose" $TXCALFILE)
     txepochdate=`date --date="$txdatetime" +"%s"`
     txmeterbgid=$txepochdate
-    echo txepochdate=$txepochdate, txdatetime=$txdatetime, txmeterbg=$txmeterbg
+    #echo txepochdate=$txepochdate, txdatetime=$txdatetime, txmeterbg=$txmeterbg
     # grep txepochdate in calibrations.csv to see if this tx calibration is known yet or not
     # The tx reports a time in milliseconds that shifts each and every time, so to be sure
     # to not have duplicates, we need to grep for the second before and second after
@@ -824,6 +824,11 @@ function  capture_entry_values()
   transmitterStartDate="${transmitterStartDate%\"}"
   transmitterStartDate="${transmitterStartDate#\"}"
   log "transmitterStartDate=$transmitterStartDate" 
+
+  sessionStartDate=$(cat ${LDIR}/extra.json | jq -M '.[0].sessionStartDate')
+  sessionStartDate="${sessionStartDate%\"}"
+  sessionStartDate="${sessionStartDate#\"}"
+  log "sessionStartDate=$sessionStartDate" 
 
   rssi=$(cat ${LDIR}/entry.json | jq -M '.[0].rssi')
 
@@ -1254,9 +1259,6 @@ function apply_lsr_calibration()
 
 function post_cgm_ns_pill()
 {
-#    \"sessionStart\":$sessionStart,\
-
-
    # json required conversion to decimal values
 
    local cache="${LDIR}/calibration-linear.json"
@@ -1279,7 +1281,7 @@ function post_cgm_ns_pill()
   fi
 
    jstr="$(build_json \
-      sessionStart "$lastSensorInsertDate" \
+      sessionStart "$sessionStartDate" \
     state "$state_id" \
     txStatus "$status_id" \
     stateString "$state" \
