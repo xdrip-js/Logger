@@ -832,7 +832,10 @@ function  capture_entry_values()
   sessionStartDate=$(cat ${LDIR}/extra.json | jq -M '.[0].sessionStartDate')
   sessionStartDate="${sessionStartDate%\"}"
   sessionStartDate="${sessionStartDate#\"}"
-  log "sessionStartDate=$sessionStartDate" 
+  sessionStartDateEpochms=$(cat ${LDIR}/extra.json | jq -M '.[0].sessionStartDateEpoch')
+  sessionMinutesRemaining=$(bc -l <<< "($SECONDS_IN_10_DAYS - ($epochdate-$sessionStartDateEpochms/1000))/60")
+  log "sessionStartDate=$sessionStartDate, sessionStartDateEpochms=$sessionStartDateEpochms" 
+  log "sessionMinutesRemaining=$sessionMinutesRemaining"
 
   rssi=$(cat ${LDIR}/entry.json | jq -M '.[0].rssi')
 

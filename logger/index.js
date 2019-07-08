@@ -143,6 +143,7 @@ transmitter.on('calibrationData', (data) => {
 transmitter.on('glucose', glucose => {
   //console.log('got glucose: ' + glucose.glucose);
   var d= new Date(glucose.readDate);
+  var dsession= new Date(glucose.sessionStartDate);
 
   console.log(util.inspect(glucose, false, null))
   var fs = require('fs');
@@ -150,7 +151,8 @@ transmitter.on('glucose', glucose => {
       'state_id': glucose.state, 
       'status_id': glucose.status, 
       'transmitterStartDate': glucose.transmitterStartDate, 
-      'sessionStartDate': glucose.sessionStartDate 
+      'sessionStartDate': glucose.sessionStartDate,
+      'sessionStartDateEpoch': dsession.getTime()
     }];
     const extraData = JSON.stringify(extra);
   const entry = [{
