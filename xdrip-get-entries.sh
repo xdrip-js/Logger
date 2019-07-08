@@ -880,6 +880,10 @@ function initialize_mode()
   #  to reflect in LSR in order to make it safer to allow seamless transition to LSR calibration
   mode="native-calibrates-lsr"
 
+  if [[ "$cmd_line_mode" == "expired" ]]; then	
+    mode="expired"	
+  fi
+
   if [[ "$cmd_line_mode" == "read-only" ]]; then
     mode="read-only"
   fi
