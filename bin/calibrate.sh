@@ -9,14 +9,13 @@ BG=${1:-"null"}     # arg 1 is meter bg value
 UNITS=${2:-"mg/dl"} # arg 2 if "mmol" then bg in mmol
 TEST=${3:-""}       # arg 3 if "test" then test mode
 
-CALIBRATION="${HOME}/myopenaps/monitor/xdripjs/calibration.json"
+calibrationFile="${HOME}/myopenaps/monitor/xdripjs/calibration.json"
+stagingFile1=$(mktemp)
+stagingFile2=$(mktemp)
 dateString=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
 epochdate=$(date +'%s%3N')
 UUID=$(cat /proc/sys/kernel/random/uuid)
 UUID=$(echo "${UUID//-}")
-
-# temporary while testing
-#UUID=""
 
 LOW=40
 HIGH=400
@@ -24,10 +23,9 @@ HIGH=400
 # ability to test without causing BG Check treatment to be used
 if [ "$TEST" == "test" ]; then
   tmp=$(mktemp)
-  CALIBRATION=$(mktemp)
+  calibrationFile=$(mktemp)
 fi
 
-# ability to test without causing BG Check treatment to be used
 if [ "$UNITS" == "mmol" ]; then
   LOW=2
   HIGH=22
@@ -40,9 +38,11 @@ if [ "$BG" == "null" ]; then
 fi
 
 if [ $(bc <<< "$BG >= $LOW") -eq 1 -a $(bc <<< "$BG <= $HIGH") -eq 1 ]; then
-  echo "[{\"_id\":\"${UUID}\",\"dateString\":\"${dateString}\",\"date\":${epochdate},\"glucose\":${BG},\"units\":\"${UNITS}\"}]" >  $CALIBRATION
-  echo "calibration treatment posted to $CALIBRATION - record is below"
-  cat $CALIBRATION
+  cp $calibrationFile $stagingFile1
+  echo "[{\"_id\":\"${UUID}\",\"dateString\":\"${dateString}\",\"date\":${epochdate},\"glucose\":${BG},\"units\":\"${UNITS}\"}]" >  $stagingFile2
+  jq -s add $stagingFile1 $stagingFile2 > $calibrationFile
+  echo "calibration treatment posted to $calibrationFile - record is below"
+  cat $calibrationFile
 else
   echo "Error - BG of $BG $UNITS is out of range ($LOW-$HIGH $UNITS) for calibration and cannot be used"
 fi
