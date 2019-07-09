@@ -623,8 +623,10 @@ function check_tx_calibration()
           log "Setting up to send calibration to NS now if online (or later with backfill)"
           # use enteredBy Logger-from-Tx so that it can be filtered and not reprocessed by Logger again
           echo "[{\"created_at\":\"$txdatetime\",\"enteredBy\":\"Logger-from-Tx\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$txmeterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ${LDIR}/calibration-backfill.json
-        cat ${LDIR}/calibration-backfill.json
-        jq -s add ${LDIR}/calibration-backfill.json ${LDIR}/treatments-backfill.json > ${LDIR}/treatments-backfill.json
+          stagingFile=$(mktemp)
+          cp ${LDIR}/treatments-backfill.json ${stagingFile}
+          jq -s add ${LDIR}/calibration-backfill.json ${stagingFile} > ${LDIR}/treatments-backfill.json
+          cat ${LDIR}/treatments-backfill.json
         fi
       fi
     fi
@@ -666,7 +668,9 @@ function  check_cmd_line_calibration()
           log "Setting up to send calibration to NS now if online (or later with backfill)"
           echo "[{\"created_at\":\"$meterbgid\",\"enteredBy\":\"Logger\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ${LDIR}/calibration-backfill.json
           cat ${LDIR}/calibration-backfill.json
-          jq -s add ${LDIR}/calibration-backfill.json ${LDIR}/treatments-backfill.json > ${LDIR}/treatments-backfill.json
+          stagingFile=$(mktemp)
+          cp ${LDIR}/treatments-backfill.json ${stagingFile}
+          jq -s add ${LDIR}/calibration-backfill.json ${stagingFile} > ${LDIR}/treatments-backfill.json
         else
           log "Calibration bg over 7 minutes - not used"
         fi
