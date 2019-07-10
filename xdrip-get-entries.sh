@@ -766,19 +766,24 @@ function  check_cmd_line_calibration()
       epochdatems=$(date +'%s%3N')
       if test  `find $CALFILE -mmin -7`
       then
-        log "last 20 records from calibration file $CALFILE contents below"
-        tail -20 $CALFILE
+        log "calibration file $CALFILE contents below"
+        cat $CALFILE
         echo
+        # EYF just for now - fix before checking in
+        calibrationJSON=$(cat $CALFILE)
+
         calDate=$(jq ".[0].date" $CALFILE)
         # check the date inside to make sure we don't calibrate using old record
         if [ $(bc <<< "($epochdatems - $calDate)/1000 < 420") -eq 1 ]; then
-          calDate=$(jq ".[0].date" $CALFILE)
+          calDateSeconds=$(bc <<< "($calDate / 1000)") # truncate
           meterbg=$(jq ".[0].glucose" $CALFILE)
           meterbgid=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
           log "Calibration of $meterbg from $CALFILE being processed - id = $meterbgid"
           found_meterbg=true
           # put in backfill so that the command line calibration will be sent up to NS 
           # now (or later if offline)
+          
+          createdAt=$(date -d @$calDateSeconds +'%Y-%m-%dT%H:%M:%S.%3NZ')
           log "Setting up to send calibration to NS now if online (or later with backfill)"
           echo "[{\"created_at\":\"$meterbgid\",\"enteredBy\":\"Logger\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ${LDIR}/calibration-backfill.json
           cat ${LDIR}/calibration-backfill.json
@@ -1595,7 +1600,8 @@ function check_messages()
   if [[ "$found_meterbg" == true ]]; then
     if [ -n $meterbg ]; then 
       if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
-        calibrationJSON="[{\"date\": ${calDate}, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
+        #EYF refactor this later (before next checkin)
+        #calibrationJSON="[{\"date\": ${calDate}, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
         log "calibrationJSON=$calibrationJSON"
       fi
     fi

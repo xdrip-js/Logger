@@ -12,8 +12,11 @@ TEST=${3:-""}       # arg 3 if "test" then test mode
 calibrationFile="${HOME}/myopenaps/monitor/xdripjs/calibration.json"
 stagingFile1=$(mktemp)
 stagingFile2=$(mktemp)
-dateString=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
-epochdate=$(date +'%s%3N')
+#dateString=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
+
+epochdate=$(date +'%s')
+# doing it this way for consistency - Logger will convert back to seconds from ms
+epochdate=$(($epochdate * 1000)) # xdrip-js requires milliseconds epoch
 
 LOW=40
 HIGH=400
