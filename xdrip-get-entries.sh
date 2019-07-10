@@ -754,6 +754,28 @@ function  new_check_cmd_line_calibration()
     log "meterbg from ${LDIR}/calibration.json: $meterbg"
 }
 
+function new_ready_calibration_to_NS()
+{
+  # takes a calibration record and puts it in json file for later sending it to NS
+  # arg1 = createDate in string format T ... Z
+  # arg2 = meterbg
+
+  calibrationFile=$(mktemp)
+  stagingFile=$(mktemp)
+  treatmentsFile=${LDIR}/calibration-backfill.json
+
+  log "Setting up to send calibration to NS now if online (or later with backfill)"
+  echo "[{\"created_at\":\"$1\",\"enteredBy\":\"Logger\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$2,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > $calibrationFile
+  cat $calibrationFile
+
+  if [ -e $treatmentsFile ]; then
+    cp $treatmentsFile $stagingFile
+    jq -s add $calibrationFile $stagingFile > $treatmentsFile
+  else
+    cp $calibrationFile $treatmentsFile
+  fi
+}
+
 function  check_cmd_line_calibration()
 {
   if [ "$mode" == "read-only" ]; then
@@ -772,11 +794,19 @@ function  check_cmd_line_calibration()
         # EYF just for now - fix before checking in
         calibrationJSON=$(cat $CALFILE)
 
-        calDate=$(jq ".[0].date" $CALFILE)
+        calDateA=( $(jq -r ".[].date" ${CALFILE}) )
+        meterbgA=( $(jq -r ".[].glucose" ${CALFILE}) )
+        calRecords=${#meterbgA[@]}
+        log "calRecords=$calRecords" 
+
+        # EYF here
+        for (( i=0; i<$calRecords; i++ ))
+        do
+        calDate=${calDateA[$i]}
         # check the date inside to make sure we don't calibrate using old record
-        if [ $(bc <<< "($epochdatems - $calDate)/1000 < 420") -eq 1 ]; then
+        if [ $(bc <<< "($epochdatems - $calDate)/1000 < 820") -eq 1 ]; then
           calDateSeconds=$(bc <<< "($calDate / 1000)") # truncate
-          meterbg=$(jq ".[0].glucose" $CALFILE)
+          meterbg=${meterbgA[$i]}
           meterbgid=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
           log "Calibration of $meterbg from $CALFILE being processed - id = $meterbgid"
           found_meterbg=true
@@ -784,15 +814,12 @@ function  check_cmd_line_calibration()
           # now (or later if offline)
           
           createdAt=$(date -d @$calDateSeconds +'%Y-%m-%dT%H:%M:%S.%3NZ')
-          log "Setting up to send calibration to NS now if online (or later with backfill)"
-          echo "[{\"created_at\":\"$meterbgid\",\"enteredBy\":\"Logger\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ${LDIR}/calibration-backfill.json
-          cat ${LDIR}/calibration-backfill.json
-          stagingFile=$(mktemp)
-          cp ${LDIR}/treatments-backfill.json ${stagingFile}
-          jq -s add ${LDIR}/calibration-backfill.json ${stagingFile} > ${LDIR}/treatments-backfill.json
+
+          new_ready_calibration_to_NS $createdAt $meterbg
         else
-          log "Calibration bg over 7 minutes - not used"
+          log "Calibration is too old - not used"
         fi
+       done
       fi
       rm $CALFILE
     fi
