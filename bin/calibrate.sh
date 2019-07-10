@@ -28,7 +28,7 @@ fi
 
 if [ "$UNITS" == "mmol" ]; then
   BG=$(bc <<< "($meterbg *18)/1")
-  log "converted OpenAPS meterbg from mmol value to $meterbg"
+  echo "converted OpenAPS meterbg from mmol value to $meterbg"
 fi
 
 if [ "$BG" == "null" ]; then
@@ -38,9 +38,13 @@ if [ "$BG" == "null" ]; then
 fi
 
 if [ $(bc <<< "$BG >= $LOW") -eq 1 -a $(bc <<< "$BG <= $HIGH") -eq 1 ]; then
-  cp $calibrationFile $stagingFile1
   echo "[{\"_id\":\"${UUID}\",\"dateString\":\"${dateString}\",\"date\":${epochdate},\"glucose\":${BG}}\"}]" >  $stagingFile2
-  jq -s add $stagingFile1 $stagingFile2 > $calibrationFile
+  if [ -e $calibrationFile ]; then
+    cp $calibrationFile $stagingFile1
+    jq -s add $stagingFile1 $stagingFile2 > $calibrationFile
+  else
+    cp $stagingFile2 $calibrationFile
+  fi
   echo "calibration treatment posted to $calibrationFile - record is below"
   cat $calibrationFile
 else
