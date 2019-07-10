@@ -9,13 +9,14 @@ BG=${1:-"null"}     # arg 1 is meter bg value
 UNITS=${2:-"mg/dl"} # arg 2 if "mmol" then bg in mmol
 TEST=${3:-""}       # arg 3 if "test" then test mode
 
-calibrationFile="${HOME}/myopenaps/monitor/xdripjs/calibration.json"
+calibrationFile="${HOME}/myopenaps/monitor/xdripjs/tttcalibration.json"
 stagingFile1=$(mktemp)
 stagingFile2=$(mktemp)
 dateString=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
 epochdate=$(date +'%s%3N')
-UUID=$(cat /proc/sys/kernel/random/uuid)
-UUID=$(echo "${UUID//-}")
+UUID=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
+#UUID=$(cat /proc/sys/kernel/random/uuid)
+#UUID=$(echo "${UUID//-}")
 
 LOW=40
 HIGH=400
@@ -38,10 +39,10 @@ if [ "$BG" == "null" ]; then
 fi
 
 if [ $(bc <<< "$BG >= $LOW") -eq 1 -a $(bc <<< "$BG <= $HIGH") -eq 1 ]; then
-  echo "[{\"_id\":\"${UUID}\",\"dateString\":\"${dateString}\",\"date\":${epochdate},\"glucose\":${BG}}\"}]" >  $stagingFile2
+  echo "[{\"_id\":\"${UUID}\",\"dateString\":\"${dateString}\",\"date\":${epochdate},\"glucose\":${BG}}]" >  $stagingFile2
   if [ -e $calibrationFile ]; then
     cp $calibrationFile $stagingFile1
-    jq -s add $stagingFile1 $stagingFile2 > $calibrationFile
+    jq -c -s add $stagingFile1 $stagingFile2 > $calibrationFile
   else
     cp $stagingFile2 $calibrationFile
   fi
