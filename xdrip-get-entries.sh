@@ -721,7 +721,6 @@ function  new_check_cmd_line_calibration()
         echo
         calDateA=( $(jq -r ".[].date" ${CALFILE}) )
         meterbgA=( $(jq -r ".[].glucose" ${CALFILE}) )
-        meterbgIDA=( $(jq -r ".[].dateString" ${CALFILE}) )
         calRecords=${#meterbgA[@]}
         # EYF here
         log "calRecords=$calRecords" 
@@ -731,7 +730,7 @@ function  new_check_cmd_line_calibration()
         # check the date inside to make sure we don't calibrate using old record
         calDate=$(jq ".[0].date" $CALFILE)
         meterbg=$(jq ".[0].glucose" $CALFILE)
-        meterbgid=$(jq ".[0].dateString" $CALFILE)
+        meterbgid=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
 
         meterbgid="${meterbgid%\"}"
         meterbgid="${meterbgid#\"}"
@@ -775,9 +774,7 @@ function  check_cmd_line_calibration()
         if [ $(bc <<< "($epochdatems - $calDate)/1000 < 420") -eq 1 ]; then
           calDate=$(jq ".[0].date" $CALFILE)
           meterbg=$(jq ".[0].glucose" $CALFILE)
-          meterbgid=$(jq ".[0].dateString" $CALFILE)
-          meterbgid="${meterbgid%\"}"
-          meterbgid="${meterbgid#\"}"
+          meterbgid=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
           log "Calibration of $meterbg from $CALFILE being processed - id = $meterbgid"
           found_meterbg=true
           # put in backfill so that the command line calibration will be sent up to NS 
@@ -1582,7 +1579,7 @@ function calculate_noise()
     noise=$(awk -v noise="$noise" 'BEGIN { printf("%.2f", noise) }' </dev/null)
   fi
 
-  if [[ $noiseSend < 2 && $orig_state != "OK" && $orig_state != *"alibration"*  ]]; then
+  if [[ $noiseSend < 2 && $orig_state != "OK" && $orig_state != *"alibration"* && $orig_state != "Warmup" ]]; then
       noiseSend=2  
       noiseString="Light"
       log "setting noise to $noiseString because of tx status of $orig_state"
