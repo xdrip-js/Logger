@@ -3,6 +3,7 @@
 SECONDS_IN_10_DAYS=864000
 SECONDS_IN_7_DAYS=604800
 SECONDS_IN_30_MINUTES=1800
+calibrationsFile="${LDIR}/calibration-messages.json"
 
 main()
 {
@@ -557,6 +558,80 @@ function check_last_entry_values()
   fi
 }
 
+
+function new_check_tx_calibration()
+{
+  TXCALFILE="${LDIR}/tx-calibration-data.json"
+
+
+  if [ -e $TXCALFILE ]; then
+    txdatetime=$(jq ".date" $TXCALFILE)
+    txdatetime="${txdatetime%\"}"
+    txdatetime="${txdatetime#\"}"
+    txmeterbg=$(jq ".glucose" $TXCALFILE)
+    txepochdate=`date --date="$txdatetime" +"%s"`
+    txmeterbgid=$txepochdate
+    #echo txepochdate=$txepochdate, txdatetime=$txdatetime, txmeterbg=$txmeterbg
+    # grep txepochdate in calibrations.csv to see if this tx calibration is known yet or not
+    # The tx reports a time in milliseconds that shifts each and every time, so to be sure
+    # to not have duplicates, we need to grep for the second before and second after
+    after=$(($txmeterbgid+1))
+    before=$(($txmeterbgid-1))
+    f=${LDIR}/calibrations.csv
+    if cat $f | egrep "$txepochdate" || cat $f | egrep "$after" || cat $f | egrep "$before"; then
+      log "Already processed tx calibration of $txmeterbg with id = $txmeterbgid"
+    else
+      #  calibrations.csv "raw,meterbg,datetime,epochdate,meterbgid,filtered,unfiltered"
+      log "Tx calibration of $txmeterbg being considered - id = $txmeterbgid"
+
+      epochdateNow=$(date +'%s')
+
+      if [ $(bc <<< "($epochdateNow - $txepochdate) < 420") -eq 1 ]; then
+       log "tx meterbg is within 7 minutes so use current filtered/unfiltered values "
+       txfiltered=$filtered
+       txunfiltered=$unfiltered
+       txraw=$raw
+      else
+       log "tx meterbg is older than 7 minutes so queryfiltered/unfiltered values"
+       #  after=$(date -d "15 minutes ago" -Iminutes)
+       #  glucosejqstr="'[ .[] | select(.dateString > \"$after\") ]'"
+       before=$(bc -l <<< "$txepochdate *1000  + 240*1000")
+       after=$(bc -l <<< "$txepochdate *1000  - 240*1000")
+       glucosejqstr="'[ .[] | select(.date > $after) | select(.date < $before) ]'"
+
+       bash -c "jq -c $glucosejqstr ~/myopenaps/monitor/glucose.json" > ${LDIR}/test.json
+       txunfiltered=( $(jq -r ".[0].unfiltered" ${LDIR}/test.json) )
+       txfiltered=( $(jq -r ".[0].filtered" ${LDIR}/test.json) )
+       txraw=$txunfiltered
+      fi
+      #check validity of tx record
+      # TODO - convert this check into a function since used in 2 places
+      if [ $(bc  -l <<< "$txunfiltered < 20") -eq 1 -o $(bc -l <<< "$txunfiltered > 500") -eq 1 ]; then
+        log "Calibration of $txmeterbg not being used due to txunfiltered of $txunfiltered"
+      else
+        txvariation=$(bc <<< "($txfiltered - $txunfiltered) * 100 / $txfiltered")
+        if [ $(bc <<< "$txvariation > 10") -eq 1 -o $(bc <<< "$txvariation < -10") -eq 1 ]; then
+          log "would not allow txmeter calibration - txfiltered/txunfiltered txvariation of $txvariation exceeds 10%"
+        else
+          log "Calibration is new and within bounds - adding to calibrations.csv"
+          log "txraw=$txraw,txmeterbg=$txmeterbg,itxdatetime=$txdatetime,txepochdate=$txepochdate,txmeterbgid=$txmeterbgid,txfiltered=$txfiltered,txunfiltered=$txunfiltered"
+          echo "$txraw,$txmeterbg,$txdatetime,$txepochdate,$txmeterbgid,$txfiltered,$txunfiltered" >> ${LDIR}/calibrations.csv
+          /usr/local/bin/cgm-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
+          # put in backfill so that the command line calibration will be sent up to NS 
+          # now (or later if offline)
+          log "Setting up to send calibration to NS now if online (or later with backfill)"
+          # use enteredBy Logger-from-Tx so that it can be filtered and not reprocessed by Logger again
+          echo "[{\"created_at\":\"$txdatetime\",\"enteredBy\":\"Logger-from-Tx\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$txmeterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ${LDIR}/calibration-backfill.json
+          stagingFile=$(mktemp)
+          cp ${LDIR}/treatments-backfill.json ${stagingFile}
+          jq -s add ${LDIR}/calibration-backfill.json ${stagingFile} > ${LDIR}/treatments-backfill.json
+          cat ${LDIR}/treatments-backfill.json
+        fi
+      fi
+    fi
+  fi
+}
+
 function check_tx_calibration()
 {
   if [ "$mode" == "read-only" ]; then
@@ -633,6 +708,53 @@ function check_tx_calibration()
   fi
 }
 
+function  new_check_cmd_line_calibration()
+{
+## look for a bg check from ${LDIR}/calibration.json
+    CALFILE="${LDIR}/calibration.json"
+    if [ -e $CALFILE ]; then
+      epochdatems=$(date +'%s%3N')
+      if test  `find $CALFILE -mmin -12`
+      then
+        log "calibration file $CALFILE contents below"
+        cat $CALFILE
+        echo
+        calDateA=( $(jq -r ".[].date" ${CALFILE}) )
+        meterbgA=( $(jq -r ".[].glucose" ${CALFILE}) )
+        meterbgIDA=( $(jq -r ".[].dateString" ${CALFILE}) )
+        calRecords=${#meterbgA[@]}
+        # EYF here
+        log "calRecords=$calRecords" 
+
+        for (( i=0; i<$calRecords; i++ ))
+        do
+        # check the date inside to make sure we don't calibrate using old record
+        calDate=$(jq ".[0].date" $CALFILE)
+        meterbg=$(jq ".[0].glucose" $CALFILE)
+        meterbgid=$(jq ".[0].dateString" $CALFILE)
+
+        meterbgid="${meterbgid%\"}"
+        meterbgid="${meterbgid#\"}"
+        log "Calibration of $meterbg from $CALFILE being processed - id = $meterbgid"
+        found_meterbg=true
+        # put in backfill so that the command line calibration will be sent up to NS 
+        # now (or later if offline)
+        log "Setting up to send calibration to NS now if online (or later with backfill)"
+          echo "[{\"created_at\":\"$meterbgid\",\"enteredBy\":\"Logger\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ${LDIR}/calibration-backfill.json
+          cat ${LDIR}/calibration-backfill.json
+          stagingFile=$(mktemp)
+          cp ${LDIR}/treatments-backfill.json ${stagingFile}
+          jq -s add ${LDIR}/calibration-backfill.json ${stagingFile} > ${LDIR}/treatments-backfill.json
+          #calibrationJSON="[{\"date\": ${calDate}, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
+         done
+        else
+          log "Calibration bg over 7 minutes - not used"
+        fi
+      fi
+      rm $CALFILE
+    log "meterbg from ${LDIR}/calibration.json: $meterbg"
+}
+
 function  check_cmd_line_calibration()
 {
   if [ "$mode" == "read-only" ]; then
@@ -656,11 +778,6 @@ function  check_cmd_line_calibration()
           meterbgid=$(jq ".[0].dateString" $CALFILE)
           meterbgid="${meterbgid%\"}"
           meterbgid="${meterbgid#\"}"
-          units=$(jq ".[0].units" $CALFILE)
-          if [[ "$units" == *"mmol"* ]]; then
-            meterbg=$(bc <<< "($meterbg *18)/1")
-            log "converted OpenAPS meterbg from mmol value to $meterbg"
-          fi
           log "Calibration of $meterbg from $CALFILE being processed - id = $meterbgid"
           found_meterbg=true
           # put in backfill so that the command line calibration will be sent up to NS 
@@ -705,6 +822,7 @@ function  remove_dexcom_bt_pair()
 
 function initialize_messages()
 {
+  truncate -s 0 $calibrationsFile
   calibrationJSON=""
   stopJSON=""
   startJSON=""
