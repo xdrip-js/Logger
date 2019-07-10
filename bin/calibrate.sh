@@ -9,7 +9,7 @@ BG=${1:-"null"}     # arg 1 is meter bg value
 UNITS=${2:-"mg/dl"} # arg 2 if "mmol" then bg in mmol
 TEST=${3:-""}       # arg 3 if "test" then test mode
 
-calibrationFile="${HOME}/myopenaps/monitor/xdripjs/tttcalibration.json"
+calibrationFile="${HOME}/myopenaps/monitor/xdripjs/calibration.json"
 stagingFile1=$(mktemp)
 stagingFile2=$(mktemp)
 dateString=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
