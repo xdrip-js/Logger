@@ -36,10 +36,10 @@ if [ "$bg" == "null" ]; then
 fi
 
 if [ $(bc <<< "$bg >= $LOW") -eq 1 -a $(bc <<< "$bg <= $HIGH") -eq 1 ]; then
-  echo "[\"dateString\":\"${dateString}\",\"date\":${epochdate},\"glucose\":${bg}}]" >  $stagingFile2
+  echo "[{\"date\":$epochdate,\"type\":\"CalibrateSensor\",\"glucose\":$bg}]" >  $stagingFile2
   if [ -e $calibrationFile ]; then
     cp $calibrationFile $stagingFile1
-    jq -c -s add $stagingFile1 $stagingFile2 > $calibrationFile
+    jq -c -s add $stagingFile2 $stagingFile1 > $calibrationFile
   else
     cp $stagingFile2 $calibrationFile
   fi
