@@ -3,8 +3,13 @@
 SECONDS_IN_10_DAYS=864000
 SECONDS_IN_7_DAYS=604800
 SECONDS_IN_30_MINUTES=1800
+
+CONF_DIR="${HOME}/myopenaps"
+LDIR="${HOME}/myopenaps/monitor/xdripjs"
+OLD_LDIR="${HOME}/myopenaps/monitor/logger"
 calibrationsFile="${LDIR}/calibration-messages.json"
 treatmentsFile="${LDIR}/treatments-backfill.json"
+lastEntryFile="${LDIR}/last-entry.json"
 
 main()
 {
@@ -179,7 +184,7 @@ main()
   fi
 
   post-nightscout-with-backfill
-  cp ${LDIR}/entry-xdrip.json ${LDIR}/last-entry.json
+  cp ${LDIR}/entry-xdrip.json $lastEntryFile
 
   if [ "$mode" != "expired" ]; then
     log "Calling expired tx lsr calcs (after posting) -allows mode switches / comparisons" 
@@ -202,9 +207,6 @@ main()
 }
 
 function check_dirs() {
-  CONF_DIR="${HOME}/myopenaps"
-  LDIR="${HOME}/myopenaps/monitor/xdripjs"
-  OLD_LDIR="${HOME}/myopenaps/monitor/logger"
 
   if [ ! -d ${LDIR} ]; then
     if [ -d ${OLD_LDIR} ]; then
@@ -543,17 +545,24 @@ function check_sensor_change()
 
 function check_last_entry_values()
 {
-  # TODO: check file stamp for > x for last-entry.json and ignore lastGlucose if older than x minutes
-  if [ -e "${LDIR}/last-entry.json" ] ; then
-    lastGlucose=$(cat ${LDIR}/last-entry.json | jq -M '.[0].sgv')
-    lastGlucoseDate=$(cat ${LDIR}/last-entry.json | jq -M '.[0].date')
-    lastStatus=$(cat ${LDIR}/last-entry.json | jq -M '.[0].status')
-    lastStatus="${lastStatus%\"}"
-    lastStatus="${lastStatus#\"}"
-    if [ "$mode" != "expired" ]; then
-      lastState=$(cat ${LDIR}/last-entry.json | jq -M '.[0].state')
-      lastState="${lastState%\"}"
-      lastState="${lastState#\"}"
+  # RESOLVED: check file stamp for > x for last-entry.json and ignore lastGlucose if older than x minutes
+  # if within last 11 minutes
+  if test `find $lastEntryFile -mmin -11`
+  then
+    if [ -e "$lastEntryFile" ] ; then
+      lastGlucose=$(cat $lastEntryFile | jq -M '.[0].sgv')
+      lastGlucoseDate=$(cat $lastEntryFile | jq -M '.[0].date')
+      lastStatus=$(cat $lastEntryFile | jq -M '.[0].status')
+      lastStatus="${lastStatus%\"}"
+      lastStatus="${lastStatus#\"}"
+      lastFiltered=$(cat $lastEntryFile | jq -M '.[0].filtered')
+      lastUnfiltered=$(cat $lastEntryFile | jq -M '.[0].unfiltered')
+      # EYF understand why below
+      if [ "$mode" != "expired" ]; then
+        lastState=$(cat $lastEntryFile | jq -M '.[0].state')
+        lastState="${lastState%\"}"
+        lastState="${lastState#\"}"
+      fi
       log "check_last_entry_values: lastGlucose=$lastGlucose, lastStatus=$lastStatus, lastState=$lastState"
     fi
   fi
@@ -698,6 +707,10 @@ function  check_cmd_line_calibration()
           createdAt=$(date -d @$calDateSeconds +'%Y-%m-%dT%H:%M:%S.%3NZ')
 
           new_ready_calibration_to_NS $createdAt $meterbg "Logger-cmd-line"
+          # EYF here
+          # use lastFiltered and lastUnfiltered values if they exist, otherwise 
+          # do LSR here and set variable so that reflective Tx calibration doesn't duplicate
+          # otherwise count on using tx reflection
         else
           log "Calibration is too old - not used"
         fi
@@ -886,7 +899,7 @@ function  capture_entry_values()
   # get dates for use in filenames and json entries
   datetime=$(date +"%Y-%m-%d %H:%M")
   epochdate=$(date +'%s')
-  cp ${LDIR}/entry.json ${LDIR}/last-entry.json
+  cp ${LDIR}/entry.json $lastEntryFile
 }
 
 function  set_glucose_type()
@@ -1648,9 +1661,8 @@ function wait_with_echo()
 
 function check_last_glucose_time_smart_sleep()
 {
-  file="${LDIR}/last-entry.json"
-  if [ -e $file ]; then
-    entry_timestamp=$(date -r $file +'%s')
+  if [ -e $lastEntryFile ]; then
+    entry_timestamp=$(date -r $lastEntryFile +'%s')
     seconds_since_last_entry=$(bc <<< "$epochdate - $entry_timestamp")
     log "check_last_glucose_time - epochdate=$epochdate,  entry_timestamp=$entry_timestamp"
     log "Time since last glucose entry in seconds = $seconds_since_last_entry seconds"
