@@ -4,6 +4,7 @@ SECONDS_IN_10_DAYS=864000
 SECONDS_IN_7_DAYS=604800
 SECONDS_IN_30_MINUTES=1800
 calibrationsFile="${LDIR}/calibration-messages.json"
+treatmentsFile="${LDIR}/treatments-backfill.json"
 
 main()
 {
@@ -144,10 +145,10 @@ main()
   fi
   set_entry_fields
 
+  check_variation
   check_native_calibrates_lsr
   check_tx_calibration
 
-  check_variation
   #call after posting to NS OpenAPS for not-expired mode
   if [ "$mode" == "expired" ]; then
     calculate_calibrations
@@ -612,20 +613,17 @@ function check_tx_calibration()
       if [ $(bc  -l <<< "$txunfiltered < 20") -eq 1 -o $(bc -l <<< "$txunfiltered > 500") -eq 1 ]; then
         log "Calibration of $txmeterbg not being used due to txunfiltered of $txunfiltered"
       else
-        txvariation=$(bc <<< "($txfiltered - $txunfiltered) * 100 / $txfiltered")
-        if [ $(bc <<< "$txvariation > 10") -eq 1 -o $(bc <<< "$txvariation < -10") -eq 1 ]; then
+        txvariation=$(calc_variation $txfiltered $txunfiltered)
+        if [ $(bc <<< "$txvariation > 10") -eq 1 ]; then
           log "would not allow txmeter calibration - txfiltered/txunfiltered txvariation of $txvariation exceeds 10%"
         else
           log "Calibration is new and within bounds - adding to calibrations.csv"
           log "txraw=$txraw,txmeterbg=$txmeterbg,itxdatetime=$txdatetime,txepochdate=$txepochdate,txmeterbgid=$txmeterbgid,txfiltered=$txfiltered,txunfiltered=$txunfiltered"
           echo "$txraw,$txmeterbg,$txdatetime,$txepochdate,$txmeterbgid,$txfiltered,$txunfiltered" >> ${LDIR}/calibrations.csv
           /usr/local/bin/cgm-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
-          # put in backfill so that the command line calibration will be sent up to NS 
-          # now (or later if offline)
-          # EYF TODO - figure out if this is necessary
-          # use enteredBy Logger-from-Tx so that 
-          #it can be filtered and not reprocessed by Logger again
-          new_ready_calibration_to_NS $txdatetime $txmeterbg
+          # use enteredBy Logger-tx so that 
+          # it can be filtered and not reprocessed by Logger again
+          new_ready_calibration_to_NS $txdatetime $txmeterbg "Logger-tx"
         fi
       fi
     fi
@@ -638,13 +636,14 @@ function new_ready_calibration_to_NS()
   # takes a calibration record and puts it in json file for later sending it to NS
   # arg1 = createDate in string format T ... Z
   # arg2 = meterbg
+  # arg3 = enteredBy 
 
   calibrationFile=$(mktemp)
   stagingFile=$(mktemp)
-  treatmentsFile=${LDIR}/calibration-backfill.json
+
 
   log "Setting up to send calibration to NS now if online (or later with backfill)"
-  echo "[{\"created_at\":\"$1\",\"enteredBy\":\"Logger\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$2,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > $calibrationFile
+  echo "[{\"created_at\":\"$1\",\"enteredBy\":\"$3\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$2,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > $calibrationFile
   cat $calibrationFile
 
   if [ -e $treatmentsFile ]; then
@@ -653,6 +652,11 @@ function new_ready_calibration_to_NS()
   else
     cp $calibrationFile $treatmentsFile
   fi
+}
+
+function generate_uuid()
+{
+  cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1
 }
 
 function  check_cmd_line_calibration()
@@ -676,9 +680,8 @@ function  check_cmd_line_calibration()
         calDateA=( $(jq -r ".[].date" ${CALFILE}) )
         meterbgA=( $(jq -r ".[].glucose" ${CALFILE}) )
         calRecords=${#meterbgA[@]}
-        log "calRecords=$calRecords" 
+        log "Calibration records from command line=$calRecords" 
 
-        # EYF here
         for (( i=$calRecords-1; i>=0; i-- ))
         do
         calDate=${calDateA[$i]}
@@ -686,7 +689,7 @@ function  check_cmd_line_calibration()
         if [ $(bc <<< "($epochdatems - $calDate)/1000 < 820") -eq 1 ]; then
           calDateSeconds=$(bc <<< "($calDate / 1000)") # truncate
           meterbg=${meterbgA[$i]}
-          meterbgid=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
+          meterbgid=$(generate_uuid) 
           log "Calibration of $meterbg from $CALFILE being processed - id = $meterbgid"
           found_meterbg=true
           # put in backfill so that the command line calibration will be sent up to NS 
@@ -694,7 +697,7 @@ function  check_cmd_line_calibration()
           
           createdAt=$(date -d @$calDateSeconds +'%Y-%m-%dT%H:%M:%S.%3NZ')
 
-          new_ready_calibration_to_NS $createdAt $meterbg
+          new_ready_calibration_to_NS $createdAt $meterbg "Logger-cmd-line"
         else
           log "Calibration is too old - not used"
         fi
@@ -1027,17 +1030,36 @@ function check_native_calibrates_lsr()
     if [ $(bc <<< "$(date +'%H') % 6") -eq 0 ]; then
       if [ $(bc <<< "$(date +'%M')") -lt 6 ]; then
         if [ $(bc <<< "$glucose < 400") -eq 1  -a $(bc <<< "$glucose > 40") -eq 1 ]; then
-          meterbg=$glucose
-          meterbgid=$(date +"%Y-%m-%dT%H:%M:%S%:z")
-          calDate=$(date +'%s%3N') # TODO: use pump history date
-          log "meterbg from native-calibrates-lsr: $meterbg"
-          found_meterbg=true
+          if [ $(bc <<< "$variation < 10") -eq 1 ]; then
+            meterbg=$glucose
+            meterbgid=$(generate_uuid) 
+            calDate=$(date +'%s%3N') 
+            new_ready_calibration_to_NS $calDate $meterbg "Logger-native-lsr"
+            log "meterbg from native-calibrates-lsr: $meterbg"
+            found_meterbg=true
+          fi
         fi
       fi
     fi
   fi
 }
 
+# Pump History BG records
+#  {
+#    "timestamp": "2017-06-07T06:30:09-04:00",
+#    "_type": "CalBGForPH",
+#    "id": "Ck9JniZnEQ==",
+#    "amount": 79,
+#    "units": "mgdl"
+#  }
+#  {
+#    "timestamp": "2017-06-07T06:30:09-04:00",
+#    "_type": "BGReceived",
+#    "id": "PwlJnuZnEcI2Rw==",
+#    "link": "C23647",
+#    "amount": 79,
+#    "units": "mgdl"
+#  }
 function check_pump_history_calibration()
 {
   if [ "$mode" == "read-only" ]; then
@@ -1077,15 +1099,33 @@ function check_pump_history_calibration()
   fi
 }
 
+function calc_variation()
+{
+  # arg1 = filtered
+  # arg2 = unfiltered
+
+  variationLocal=0
+  if [ $(bc <<< "$1 > 0") -eq 1 ]; then
+    variationLocal=$(bc <<< "($1 - $2) * 100 / $1")
+    if [ $(bc <<< "$variationLocal < 0") -eq 1 ]; then
+      variationLocal=$(bc <<< "0 - $variationLocal")
+    fi 
+  fi
+
+  echo $variationLocal
+}
+
 function check_variation()
 {
   if [ "$mode" == "read-only" ]; then
     return
   fi
 
-  variation=$(bc <<< "($filtered - $unfiltered) * 100 / $filtered")
+  # always calc variation because its value is used elsewhere
+  variation=$(calc_variation $filtered $unfiltered)
+
   if [[ "$found_meterbg" == true ]]; then
-    if [ $(bc <<< "$variation > 10") -eq 1 -o $(bc <<< "$variation < -10") -eq 1 ]; then
+    if [ $(bc <<< "$variation > 10") -eq 1 ]; then
       log "would not allow meter calibration - filtered/unfiltered variation of $variation exceeds 10%"
       meterbg=""
     else
@@ -1580,9 +1620,9 @@ function  post-nightscout-with-backfill()
   /usr/local/bin/cgm-post-ns ${LDIR}/entry-ns.json && (echo; log "Upload to NightScout of xdrip entry worked ... removing ${LDIR}/entry-backfill.json"; rm -f ${LDIR}/entry-backfill.json) || (echo; log "Upload to NS of xdrip entry did not work ... saving for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile"; cp ${LDIR}/entry-ns.json ${LDIR}/entry-backfill.json)
   echo
 
-  if [ -e "${LDIR}/treatments-backfill.json" ]; then
+  if [ -e "$treatmentsFile" ]; then
     log "Posting treatments to NightScout"
-    /usr/local/bin/cgm-post-ns ${LDIR}/treatments-backfill.json treatments && (echo; log "Upload to NightScout of xdrip treatments worked ... removing ${LDIR}/treatments-backfill.json"; rm -f ${LDIR}/treatments-backfill.json) || (echo; log "Upload to NS of xdrip entry did not work ... saving treatments for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile")
+    /usr/local/bin/cgm-post-ns $treatmentsFile treatments && (echo; log "Upload to NightScout of xdrip treatments worked ... removing $treatmentsFile"; rm -f $treatmentsFile) || (echo; log "Upload to NS of xdrip entry did not work ... saving treatments for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile")
     echo
   fi
 }
