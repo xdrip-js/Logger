@@ -559,79 +559,6 @@ function check_last_entry_values()
 }
 
 
-function new_check_tx_calibration()
-{
-  TXCALFILE="${LDIR}/tx-calibration-data.json"
-
-
-  if [ -e $TXCALFILE ]; then
-    txdatetime=$(jq ".date" $TXCALFILE)
-    txdatetime="${txdatetime%\"}"
-    txdatetime="${txdatetime#\"}"
-    txmeterbg=$(jq ".glucose" $TXCALFILE)
-    txepochdate=`date --date="$txdatetime" +"%s"`
-    txmeterbgid=$txepochdate
-    #echo txepochdate=$txepochdate, txdatetime=$txdatetime, txmeterbg=$txmeterbg
-    # grep txepochdate in calibrations.csv to see if this tx calibration is known yet or not
-    # The tx reports a time in milliseconds that shifts each and every time, so to be sure
-    # to not have duplicates, we need to grep for the second before and second after
-    after=$(($txmeterbgid+1))
-    before=$(($txmeterbgid-1))
-    f=${LDIR}/calibrations.csv
-    if cat $f | egrep "$txepochdate" || cat $f | egrep "$after" || cat $f | egrep "$before"; then
-      log "Already processed tx calibration of $txmeterbg with id = $txmeterbgid"
-    else
-      #  calibrations.csv "raw,meterbg,datetime,epochdate,meterbgid,filtered,unfiltered"
-      log "Tx calibration of $txmeterbg being considered - id = $txmeterbgid"
-
-      epochdateNow=$(date +'%s')
-
-      if [ $(bc <<< "($epochdateNow - $txepochdate) < 420") -eq 1 ]; then
-       log "tx meterbg is within 7 minutes so use current filtered/unfiltered values "
-       txfiltered=$filtered
-       txunfiltered=$unfiltered
-       txraw=$raw
-      else
-       log "tx meterbg is older than 7 minutes so queryfiltered/unfiltered values"
-       #  after=$(date -d "15 minutes ago" -Iminutes)
-       #  glucosejqstr="'[ .[] | select(.dateString > \"$after\") ]'"
-       before=$(bc -l <<< "$txepochdate *1000  + 240*1000")
-       after=$(bc -l <<< "$txepochdate *1000  - 240*1000")
-       glucosejqstr="'[ .[] | select(.date > $after) | select(.date < $before) ]'"
-
-       bash -c "jq -c $glucosejqstr ~/myopenaps/monitor/glucose.json" > ${LDIR}/test.json
-       txunfiltered=( $(jq -r ".[0].unfiltered" ${LDIR}/test.json) )
-       txfiltered=( $(jq -r ".[0].filtered" ${LDIR}/test.json) )
-       txraw=$txunfiltered
-      fi
-      #check validity of tx record
-      # TODO - convert this check into a function since used in 2 places
-      if [ $(bc  -l <<< "$txunfiltered < 20") -eq 1 -o $(bc -l <<< "$txunfiltered > 500") -eq 1 ]; then
-        log "Calibration of $txmeterbg not being used due to txunfiltered of $txunfiltered"
-      else
-        txvariation=$(bc <<< "($txfiltered - $txunfiltered) * 100 / $txfiltered")
-        if [ $(bc <<< "$txvariation > 10") -eq 1 -o $(bc <<< "$txvariation < -10") -eq 1 ]; then
-          log "would not allow txmeter calibration - txfiltered/txunfiltered txvariation of $txvariation exceeds 10%"
-        else
-          log "Calibration is new and within bounds - adding to calibrations.csv"
-          log "txraw=$txraw,txmeterbg=$txmeterbg,itxdatetime=$txdatetime,txepochdate=$txepochdate,txmeterbgid=$txmeterbgid,txfiltered=$txfiltered,txunfiltered=$txunfiltered"
-          echo "$txraw,$txmeterbg,$txdatetime,$txepochdate,$txmeterbgid,$txfiltered,$txunfiltered" >> ${LDIR}/calibrations.csv
-          /usr/local/bin/cgm-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
-          # put in backfill so that the command line calibration will be sent up to NS 
-          # now (or later if offline)
-          log "Setting up to send calibration to NS now if online (or later with backfill)"
-          # use enteredBy Logger-from-Tx so that it can be filtered and not reprocessed by Logger again
-          echo "[{\"created_at\":\"$txdatetime\",\"enteredBy\":\"Logger-from-Tx\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$txmeterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ${LDIR}/calibration-backfill.json
-          stagingFile=$(mktemp)
-          cp ${LDIR}/treatments-backfill.json ${stagingFile}
-          jq -s add ${LDIR}/calibration-backfill.json ${stagingFile} > ${LDIR}/treatments-backfill.json
-          cat ${LDIR}/treatments-backfill.json
-        fi
-      fi
-    fi
-  fi
-}
-
 function check_tx_calibration()
 {
   if [ "$mode" == "read-only" ]; then
@@ -695,64 +622,16 @@ function check_tx_calibration()
           /usr/local/bin/cgm-calc-calibration ${LDIR}/calibrations.csv ${LDIR}/calibration-linear.json
           # put in backfill so that the command line calibration will be sent up to NS 
           # now (or later if offline)
-          log "Setting up to send calibration to NS now if online (or later with backfill)"
-          # use enteredBy Logger-from-Tx so that it can be filtered and not reprocessed by Logger again
-          echo "[{\"created_at\":\"$txdatetime\",\"enteredBy\":\"Logger-from-Tx\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$txmeterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ${LDIR}/calibration-backfill.json
-          stagingFile=$(mktemp)
-          cp ${LDIR}/treatments-backfill.json ${stagingFile}
-          jq -s add ${LDIR}/calibration-backfill.json ${stagingFile} > ${LDIR}/treatments-backfill.json
-          cat ${LDIR}/treatments-backfill.json
+          # EYF TODO - figure out if this is necessary
+          # use enteredBy Logger-from-Tx so that 
+          #it can be filtered and not reprocessed by Logger again
+          new_ready_calibration_to_NS $txdatetime $txmeterbg
         fi
       fi
     fi
   fi
 }
 
-function  new_check_cmd_line_calibration()
-{
-## look for a bg check from ${LDIR}/calibration.json
-    CALFILE="${LDIR}/calibration.json"
-    if [ -e $CALFILE ]; then
-      epochdatems=$(date +'%s%3N')
-      if test  `find $CALFILE -mmin -12`
-      then
-        log "calibration file $CALFILE contents below"
-        cat $CALFILE
-        echo
-        calDateA=( $(jq -r ".[].date" ${CALFILE}) )
-        meterbgA=( $(jq -r ".[].glucose" ${CALFILE}) )
-        calRecords=${#meterbgA[@]}
-        # EYF here
-        log "calRecords=$calRecords" 
-
-        for (( i=0; i<$calRecords; i++ ))
-        do
-        # check the date inside to make sure we don't calibrate using old record
-        calDate=$(jq ".[0].date" $CALFILE)
-        meterbg=$(jq ".[0].glucose" $CALFILE)
-        meterbgid=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
-
-        meterbgid="${meterbgid%\"}"
-        meterbgid="${meterbgid#\"}"
-        log "Calibration of $meterbg from $CALFILE being processed - id = $meterbgid"
-        found_meterbg=true
-        # put in backfill so that the command line calibration will be sent up to NS 
-        # now (or later if offline)
-        log "Setting up to send calibration to NS now if online (or later with backfill)"
-          echo "[{\"created_at\":\"$meterbgid\",\"enteredBy\":\"Logger\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > ${LDIR}/calibration-backfill.json
-          cat ${LDIR}/calibration-backfill.json
-          stagingFile=$(mktemp)
-          cp ${LDIR}/treatments-backfill.json ${stagingFile}
-          jq -s add ${LDIR}/calibration-backfill.json ${stagingFile} > ${LDIR}/treatments-backfill.json
-          #calibrationJSON="[{\"date\": ${calDate}, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
-         done
-        else
-          log "Calibration bg over 7 minutes - not used"
-        fi
-      fi
-      rm $CALFILE
-    log "meterbg from ${LDIR}/calibration.json: $meterbg"
-}
 
 function new_ready_calibration_to_NS()
 {
@@ -800,7 +679,7 @@ function  check_cmd_line_calibration()
         log "calRecords=$calRecords" 
 
         # EYF here
-        for (( i=0; i<$calRecords; i++ ))
+        for (( i=$calRecords-1; i>=0; i-- ))
         do
         calDate=${calDateA[$i]}
         # check the date inside to make sure we don't calibrate using old record
@@ -1175,7 +1054,7 @@ function check_pump_history_calibration()
     if [ -e "$historyFile" ]; then
       # look for a bg check from pumphistory (direct from meter->openaps):
       # note: pumphistory may not be loaded by openaps very timely...
-      meterbgafter=$(date -d "9 minutes ago" -Iminutes)
+      meterbgafter=$(date -d "20 minutes ago" -Iminutes)
       meterjqstr="'.[] | select(._type == \"BGReceived\") | select(.timestamp > \"$meterbgafter\")'"
       bash -c "jq $meterjqstr $historyFile" > $METERBG_NS_RAW
       meterbg=$(bash -c "jq .amount $METERBG_NS_RAW | head -1")
@@ -1191,7 +1070,9 @@ function check_pump_history_calibration()
         log "meterbg from pumphistory: $meterbg"
         found_meterbg=true
       fi
-      calDate=$(date +'%s%3N') # TODO: use pump history date
+      calDate=$(date --date="$meterbgid" +"%s%3N")
+      # no need to send to NS because OpenAPS does this for us
+      #calDate=$(date +'%s%3N') # SOLVED: use pump history date
     fi
   fi
 }
@@ -1244,7 +1125,8 @@ function check_ns_calibration()
       meterbg=`jq -M '.[0] .glucose' $METERBG_NS_RAW`
       meterbg="${meterbg%\"}"
       meterbg="${meterbg#\"}"
-      if [[ "$enteredBy" == "Logger-from-Tx" ]]; then
+      if [[ "$enteredBy" == "Logger" ]]; then
+        # Logger knows about it already so don't process again
         return
       fi
       if [[ "$meterbgunits" == *"mmol"* ]]; then
