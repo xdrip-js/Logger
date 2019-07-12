@@ -190,7 +190,10 @@ main()
   post-nightscout-with-backfill
   cp ${LDIR}/entry-xdrip.json $lastEntryFile
 
-  if [ "$mode" != "expired" ]; then
+  if [ "$mode" == "not-expired" ]; then
+    :
+    # do nothing
+  else
     log "Calling expired tx lsr calcs (after posting) -allows mode switches / comparisons" 
     calculate_calibrations
     apply_lsr_calibration 
@@ -851,22 +854,26 @@ function compile_messages()
     addToXdripMessages $backfillJSON
   fi
   
-  messages=$(cat $xdripMessageFile)
-  if [ -z  "$messages" ] || [ "$messages" == "null" ]; then
-    messages=""
+  messages=""
+  if [ -e $xdripMessageFile ]; then
+    messages=$(cat $xdripMessageFile)
+    cat $xdripMessageFile
+  fi
+ 
+  if [ "$messages" == "" ]; then
+    echo "[]" > $xdripMessageFile
   fi
 
-  log "Logger xdrip-js messages = $messages"
+  echo -n "Logger xdrip-js messages = $messages"
 }
 
 
 function  call_logger()
 {
-  log "Calling xdrip-js ... node logger $transmitter"
+  log "Calling xdrip-js ... node logger $transmitter $xdripMessageFile $alternateBluetoothChannel"
   DEBUG=smp,transmitter,bluetooth-manager,backfill-parser
   export DEBUG
-  # added cmd line arg #4 boolean true if use alternate receiver bt channel
-  timeout 420 node logger $transmitter "${messages}" $alternateBluetoothChannel
+  timeout 420 node logger $transmitter "$xdripMessageFile" $alternateBluetoothChannel
   echo
   local error=""
   log "after xdrip-js bg record below ..."
@@ -1270,8 +1277,6 @@ function calculate_calibrations()
       else 
         log "this calibration was previously recorded - ignoring"
       fi
-    else
-      log "Invalid calibration, meterbg="${meterbg}" outside of range [40,400]"
     fi
   fi
 }
