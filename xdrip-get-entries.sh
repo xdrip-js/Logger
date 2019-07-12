@@ -7,13 +7,13 @@ SECONDS_IN_30_MINUTES=1800
 CONF_DIR="${HOME}/myopenaps"
 LDIR="${HOME}/myopenaps/monitor/xdripjs"
 OLD_LDIR="${HOME}/myopenaps/monitor/logger"
-calibrationsFile="${LDIR}/calibration-messages.json"
 treatmentsFile="${LDIR}/treatments-backfill.json"
 lastEntryFile="${LDIR}/last-entry.json"
 calibrationFile="${LDIR}/calibration-linear.json"
 calCacheFile="${LDIR}/calibrations.csv"
 xdripMessageFile="${LDIR}/xdrip-messages.json"
 sentLoggerCalibrationToTx=false
+CALFILE="${LDIR}/calibration.json"
 
 main()
 {
@@ -98,7 +98,6 @@ main()
   lastSensorInsertDate=0
   variation=0
   messages="[]"
-  calibrationJSON=""
   ns_url="${NIGHTSCOUT_HOST}"
   METERBG_NS_RAW="meterbg_ns_raw.json"
   battery_check="No" # default - however it will be changed to Yes every 12 hours
@@ -191,9 +190,6 @@ main()
   cp ${LDIR}/entry-xdrip.json $lastEntryFile
 
   if [ "$mode" == "not-expired" ]; then
-    :
-    # do nothing
-  else
     log "Calling expired tx lsr calcs (after posting) -allows mode switches / comparisons" 
     calculate_calibrations
     apply_lsr_calibration 
@@ -682,6 +678,7 @@ function check_tx_calibration()
     # use enteredBy Logger so that 
     # it can be filtered and not reprocessed by Logger again
     readyCalibrationToNS $txdatetime $txmeterbg "Logger-tx"
+    rm -f $TXCALFILE
   fi
 }
 
@@ -691,7 +688,7 @@ function addToXdripMessages()
 {
   jsonToAdd=$1
 
-  if [ "$jsonToAdd" == "" ]; then
+  if [ "$jsonToAdd" == "" || "$jsonToAdd" == "0" ]; then
     return
   fi
 
@@ -743,7 +740,6 @@ function  check_cmd_line_calibration()
   fi
 ## look for a bg check from ${LDIR}/calibration.json
   if [[ "$found_meterbg" == false ]]; then
-    CALFILE="${LDIR}/calibration.json"
     if [ -e $CALFILE ]; then
       epochdatems=$(date +'%s%3N')
       if test  `find $CALFILE -mmin -7`
@@ -751,9 +747,9 @@ function  check_cmd_line_calibration()
         log "calibration file $CALFILE contents below"
         cat $CALFILE
         echo
-        # EYF just for now - fix before checking in
+
         cJSON=$(cat $CALFILE)
-        addToXdripMessages "\"$cJSON\""
+        addToXdripMessages $cJSON
 
         calDateA=( $(jq -r ".[].date" ${CALFILE}) )
         meterbgA=( $(jq -r ".[].glucose" ${CALFILE}) )
@@ -793,7 +789,7 @@ function  check_cmd_line_calibration()
         fi
        done
       fi
-      rm $CALFILE
+      rm -f $CALFILE
     fi
     log "meterbg from ${LDIR}/calibration.json: $meterbg"
   fi
@@ -823,8 +819,6 @@ function  remove_dexcom_bt_pair()
 
 function initialize_messages()
 {
-  truncate -s 0 $calibrationsFile
-  calibrationJSON=""
   stopJSON=""
   startJSON=""
   batteryJSON=""
@@ -857,11 +851,13 @@ function compile_messages()
   messages=""
   if [ -e $xdripMessageFile ]; then
     messages=$(cat $xdripMessageFile)
+    echo -n "xdripMessageFile contents = "
     cat $xdripMessageFile
   fi
  
   if [ "$messages" == "" ]; then
     echo "[]" > $xdripMessageFile
+    log "clearing out logger to xdrip-js messages"
   fi
 
   echo -n "Logger xdrip-js messages = $messages"
@@ -873,7 +869,7 @@ function  call_logger()
   log "Calling xdrip-js ... node logger $transmitter $xdripMessageFile $alternateBluetoothChannel"
   DEBUG=smp,transmitter,bluetooth-manager,backfill-parser
   export DEBUG
-  timeout 420 node logger $transmitter "$xdripMessageFile" $alternateBluetoothChannel
+  timeout 420 node logger $transmitter $xdripMessageFile $alternateBluetoothChannel
   echo
   local error=""
   log "after xdrip-js bg record below ..."
@@ -1592,17 +1588,6 @@ function calculate_noise()
 
 function check_messages()
 {
-  # use found_meterbg here to avoid sending duplicate meterbg's to dexcom
-  if [[ "$found_meterbg" == true ]]; then
-    if [ -n $meterbg ]; then 
-      if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
-        #EYF refactor this later (before next checkin)
-        #calibrationJSON="[{\"date\": ${calDate}, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
-        log "calibrationJSON=$calibrationJSON"
-      fi
-    fi
-  fi
-  
   cgm_stop_file="${LDIR}/cgm-stop.json"
   if [ -e "$cgm_stop_file" ]; then
     stopJSON=$(cat $cgm_stop_file)
