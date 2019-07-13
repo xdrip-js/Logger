@@ -686,21 +686,28 @@ function check_tx_calibration()
 
 function addToXdripMessages()
 {
-  jsonToAdd=$1
+  local jsonToAdd=$1
+  
+  local lengthJSON=${#jsonToAdd} 
 
-  if [ "$jsonToAdd" == "" || "$jsonToAdd" == "0" ]; then
+  if [ $(bc <<< "$lengthJSON < 2") -eq 1 ]; then
+    log "jsonToAdd is not valid too short = $jsonToAdd"
     return
-  fi
+  fi 
 
-  local stagingFile1=$(mktemp)
-  local stagingFile2=$(mktemp)
-
-  if [ -e $xdripMessageFile ]; then
-    echo $jsonToAdd > $stagingFile1
-    cp $xdripMessageFile $stagingFile2
-    jq -s add $stagingFile2 $stagingFile1 > $xdripMessageFile
+  log "json to add = $jsonToAdd"
+  if jq -e . >/dev/null 2>&1 <<<"$jsonToAdd"; then
+    if [ -e $xdripMessageFile ]; then
+      local stagingFile1=$(mktemp)
+      local stagingFile2=$(mktemp)
+      echo $jsonToAdd > $stagingFile1
+      cp $xdripMessageFile $stagingFile2
+      jq -s add $stagingFile2 $stagingFile1 > $xdripMessageFile
+    else
+       echo $jsonToAdd > $xdripMessageFile
+    fi
   else
-     echo $jsonToAdd > $xdripMessageFile
+    log "jsonToAdd is invalid = $jsonToAdd"
   fi
 }
 
@@ -739,32 +746,33 @@ function  check_cmd_line_calibration()
     return
   fi
 ## look for a bg check from ${LDIR}/calibration.json
-  if [[ "$found_meterbg" == false ]]; then
-    if [ -e $CALFILE ]; then
-      epochdatems=$(date +'%s%3N')
-      if test  `find $CALFILE -mmin -7`
-      then
-        log "calibration file $CALFILE contents below"
-        cat $CALFILE
-        echo
+  if [ -e $CALFILE ]; then
+    epochdatems=$(date +'%s%3N')
+    if test  `find $CALFILE -mmin -7`
+    then
+      log "calibration file $CALFILE contents below"
+      cat $CALFILE
+      echo
 
-        cJSON=$(cat $CALFILE)
-        addToXdripMessages $cJSON
+      cJSON=$(cat $CALFILE)
+      ls -al $CALFILE
+      log "calibration file $CALFILE contents below"
+      addToXdripMessages "$cJSON"
 
-        calDateA=( $(jq -r ".[].date" ${CALFILE}) )
-        meterbgA=( $(jq -r ".[].glucose" ${CALFILE}) )
-        calRecords=${#meterbgA[@]}
-        log "Calibration records from command line=$calRecords" 
+      calDateA=( $(jq -r ".[].date" ${CALFILE}) )
+      meterbgA=( $(jq -r ".[].glucose" ${CALFILE}) )
+      calRecords=${#meterbgA[@]}
+      log "Calibration records from command line=$calRecords" 
 
-        # Leverage tx reflection here. The first calibration is the latest one
-	# based on how the command line utility does it
-        # so process the records in reverse order
-        # Consider in the future: use lastFiltered and lastUnfiltered 
-        #                         values if they exist, otherwise 
-        #                         do LSR here and set variable so that 
-        #                         reflective Tx calibration doesn't duplicate
-        for (( i=$calRecords-1; i>=0; i-- ))
-        do
+      # Leverage tx reflection here. The first calibration is the latest one
+      # based on how the command line utility does it
+      # so process the records in reverse order
+      # Consider in the future: use lastFiltered and lastUnfiltered 
+      #                         values if they exist, otherwise 
+      #                         do LSR here and set variable so that 
+      #                         reflective Tx calibration doesn't duplicate
+      for (( i=$calRecords-1; i>=0; i-- ))
+      do
         calDate=${calDateA[$i]}
         # check the date inside to make sure we don't calibrate using old record
         if [ $(bc <<< "($epochdatems - $calDate)/1000 < 820") -eq 1 ]; then
@@ -776,8 +784,7 @@ function  check_cmd_line_calibration()
           # put in backfill so that the command line calibration will be sent up to NS 
           # now (or later if offline)
           
-          createdAt=$(date -d @$calDateSeconds +'%Y-%m-%dT%H:%M:%S.%3NZ')
-
+          createdAt=$(date -d @$calDateSeconds +'%Y-%m-%d %H:%M:%S.%3N')
 
           if [ $(bc <<< "$lastUnfiltered > 0") -eq 1 ]; then
             updateCalibrationCache $lastFiltered $lastUnfiltered $meterbg $meterbgid $createdAt $calDateSeconds "Logger-cmd-line"
@@ -787,10 +794,9 @@ function  check_cmd_line_calibration()
         else
           log "Calibration is too old - not used"
         fi
-       done
-      fi
-      rm -f $CALFILE
+      done
     fi
+    rm -f $CALFILE
     log "meterbg from ${LDIR}/calibration.json: $meterbg"
   fi
 }
@@ -829,23 +835,23 @@ function initialize_messages()
 function compile_messages()
 {
   if [ "${stopJSON}" != "" ]; then
-    addToXdripMessages $stopJSON
+    addToXdripMessages "$stopJSON"
   fi
   
   if [ "${startJSON}" != "" ]; then
-    addToXdripMessages $startJSON
+    addToXdripMessages "$startJSON"
   fi
 
   if [ "${batteryJSON}" != "" ]; then
-    addToXdripMessages $batteryJSON
+    addToXdripMessages "$batteryJSON"
   fi
   
   if [ "${resetJSON}" != "" ]; then
-    addToXdripMessages $resetJSON
+    addToXdripMessages "$resetJSON"
   fi
 
   if [ "${backfillJSON}" != "" ]; then
-    addToXdripMessages $backfillJSON
+    addToXdripMessages "$backfillJSON"
   fi
   
   messages=""
@@ -1208,7 +1214,7 @@ function check_ns_calibration()
     secThen=`date +%s --date=$createdAt`
     secThenMs=`date +%s%3N --date=$createdAt`
     elapsed=$(bc <<< "($secNow - $secThen)")
-    log "meterbg date=$createdAt, secNow=$secNow, secThen=$secThen, elapsed=$elapsed"
+    #log "meterbg date=$createdAt, secNow=$secNow, secThen=$secThen, elapsed=$elapsed"
     if [ $(bc <<< "$elapsed < 540") -eq 1 ]; then
       # note: pumphistory bg has no _id field, but .timestamp matches .created_at
       enteredBy=$(jq ".[0].enteredBy" $METERBG_NS_RAW)
@@ -1233,11 +1239,11 @@ function check_ns_calibration()
       # EYF nothing to do here except prepare xdrip-js message 
       calDate=$secThenMs
       addToXdripMessages "[{\"date\": ${calDate}, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
+    log "meterbg from nightscout: $meterbg, date=$calDate"
     else
       # clear old meterbg curl responses
       rm $METERBG_NS_RAW
     fi
-    log "meterbg from nightscout: $meterbg"
   fi
 }
 
