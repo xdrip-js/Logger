@@ -794,7 +794,8 @@ function  check_cmd_line_calibration()
           # put in backfill so that the command line calibration will be sent up to NS 
           # now (or later if offline)
           
-          createdAt=$(date -d @$calDateSeconds +'%Y-%m-%dT%H:%M:%S.%3NZ')
+          # EYF check for UTC here I think ...
+          createdAt=$(date -u -d @$calDateSeconds +'%Y-%m-%dT%H:%M:%S.%3NZ')
 
           if [ $(bc <<< "$lastUnfiltered > 0") -eq 1 ]; then
             updateCalibrationCache $lastFiltered $lastUnfiltered $meterbg $meterbgid $createdAt $calDateSeconds "Logger-cmd-line"
