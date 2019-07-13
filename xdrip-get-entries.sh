@@ -678,6 +678,7 @@ function check_tx_calibration()
     # use enteredBy Logger so that 
     # it can be filtered and not reprocessed by Logger again
     readyCalibrationToNS $txdatetime $txmeterbg "Logger-tx"
+    postTreatmentsToNS
     rm -f $TXCALFILE
   fi
 }
@@ -801,6 +802,7 @@ function  check_cmd_line_calibration()
             sentLoggerCalibrationToTx=true
           fi
           readyCalibrationToNS $createdAt $meterbg "Logger-cmd-line"
+          postTreatmentsToNS
         else
           log "Calibration is too old - not used"
         fi
@@ -1101,6 +1103,7 @@ function check_native_calibrates_lsr()
             meterbgid=$(generate_uuid) 
             calDate=$(date +'%s%3N') 
             readyCalibrationToNS $calDate $meterbg "Logger-native-lsr"
+            postTreatmentsToNS
             log "meterbg from native-calibrates-lsr: $meterbg"
             sentLoggerCalibrationToTx=true
             found_meterbg=true
@@ -1663,6 +1666,11 @@ function  post-nightscout-with-backfill()
   /usr/local/bin/cgm-post-ns ${LDIR}/entry-ns.json && (echo; log "Upload to NightScout of xdrip entry worked ... removing ${LDIR}/entry-backfill.json"; rm -f ${LDIR}/entry-backfill.json) || (echo; log "Upload to NS of xdrip entry did not work ... saving for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile"; cp ${LDIR}/entry-ns.json ${LDIR}/entry-backfill.json)
   echo
 
+  postTreatmentsToNS
+}
+
+function postTreatmentsToNS()
+{
   if [ -e "$treatmentsFile" ]; then
     log "Posting treatments to NightScout"
     /usr/local/bin/cgm-post-ns $treatmentsFile treatments && (echo; log "Upload to NightScout of xdrip treatments worked ... removing $treatmentsFile"; rm -f $treatmentsFile) || (echo; log "Upload to NS of xdrip entry did not work ... saving treatments for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile")
