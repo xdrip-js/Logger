@@ -683,10 +683,16 @@ function check_tx_calibration()
 }
 
 
-
 function addToXdripMessages()
 {
   local jsonToAdd=$1
+  local resultJSON=""
+  
+  jqType=$(jq type  <<< "$jsonToAdd")
+  if [[ "$jqType" != *"array"* ]]; then
+    log "jsonToAdd is not valid = $jsonToAdd"
+    return 
+  fi
   
   local lengthJSON=${#jsonToAdd} 
 
@@ -696,19 +702,24 @@ function addToXdripMessages()
   fi 
 
   log "json to add = $jsonToAdd"
-  if jq -e . >/dev/null 2>&1 <<<"$jsonToAdd"; then
-    if [ -e $xdripMessageFile ]; then
-      local stagingFile1=$(mktemp)
-      local stagingFile2=$(mktemp)
-      echo $jsonToAdd > $stagingFile1
-      cp $xdripMessageFile $stagingFile2
-      jq -s add $stagingFile2 $stagingFile1 > $xdripMessageFile
-    else
-       echo $jsonToAdd > $xdripMessageFile
-    fi
+  
+  if [ -e $xdripMessageFile ]; then
+    local stagingFile1=$(mktemp)
+    local stagingFile2=$(mktemp)
+    echo $jsonToAdd > $stagingFile1
+    cp $xdripMessageFile $stagingFile2
+    resultJSON=$(jq -c -s add $stagingFile2 $stagingFile1)
   else
-    log "jsonToAdd is invalid = $jsonToAdd"
+     resultJSON=$jsonToAdd
   fi
+  
+  jqType=$(jq type  <<< "$resultJSON")
+  if [[ "$jqType" != *"array"* ]]; then
+    log "resultJSON is not valid = $resultJSON"
+    return 
+  fi
+
+  echo $resultJSON > $xdripMessageFile
 }
 
 
@@ -756,7 +767,6 @@ function  check_cmd_line_calibration()
 
       cJSON=$(cat $CALFILE)
       ls -al $CALFILE
-      log "calibration file $CALFILE contents below"
       addToXdripMessages "$cJSON"
 
       calDateA=( $(jq -r ".[].date" ${CALFILE}) )
@@ -776,7 +786,7 @@ function  check_cmd_line_calibration()
         calDate=${calDateA[$i]}
         # check the date inside to make sure we don't calibrate using old record
         if [ $(bc <<< "($epochdatems - $calDate)/1000 < 820") -eq 1 ]; then
-          calDateSeconds=$(bc <<< "($calDate / 1000)") # truncate
+          calDateSeconds=$(bc  <<< "($calDate / 1000)") # truncate
           meterbg=${meterbgA[$i]}
           meterbgid=$(generate_uuid) 
           log "Calibration of $meterbg from $CALFILE being processed - id = $meterbgid"
@@ -784,7 +794,7 @@ function  check_cmd_line_calibration()
           # put in backfill so that the command line calibration will be sent up to NS 
           # now (or later if offline)
           
-          createdAt=$(date -d @$calDateSeconds +'%Y-%m-%d %H:%M:%S.%3N')
+          createdAt=$(date -d @$calDateSeconds +'%Y-%m-%dT%H:%M:%S.%3NZ')
 
           if [ $(bc <<< "$lastUnfiltered > 0") -eq 1 ]; then
             updateCalibrationCache $lastFiltered $lastUnfiltered $meterbg $meterbgid $createdAt $calDateSeconds "Logger-cmd-line"
@@ -829,7 +839,6 @@ function initialize_messages()
   startJSON=""
   batteryJSON=""
   resetJSON=""
-  backfillJSON=""
 }
 
 function compile_messages()
@@ -850,10 +859,6 @@ function compile_messages()
     addToXdripMessages "$resetJSON"
   fi
 
-  if [ "${backfillJSON}" != "" ]; then
-    addToXdripMessages "$backfillJSON"
-  fi
-  
   messages=""
   if [ -e $xdripMessageFile ]; then
     messages=$(cat $xdripMessageFile)
@@ -1702,8 +1707,8 @@ function check_last_glucose_time_smart_sleep()
       # add one minute to the backfill_start to avoid duplicating the last seen entry
       backfill_start=$(bc <<< "$backfill_start + 60 * 1000")
 
-      log "Requesting backfill since $backfill_start"
-      backfillJSON="[{\"date\":\"${backfill_start}\",\"type\":\"Backfill\"}]"
+      log "Adding backfill message since $backfill_start"
+      addToXdripMessages "[{\"date\":\"${backfill_start}\",\"type\":\"Backfill\"}]"
     fi
   else
     log "More than 4 minutes since last glucose entry, continue processing without waiting"
