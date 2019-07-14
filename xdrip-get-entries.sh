@@ -11,13 +11,14 @@ treatmentsFile="${LDIR}/treatments-backfill.json"
 lastEntryFile="${LDIR}/last-entry.json"
 calibrationFile="${LDIR}/calibration-linear.json"
 calCacheFile="${LDIR}/calibrations.csv"
-xdripMessageFile="${LDIR}/xdrip-messages.json"
+xdripMessageFile="${LDIR}/xdrip-js-messages.json"
 sentLoggerCalibrationToTx=false
 CALFILE="${LDIR}/calibration.json"
 
 main()
 {
   log "Starting Logger"
+p 8
 
   check_dirs
 
@@ -97,7 +98,7 @@ main()
   lastGlucoseDate=0
   lastSensorInsertDate=0
   variation=0
-  messages="[]"
+  messages=""
   ns_url="${NIGHTSCOUT_HOST}"
   METERBG_NS_RAW="meterbg_ns_raw.json"
   battery_check="No" # default - however it will be changed to Yes every 12 hours
@@ -120,6 +121,7 @@ main()
   rm -f $METERBG_NS_RAW 
   rm -f ${LDIR}/entry.json
   rm -f $xdripMessageFile
+p 9
 
   check_sensor_change
   check_sensitivity
@@ -417,6 +419,7 @@ function check_battery_status()
    fi
 }
 
+
 function check_send_battery_status()
  {
    file="${LDIR}/cgm-battery.json"
@@ -581,10 +584,24 @@ function updateCalibrationCache()
   local epochdate=$6     # epoch date in seconds
   local enteredBy=$7
 
+  log "updateCalibrationCache, filtered=$filtered, unfiltered=$unfiltered, meterbg=$meterbg"
+  log "                        meterbgid=$meterbgid, datetime=$datetime"
+  log "                        epochdate=$epochdate, enteredBy=$enteredBy"
+
   local variation=0
+  local after=$epochdate
+  local before=$epochdate
 
   local f=$calCacheFile
-  local after=$(($epochdate+1))
+
+  if [ $(bc <<< "$after > 1") -eq 1 ]; then
+    after=$(($epochdate+1))
+  fi
+
+  if [ $(bc <<< "$before > 1") -eq 1 ]; then
+    before=$(($epochdate-1))
+  fi
+
   local before=$(($epochdate-1))
 
     # grep txepochdate in to see if this tx calibration is known yet or not
@@ -674,7 +691,7 @@ function check_tx_calibration()
      txfiltered=( $(jq -r ".[0].filtered" ${LDIR}/test.json) )
     fi
 
-    updateCalibrationCache $txfiltered $txunfiltered $txmeterbg $txmeterbgid $txdatetime $txepochdate "Logger-tx"
+    updateCalibrationCache $txfiltered $txunfiltered $txmeterbg $txmeterbgid "$txdatetime" $txepochdate "Logger-tx"
     # use enteredBy Logger so that 
     # it can be filtered and not reprocessed by Logger again
     readyCalibrationToNS $txdatetime $txmeterbg "Logger-tx"
@@ -720,7 +737,10 @@ function addToXdripMessages()
     return 
   fi
 
+  echo "resultJSON=$resultJSON"
+p 10
   echo $resultJSON > $xdripMessageFile
+p 11
 }
 
 
@@ -798,7 +818,7 @@ function  check_cmd_line_calibration()
           createdAt=$(date $UTC -d @$calDateSeconds +'%Y-%m-%dT%H:%M:%S.%3NZ')
 
           if [ $(bc <<< "$lastUnfiltered > 0") -eq 1 ]; then
-            updateCalibrationCache $lastFiltered $lastUnfiltered $meterbg $meterbgid $createdAt $calDateSeconds "Logger-cmd-line"
+            updateCalibrationCache $lastFiltered $lastUnfiltered $meterbg $meterbgid "$createdAt" $calDateSeconds "Logger-cmd-line"
             sentLoggerCalibrationToTx=true
           fi
           readyCalibrationToNS $createdAt $meterbg "Logger-cmd-line"
@@ -843,42 +863,56 @@ function initialize_messages()
   resetJSON=""
 }
 
+function p() 
+{
+    echo -n "**********   $1 contents = "
+    cat $xdripMessageFile
+}
+
 function compile_messages()
 {
   if [ "${stopJSON}" != "" ]; then
     addToXdripMessages "$stopJSON"
   fi
+  p 1
   
   if [ "${startJSON}" != "" ]; then
     addToXdripMessages "$startJSON"
   fi
+  p 2
 
   if [ "${batteryJSON}" != "" ]; then
     addToXdripMessages "$batteryJSON"
   fi
+  p 3
   
   if [ "${resetJSON}" != "" ]; then
     addToXdripMessages "$resetJSON"
   fi
+  p 4
 
   messages=""
   if [ -e $xdripMessageFile ]; then
     messages=$(cat $xdripMessageFile)
     echo -n "xdripMessageFile contents = "
     cat $xdripMessageFile
+    echo "messages=$messages"
   fi
+  p 5
  
   if [ "$messages" == "" ]; then
-    echo "[]" > $xdripMessageFile
+    echo "" > $xdripMessageFile
     log "clearing out logger to xdrip-js messages"
   fi
+  p 6
 
-  echo -n "Logger xdrip-js messages = $messages"
+  echo "Logger xdrip-js messages = $messages"
 }
 
 
 function  call_logger()
 {
+  p 7
   log "Calling xdrip-js ... node logger $transmitter $xdripMessageFile $alternateBluetoothChannel"
   DEBUG=smp,transmitter,bluetooth-manager,backfill-parser
   export DEBUG
@@ -1038,23 +1072,28 @@ function log_cgm_csv()
 }
 
 
+function postAnnouncementToNS()
+{
+  local announcement=$1
+
+  echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"$announcement\"}]" > ${LDIR}/status-change.json
+  /usr/local/bin/cgm-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of sensor Stopped status change worked") || (echo; log "Upload to NS of transmitter sensor Stopped did not work")
+}
+
 # if tx state or status changed, then post a note to NS
 function process_announcements()
 {
   if [ "$state" == "Stopped" ] && [ "$mode" != "expired" ]; then
     log "Not posting glucose to Nightscout or OpenAPS - sensor state is Stopped, unfiltered=$unfiltered"
-    echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Sensor Stopped, unfiltered=$unfiltered\"}]" > ${LDIR}/status-change.json
-    /usr/local/bin/cgm-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of sensor Stopped status change worked") || (echo; log "Upload to NS of transmitter sensor Stopped did not work")
+    postAnnouncementToNS "Sensor Stopped, unfiltered=$unfiltered"
   else
     log "process_announcements: state=$state lastState=$lastState status=$status lastStatus=$lastStatus"
     if [ "$status" != "$lastStatus" ]; then
-      echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Tx $status\"}]" > ${LDIR}/status-change.json
-      /usr/local/bin/cgm-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of transmitter status change worked") || (echo; log "Upload to NS of transmitter status change did not work")
+      postAnnouncementToNS "Tx $status"
     fi
 
     if [ "$state" != "$lastState" ]; then
-      echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"Sensor $state\"}]" > ${LDIR}/state-change.json
-      /usr/local/bin/cgm-post-ns ${LDIR}/state-change.json treatments && (echo; log "Upload to NightScout of sensor state change worked") || (echo; log "Upload to NS of sensor state change did not work")
+      postAnnouncementToNS "Sensor $state"
     fi
   fi
 }
@@ -1092,22 +1131,36 @@ function check_last_calibration()
 
 function check_native_calibrates_lsr()
 {
+  local file="${LDIR}/native-calibrates-lsr"
+  local native_calibrates_lsr_check="No"
+
   if [ "$mode" == "native-calibrates-lsr" ]; then
+   if [ -e $file ]; then
+     if test  `find $file -mmin +360`
+     then
+       native_calibrates_lsr_check="Yes"
+     fi
+   else
+     native_calibrates_lsr_check="Yes"
+   fi
+
     # every 6 hours, calibrate LSR algo. via native dexcom glucose value:
     # (note: _does not_ calibrate tx, since this is only called after the tx comm is over.)
-    if [ $(bc <<< "$(date +'%H') % 6") -eq 0 ]; then
-      if [ $(bc <<< "$(date +'%M')") -lt 6 ]; then
-        if [ $(bc <<< "$glucose < 400") -eq 1  -a $(bc <<< "$glucose > 40") -eq 1 ]; then
-          if [ $(bc <<< "$variation < 10") -eq 1 ]; then
-            meterbg=$glucose
-            meterbgid=$(generate_uuid) 
-            calDate=$(date +'%s%3N') 
-            readyCalibrationToNS $calDate $meterbg "Logger-native-lsr"
-            postTreatmentsToNS
-            log "meterbg from native-calibrates-lsr: $meterbg"
-            sentLoggerCalibrationToTx=true
-            found_meterbg=true
-          fi
+    if [ $(bc <<< "$glucose < 400") -eq 1  -a $(bc <<< "$glucose > 40") -eq 1 ]; then
+      if [ $(bc <<< "$variation < 10") -eq 1 ]; then
+        if [ "$native_calibrates_lsr_check" == "Yes" ]; then
+          meterbg=$glucose
+          meterbgid=$(generate_uuid) 
+          calDate=$(date +'%s%3N') 
+          calDateSeconds=$(date +'%s') 
+           # EYF here
+          log "meterbg from native-calibrates-lsr: $meterbg"
+          # datetime has spaces in it and must have quotes around it
+          updateCalibrationCache $filtered $unfiltered $meterbg $meterbgid "$datetime" $calDateSeconds "Logger-native-calibrates-lsr"
+          postAnnouncementToNS "native-calibrated-lsr $meterbg"
+          touch $file 
+          sentLoggerCalibrationToTx=true
+          found_meterbg=true
         fi
       fi
     fi
@@ -1256,7 +1309,6 @@ function check_ns_calibration()
 }
 
 #call after posting to NS OpenAPS for not-expired mode
-#    updateCalibrationCache $txfiltered $txunfiltered $txmeterbg $txmeterbgid $txdatetime $txepochdate "Logger-tx"
 function calculate_calibrations()
 {
   if [ "$mode" == "read-only" ]; then
@@ -1267,7 +1319,7 @@ function calculate_calibrations()
   if [ -n $meterbg ]; then 
     if [ "$meterbg" != "null" -a "$meterbg" != "" ]; then
       if [ $(bc <<< "$meterbg < 400") -eq 1  -a $(bc <<< "$meterbg > 40") -eq 1 ]; then
-        updateCalibrationCache $filtered $unfiltered $meterbg $meterbgid $datetime $epochdate "Logger"
+        updateCalibrationCache $filtered $unfiltered $meterbg $meterbgid "$datetime" $epochdate "Logger"
         calibrationDone=1
         maxDelta=80
         if [ -e $calibrationFile ]; then

@@ -2,8 +2,17 @@ const Transmitter = require('xdrip-js');
 const util = require('util')
 
 const id = process.argv[2];
+var messages =  '[]';
 // examples mesages are: {date: Date.now(), type: "CalibrateSensor", glucose} or {date: Date.now(), type: "StopSensor"} or {date: Date.now(), type: "StartSensor"}
-const messages =  JSON.parse(process.argv[3] || '[]');
+var fs2 = require('fs');
+fs2.readFile(process.argv[3], function (err, data) {
+      // var json = [];
+      if (data && data.length > 0) {
+        messages = JSON.parse(data);
+    }
+});
+
+//const messages =  JSON.parse(process.argv[3] || '[]');
 // arg 4 is "true" if using alternate transmitter bluetooth channel
 const arg4 = process.argv[4];
 var alternateBluetooth = false;
