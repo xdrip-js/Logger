@@ -18,7 +18,6 @@ CALFILE="${LDIR}/calibration.json"
 main()
 {
   log "Starting Logger"
-p 8
 
   check_dirs
 
@@ -121,7 +120,6 @@ p 8
   rm -f $METERBG_NS_RAW 
   rm -f ${LDIR}/entry.json
   rm -f $xdripMessageFile
-p 9
 
   check_sensor_change
   check_sensitivity
@@ -591,7 +589,6 @@ function updateCalibrationCache()
   local variation=0
   local after=$epochdate
   local before=$epochdate
-
   local f=$calCacheFile
 
   if [ $(bc <<< "$after > 1") -eq 1 ]; then
@@ -602,7 +599,6 @@ function updateCalibrationCache()
     before=$(($epochdate-1))
   fi
 
-  local before=$(($epochdate-1))
 
     # grep txepochdate in to see if this tx calibration is known yet or not
     # The tx reports a time in ms that shifts each and every time, so to be sure
@@ -738,9 +734,7 @@ function addToXdripMessages()
   fi
 
   echo "resultJSON=$resultJSON"
-p 10
   echo $resultJSON > $xdripMessageFile
-p 11
 }
 
 
@@ -863,33 +857,23 @@ function initialize_messages()
   resetJSON=""
 }
 
-function p() 
-{
-    echo -n "**********   $1 contents = "
-    cat $xdripMessageFile
-}
-
 function compile_messages()
 {
   if [ "${stopJSON}" != "" ]; then
     addToXdripMessages "$stopJSON"
   fi
-  p 1
   
   if [ "${startJSON}" != "" ]; then
     addToXdripMessages "$startJSON"
   fi
-  p 2
 
   if [ "${batteryJSON}" != "" ]; then
     addToXdripMessages "$batteryJSON"
   fi
-  p 3
   
   if [ "${resetJSON}" != "" ]; then
     addToXdripMessages "$resetJSON"
   fi
-  p 4
 
   messages=""
   if [ -e $xdripMessageFile ]; then
@@ -898,13 +882,11 @@ function compile_messages()
     cat $xdripMessageFile
     echo "messages=$messages"
   fi
-  p 5
  
   if [ "$messages" == "" ]; then
     echo "" > $xdripMessageFile
     log "clearing out logger to xdrip-js messages"
   fi
-  p 6
 
   echo "Logger xdrip-js messages = $messages"
 }
@@ -912,7 +894,6 @@ function compile_messages()
 
 function  call_logger()
 {
-  p 7
   log "Calling xdrip-js ... node logger $transmitter $xdripMessageFile $alternateBluetoothChannel"
   DEBUG=smp,transmitter,bluetooth-manager,backfill-parser
   export DEBUG
