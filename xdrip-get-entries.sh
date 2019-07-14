@@ -884,7 +884,7 @@ function compile_messages()
   fi
  
   if [ "$messages" == "" ]; then
-    echo "" > $xdripMessageFile
+    echo "[]" > $xdripMessageFile
     log "clearing out logger to xdrip-js messages"
   fi
 
