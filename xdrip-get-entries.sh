@@ -646,10 +646,14 @@ function updateCalibrationCache()
 function seen_before()
 {
   # pass unique id as arg1 and it will return "No" if not seen before 
+  # Optional arg2 that is the application usage for unique id check
   # or "Yes" if it is the first and only time this id has been seen 
   # Remembers up to 200 last unique id
+bg=${1:-"null"}     # arg 1 is meter bg value
+
 
   local uid=$1
+  local app=${2:-"Logger"}
   local processed_before="No"
   local f="${LDIR}/already_processed.txt"
   local t=$(mktemp)
@@ -663,7 +667,7 @@ function seen_before()
   fi
 
   if [[ "$processed_before" == "No" ]]; then
-    echo "$datetime, seen at least once, $uid" >> $f
+    echo "$datetime, seen at least once, $uid, $app" >> $f
   fi
   
   echo $processed_before
@@ -697,7 +701,7 @@ function check_tx_calibration()
     txepochdate=`date --date="$txdatetime" +"%s"`
     txmeterbgid=$txepochdate
     #  calibrations.csv "unfiltered,meterbg,datetime,epochdate,meterbgid,filtered,unfiltered"
-    seen=$(seen_before $txepochdate) 
+    seen=$(seen_before $txepochdate "Calibration from Tx") 
     if [[ "$seen_before" == "No" ]]; then
       log "Tx last calibration of $txmeterbg being considered - id = $txmeterbgid, txdatetime= $txdatetime"
     else
