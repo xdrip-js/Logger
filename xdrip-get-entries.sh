@@ -643,12 +643,43 @@ function updateCalibrationCache()
     /usr/local/bin/cgm-calc-calibration $calCacheFile $calibrationFile
 }
 
+function seen_before()
+{
+  # pass unique id as arg1 and it will return "No" if not seen before 
+  # or "Yes" if it is the first and only time this id has been seen 
+  # Remembers up to 200 last unique id
+
+  local uid=$1
+  local processed_before="No"
+  local f="${LDIR}/already_processed.txt"
+  local t=$(mktemp)
+  
+  if [ -e $f ]; then
+    if cat $f | egrep "$uid"; then
+      processed_before="Yes"
+    fi
+  else
+    touch $f
+  fi
+
+  if [[ "$processed_before" == "No" ]]; then
+    echo "$datetime, seen at least once, $uid" >> $f
+  fi
+  
+  echo $processed_before
+
+  # keep only last 200 seen unique ids
+  cp $f $t
+  tail -200 $t > $f 
+}
+
 function check_tx_calibration()
 {
   if [ "$mode" == "read-only" ]; then
     return
   fi
 
+  # EYF remove - not necessary anymore
   if [[ "$sentLoggerCalibrationToTx" == true ]]; then
     # This is the reflection of the cmd line based calibration. 
     # Do not process it twice
@@ -666,7 +697,13 @@ function check_tx_calibration()
     txepochdate=`date --date="$txdatetime" +"%s"`
     txmeterbgid=$txepochdate
     #  calibrations.csv "unfiltered,meterbg,datetime,epochdate,meterbgid,filtered,unfiltered"
-    log "Tx calibration of $txmeterbg being considered - id = $txmeterbgid"
+    seen=$(seen_before $txepochdate) 
+    if [[ "$seen_before" == "No" ]]; then
+      log "Tx last calibration of $txmeterbg being considered - id = $txmeterbgid, txdatetime= $txdatetime"
+    else
+      log "Tx last calibration of $txmeterbg seen before, already processed - id = $txmeterbgid, txdatetime= $txdatetime"
+      return
+    fi
 
     epochdateNow=$(date +'%s')
 
@@ -715,8 +752,6 @@ function addToXdripMessages()
     return
   fi 
 
-  log "json to add = $jsonToAdd"
-  
   if [ -e $xdripMessageFile ]; then
     local stagingFile1=$(mktemp)
     local stagingFile2=$(mktemp)
@@ -733,7 +768,6 @@ function addToXdripMessages()
     return 
   fi
 
-  echo "resultJSON=$resultJSON"
   echo $resultJSON > $xdripMessageFile
 }
 
@@ -1058,7 +1092,7 @@ function postAnnouncementToNS()
   local announcement=$1
 
   echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"$announcement\"}]" > ${LDIR}/status-change.json
-  /usr/local/bin/cgm-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of sensor Stopped status change worked") || (echo; log "Upload to NS of transmitter sensor Stopped did not work")
+  /usr/local/bin/cgm-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of Announcment worked - $announcement") || (echo; log "Upload of Announcement to NS did not work - $announcement")
 }
 
 # if tx state or status changed, then post a note to NS
