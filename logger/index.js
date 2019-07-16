@@ -8,7 +8,9 @@ var fs2 = require('fs');
 fs2.readFile(process.argv[3], function (err, data) {
       // var json = [];
       if (data && data.length > 0) {
+        console.log('messages passed to logger: ' + data);
         messages = JSON.parse(data);
+        const util = require('util')
     }
 });
 
@@ -230,8 +232,8 @@ transmitter.on('batteryStatus', data => {
 transmitter.on('disconnect', process.exit);
 
 transmitter.on('messageProcessed', data => {
-  console.log('got message inside logger msg: ' + JSON.stringify(data));
-  console.log(util.inspect(data, false, null))
+  console.log('logger message received: ' + JSON.stringify(data));
+//  console.log(util.inspect(data, false, null))
 });
 
 transmitter.on('backfillData', backfills => {

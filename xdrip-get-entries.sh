@@ -921,8 +921,6 @@ function compile_messages()
   messages=""
   if [ -e $xdripMessageFile ]; then
     messages=$(cat $xdripMessageFile)
-    echo -n "xdripMessageFile contents = "
-    cat $xdripMessageFile
     echo "messages=$messages"
   fi
  
@@ -931,7 +929,6 @@ function compile_messages()
     log "clearing out logger to xdrip-js messages"
   fi
 
-  echo "Logger xdrip-js messages = $messages"
 }
 
 
