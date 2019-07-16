@@ -742,6 +742,8 @@ function addToXdripMessages()
 {
   local jsonToAdd=$1
   local resultJSON=""
+
+  log "addToXdripMessages jsonToAdd=$jsonToAdd"
   
   jqType=$(jq type  <<< "$jsonToAdd")
   if [[ "$jqType" != *"array"* ]]; then
@@ -762,6 +764,7 @@ function addToXdripMessages()
     echo $jsonToAdd > $stagingFile1
     cp $xdripMessageFile $stagingFile2
     resultJSON=$(jq -c -s add $stagingFile2 $stagingFile1)
+
   else
      resultJSON=$jsonToAdd
   fi
@@ -772,8 +775,11 @@ function addToXdripMessages()
     return 
   fi
 
-  echo $resultJSON > $xdripMessageFile
+  # EYF here
+  log "resultJSON=$resultJSON"
+  echo "$resultJSON" > $xdripMessageFile
 }
+
 
 
 function readyCalibrationToNS()
@@ -819,7 +825,6 @@ function  check_cmd_line_calibration()
       echo
 
       cJSON=$(cat $CALFILE)
-      ls -al $CALFILE
       addToXdripMessages "$cJSON"
 
       calDateA=( $(jq -r ".[].date" ${CALFILE}) )
@@ -950,6 +955,7 @@ function  call_logger()
       error="Invalid response - Unfiltered = $unfiltered"
       state_id=0x25
       ls -al ${LDIR}/entry.json
+      cat ${LDIR}/entry.json
       rm ${LDIR}/entry.json
     fi
     # remove start/stop message files only if not rebooting and we acted on them
