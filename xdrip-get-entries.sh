@@ -1521,7 +1521,7 @@ function post_cgm_ns_pill()
 
    pill="[{\"device\":\"$xrig\",\"xdripjs\": $jstr, \"created_at\":\"$dateString\"}] "
 
-   echo $pill && echo $pill > ${LDIR}/cgm-pill.json
+   echo $pill > ${LDIR}/cgm-pill.json
 
    /usr/local/bin/cgm-post-ns ${LDIR}/cgm-pill.json devicestatus && (echo; log "Upload to NightScout of cgm status pill record entry worked";) || (echo; log "Upload to NS of cgm status pill record did not work")
 }
