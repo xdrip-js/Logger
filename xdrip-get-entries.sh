@@ -1000,7 +1000,13 @@ function  capture_entry_values()
   sessionStartDate="${sessionStartDate%\"}"
   sessionStartDate="${sessionStartDate#\"}"
   sessionStartDateEpochms=$(cat ${LDIR}/extra.json | jq -M '.[0].sessionStartDateEpoch')
-  sessionMinutesRemaining=$(bc -l <<< "($SECONDS_IN_10_DAYS - ($epochdate-$sessionStartDateEpochms/1000))/60")
+  sessionMinutesRemaining=$(bc <<< "($SECONDS_IN_10_DAYS - ($epochdate-$sessionStartDateEpochms/1000))/60")
+  # TODO make sure to use 7 days for g5 and 10 for g6
+  # check for valid and not expired sessionStartDate
+  if [ $(bc <<< "$sessionMinutesRemaining < 0") -eq 1 -a $(bc <<< "$sessionMinutesRemaining > ($SECONDS_IN_10_DAYS * 60)") -eq 1 ]; then
+    log "Expired session or invalid sessionStartDate, not processing auto-restart logic"
+    sessionMinutesRemaining=100000 # big number ensures auto-restart logic will not kick in
+  fi
   log "sessionStartDate=$sessionStartDate, sessionStartDateEpochms=$sessionStartDateEpochms" 
   log "sessionMinutesRemaining=$sessionMinutesRemaining"
 
