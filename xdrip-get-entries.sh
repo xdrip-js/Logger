@@ -1572,7 +1572,7 @@ function process_delta()
     epms15=$(bc -l <<< "$epochdate *1000  - 900000")
     glucosejqstr="'[ .[] | select(.date > $epms15) ]'"
     bash -c "jq -c $glucosejqstr ~/myopenaps/monitor/glucose.json" > ${LDIR}/last15minutes.json
-    last3=( $(jq -r ".[].glucose" ${LDIR}/last15minutes.json) )
+    last3=( $(jq -r ".[].sgv" ${LDIR}/last15minutes.json) )
     date3=( $(jq -r ".[].date" ${LDIR}/last15minutes.json) )
     #log ${last3[@]}
 
@@ -1582,8 +1582,13 @@ function process_delta()
     for (( i=1; i<$usedRecords; i++ ))
     do
       #log "before totalDelta=$totalDelta, last3[i-1]=${last3[$i-1]}, last3[i]=${last3[$i]}"
-      totalDelta=$(bc <<< "$totalDelta + (${last3[$i-1]} - ${last3[$i]})")
-      #log "after totalDelta=$totalDelta"
+      if [ $(bc <<< "${last3[$i]} > 20") -eq 1 -a $(bc <<< "${last3[$i-1]} > 20") -eq 1 ]; then
+        totalDelta=$(bc <<< "$totalDelta + (${last3[$i-1]} - ${last3[$i]})")
+        #log "after totalDelta=$totalDelta"
+      else
+       # for null/bad glucose value in last 3 - leave trend to default which is none or unkown
+        usedRecords=0  
+      fi
     done
 
     if [ $(bc <<< "$usedRecords > 0") -eq 1 ]; then
