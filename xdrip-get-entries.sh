@@ -1009,6 +1009,14 @@ function  capture_entry_values()
   fi
   log "sessionStartDate=$sessionStartDate, sessionStartDateEpochms=$sessionStartDateEpochms" 
   log "sessionMinutesRemaining=$sessionMinutesRemaining"
+  if [ $(bc <<< "$sessionMinutesRemaining < 65") -eq 1 ]; then
+    #TODO use parameter to do this only if auto-restart is true
+    if [ $(bc <<< "$glucose < 400") -eq 1  -a $(bc <<< "$glucose > 40") -eq 1 ]; then
+      if [ $(bc <<< "$variation < 10") -eq 1 ]; then
+         cgm-stop; sleep 1; cgm-start -m 120; sleep 1; cgm-calibrate $glucose; sleep 1; cgm-calibrate $glucose  
+      fi
+    fi
+  fi
 
   rssi=$(cat ${LDIR}/entry.json | jq -M '.[0].rssi')
 
