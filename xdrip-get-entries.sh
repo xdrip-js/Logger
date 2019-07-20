@@ -114,12 +114,12 @@ main()
   check_utc
 
   check_last_entry_values
+
   check_last_glucose_time_smart_sleep
 
   # clear out prior curl or tx responses
   rm -f $METERBG_NS_RAW 
   rm -f ${LDIR}/entry.json
-  rm -f $xdripMessageFile
 
   check_sensor_change
   check_sensitivity
@@ -761,8 +761,12 @@ function addToXdripMessages()
   if [ -e $xdripMessageFile ]; then
     local stagingFile1=$(mktemp)
     local stagingFile2=$(mktemp)
-    echo $jsonToAdd > $stagingFile1
+    echo "$jsonToAdd" > $stagingFile1
     cp $xdripMessageFile $stagingFile2
+    log "stagingFile2 is below"
+    cat $stagingFile2
+    log "stagingFile1 is below"
+    cat $stagingFile1
     resultJSON=$(jq -c -s add $stagingFile2 $stagingFile1)
 
   else
@@ -1792,6 +1796,8 @@ function wait_with_echo()
 
 function check_last_glucose_time_smart_sleep()
 {
+  rm -f $xdripMessageFile
+
   if [ -e $lastEntryFile ]; then
     entry_timestamp=$(date -r $lastEntryFile +'%s')
     seconds_since_last_entry=$(bc <<< "$epochdate - $entry_timestamp")
