@@ -350,17 +350,16 @@ function ClearCalibrationCache()
 # check UTC to begin with and use UTC flag for any curls
 function check_utc()
 {
-  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[created_at\]\[\$gte\]=$(date -d "2400 hours ago" -Ihours -u)&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null  > ${LDIR}/testUTC.json  
+  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[eventType\]\[\$regex\]=Check" 2>/dev/null  > ${LDIR}/testUTC.json          
   if [ $? == 0 ]; then
     createdAt=$(jq ".[0].created_at" ${LDIR}/testUTC.json)
     createdAt="${createdAt%\"}"
     createdAt="${createdAt#\"}"
     if [ ${#createdAt} -le 4 ]; then
-      log "You must record a \"Sensor Insert\" in Nightscout before Logger will run" 
+      log "You must record a \"BG Check\" in Nightscout for Logger to function properly"
       log "If you are offline at the moment (no internet) then this warning is OK"
-      #log "exiting\n"
       state_id=0x23
-      state="Needs NS CGM Sensor Insert" ; stateString=$state ; stateStringShort=$state
+      state="Needs BG Check" ; stateString=$state ; stateStringShort=$state
       post_cgm_ns_pill
       # don't exit here -- offline mode will not work if exit here
       # exit
