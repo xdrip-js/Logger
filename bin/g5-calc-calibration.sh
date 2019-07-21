@@ -27,15 +27,32 @@ OUTPUT=${2:-"${HOME}/myopenaps/monitor/xdripjs/calibration-linear.json"}
 MAXSLOPE=1.750
 MINSLOPE=0.550
 MINSLOPESINGLE=0.800
-MAXRECORDS=12
+maxRecords=12
 MINRECORDSFORLSR=3
 rSquared=0
-
-yarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f1 ) )
-xarr=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f2 ) )
-tdate=( $(tail -$MAXRECORDS $INPUT | cut -d ',' -f4 ) )
+epochdate=$(date +'%s')
 
 echo "Begin calibration using input of $INPUT and output of $OUTPUT"
+
+tdate=( $(tail -$maxRecords $INPUT | cut -d ',' -f4 ) )
+
+# set totalRecordsToUse so that only the last 3 days worth of calibrations will be considered
+totalRecordsToUse=${#tdate[@]}
+for (( m=$totalRecordsToUse-1; m>0; m-- ))
+do
+
+  if [ $(bc <<< "${tdate[$m]} < $epochdate - (3600 * 24 * 3)") -eq 1 ]; then
+    totalRecordsToUse=$(bc <<< "$totalRecordsToUse - 1")
+  fi
+done
+echo "Total Records to use based on last 3 days calibration records = $totalRecordsToUse"
+
+
+
+yarr=( $(tail -$totalRecordsToUse $INPUT | cut -d ',' -f1 ) )
+xarr=( $(tail -$totalRecordsToUse $INPUT | cut -d ',' -f2 ) )
+tdate=( $(tail -$totalRecordsToUse $INPUT | cut -d ',' -f4 ) )
+
 
 
 # so that upgades will work for old 1000x scale calibration.csv data
