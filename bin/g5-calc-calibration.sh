@@ -24,10 +24,10 @@
 
 INPUT=${1:-"${HOME}/myopenaps/monitor/xdripjs/calibrations.csv"}
 OUTPUT=${2:-"${HOME}/myopenaps/monitor/xdripjs/calibration-linear.json"}
-MAXSLOPE=1.450
+MAXSLOPE=1.750
 MINSLOPE=0.550
 MINSLOPESINGLE=0.800
-MAXRECORDS=8
+MAXRECORDS=12
 MINRECORDSFORLSR=3
 rSquared=0
 
