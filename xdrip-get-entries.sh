@@ -12,6 +12,7 @@ lastEntryFile="${LDIR}/last-entry.json"
 calibrationFile="${LDIR}/calibration-linear.json"
 calCacheFile="${LDIR}/calibrations.csv"
 xdripMessageFile="${LDIR}/xdrip-js-messages.json"
+calibrationMessageFile="${LDIR}/calibration-xdrip-js-messages.json"
 sentLoggerCalibrationToTx=false
 CALFILE="${LDIR}/calibration.json"
 
@@ -745,12 +746,13 @@ function check_tx_calibration()
 }
 
 
-function addToXdripMessages()
+function addToMessages() 
 {
   local jsonToAdd=$1
   local resultJSON=""
+  local msgFile=$2
 
-  log "addToXdripMessages jsonToAdd=$jsonToAdd"
+  log "addToMessages jsonToAdd=$jsonToAdd"
   
   jqType=$(jq type  <<< "$jsonToAdd")
   if [[ "$jqType" != *"array"* ]]; then
@@ -765,16 +767,16 @@ function addToXdripMessages()
     return
   fi 
 
-  if [ -e $xdripMessageFile ]; then
+  if [ -e $msgFile ]; then
     local stagingFile1=$(mktemp)
     local stagingFile2=$(mktemp)
     echo "$jsonToAdd" > $stagingFile1
-    cp $xdripMessageFile $stagingFile2
+    cp $msgFile $stagingFile2
     log "stagingFile2 is below"
     cat $stagingFile2
     log "stagingFile1 is below"
     cat $stagingFile1
-    resultJSON=$(jq -c -s add $stagingFile2 $stagingFile1)
+      resultJSON=$(jq -c -s add $stagingFile2 $stagingFile1)
 
   else
      resultJSON=$jsonToAdd
@@ -787,7 +789,7 @@ function addToXdripMessages()
   fi
 
   log "resultJSON=$resultJSON"
-  echo "$resultJSON" > $xdripMessageFile
+  echo "$resultJSON" > $msgFile
 }
 
 
@@ -835,7 +837,7 @@ function  check_cmd_line_calibration()
       echo
 
       cJSON=$(cat $CALFILE)
-      addToXdripMessages "$cJSON"
+      addToMessages "$cJSON" $calibrationMessageFile
 
       calDateA=( $(jq -r ".[].date" ${CALFILE}) )
       meterbgA=( $(jq -r ".[].glucose" ${CALFILE}) )
@@ -912,21 +914,29 @@ function initialize_messages()
 
 function compile_messages()
 {
+  if [ "${resetJSON}" != "" ]; then
+    addToMessages "$resetJSON" $xdripMessageFile
+  fi
+
   if [ "${stopJSON}" != "" ]; then
-    addToXdripMessages "$stopJSON"
+    addToMessages "$stopJSON" $xdripMessageFile
   fi
   
   if [ "${startJSON}" != "" ]; then
-    addToXdripMessages "$startJSON"
+    addToMessages "$startJSON" $xdripMessageFile
   fi
 
   if [ "${batteryJSON}" != "" ]; then
-    addToXdripMessages "$batteryJSON"
+    addToMessages "$batteryJSON" $xdripMessageFile
   fi
+
+  if [ -e $calibrationMessageFile ]; then
+    local calibrationJSON=$(cat $calibrationMessageFile)
   
-  if [ "${resetJSON}" != "" ]; then
-    addToXdripMessages "$resetJSON"
+    addToMessages "$calibrationJSON" $xdripMessageFile
+    rm -f $calibrationMessageFile
   fi
+
 
   messages=""
   if [ -e $xdripMessageFile ]; then
@@ -1014,6 +1024,10 @@ function  capture_entry_values()
   # EYF here
   # TODO make sure to use 7 days for g5 and 10 for g6
   # check for valid and not expired sessionStartDate
+  if [ "$txType" == "g5" ]; then
+    :
+  fi
+
   if [ $(bc <<< "$sessionMinutesRemaining < 0") -eq 1 -a $(bc <<< "$sessionMinutesRemaining > ($SECONDS_IN_10_DAYS * 60)") -eq 1 ]; then
     log "Expired session or invalid sessionStartDate, not processing auto-restart logic"
     sessionMinutesRemaining=100000 # big number ensures auto-restart logic will not kick in
@@ -1345,7 +1359,7 @@ function check_ns_calibration()
       found_meterbg=true
       # EYF nothing to do here except prepare xdrip-js message 
       calDate=$secThenMs
-      addToXdripMessages "[{\"date\": ${calDate}, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]"
+      addToMessages "[{\"date\": ${calDate}, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]" $calibrationMessageFile
     log "meterbg from nightscout: $meterbg, date=$calDate"
     else
       # clear old meterbg curl responses
@@ -1821,7 +1835,7 @@ function check_last_glucose_time_smart_sleep()
       backfill_start=$(bc <<< "$backfill_start + 60 * 1000")
 
       log "Adding backfill message since $backfill_start"
-      addToXdripMessages "[{\"date\":\"${backfill_start}\",\"type\":\"Backfill\"}]"
+      addToMessages "[{\"date\":\"${backfill_start}\",\"type\":\"Backfill\"}]" $xdripMessageFile
     fi
   else
     log "More than 4 minutes since last glucose entry, continue processing without waiting"
