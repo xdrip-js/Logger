@@ -32,6 +32,12 @@ main()
     exit
   fi
 
+  txType="g5"
+
+  if [[ $transmitter == 8* ]]; then
+    txType="g6"
+  fi
+
   cmd_line_mode=$2
   if [ -z "$cmd_line_mode" ]; then
     # check config file
@@ -86,6 +92,8 @@ main()
 
   log "Using Alternate Bluetooth Channel: $alternateBluetoothChannel"
   log "Using transmitter: $transmitter"
+
+
 
   id2=$(echo "${transmitter: -2}")
   id="Dexcom${id2}"
@@ -384,20 +392,19 @@ function check_utc()
   fi
 }
 
-function log_g5_status_csv()
+function log_status_csv()
 {
   file="/var/log/openaps/cgm-status.csv"
   if [ ! -f $file ]; then
     echo "epochdate,datetime,status,voltagea,voltageb,resist,runtime,temperature" > $file 
   fi
-  echo "${epochdate},${datetime},${g5_status},${voltagea},${voltageb},${resist},${runtime} days,${temperature} celcuis" >> $file 
+  echo "${epochdate},${datetime},${tx_status},${voltagea},${voltageb},${resist},${runtime} days,${temperature} celcuis" >> $file 
 }
 
 #called after a battery status update was sent and logger got a response
 function check_battery_status()
 {
 
-   #TODO: ignore voltagea, etc. for cgm pill update if they are null
    file="${LDIR}/cgm-battery.json"
    voltagea=$(jq ".voltagea" $file)
    voltageb=$(jq ".voltageb" $file)
@@ -407,12 +414,12 @@ function check_battery_status()
    batteryTimestamp=$(date +%s%3N -r $file)
 
    if [ "$battery_check" == "Yes" ]; then
-     g5_status=$(jq ".status" $file)
-     battery_msg="tx_status=$g5_status, voltagea=$voltagea, voltageb=$voltageb, resist=$resist, runtime=$runtime days, temp=$temperature celcius"
+     tx_status=$(jq ".status" $file)
+     battery_msg="tx_status=$tx_status, voltagea=$voltagea, voltageb=$voltageb, resist=$resist, runtime=$runtime days, temp=$temperature celcius"
     
      echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Note\",\"notes\":\"Battery $battery_msg\"}]" > ${LDIR}/cgm-battery-status.json
      /usr/local/bin/cgm-post-ns ${LDIR}/cgm-battery-status.json treatments && (echo; log "Upload to NightScout of battery status change worked") || (echo; log "Upload to NS of battery status change did not work")
-     log_g5_status_csv
+     log_status_csv
 
    fi
 }
@@ -779,7 +786,6 @@ function addToXdripMessages()
     return 
   fi
 
-  # EYF here
   log "resultJSON=$resultJSON"
   echo "$resultJSON" > $xdripMessageFile
 }
@@ -1005,6 +1011,7 @@ function  capture_entry_values()
   sessionStartDate="${sessionStartDate#\"}"
   sessionStartDateEpochms=$(cat ${LDIR}/extra.json | jq -M '.[0].sessionStartDateEpoch')
   sessionMinutesRemaining=$(bc <<< "($SECONDS_IN_10_DAYS - ($epochdate-$sessionStartDateEpochms/1000))/60")
+  # EYF here
   # TODO make sure to use 7 days for g5 and 10 for g6
   # check for valid and not expired sessionStartDate
   if [ $(bc <<< "$sessionMinutesRemaining < 0") -eq 1 -a $(bc <<< "$sessionMinutesRemaining > ($SECONDS_IN_10_DAYS * 60)") -eq 1 ]; then
@@ -1193,7 +1200,6 @@ function check_native_calibrates_lsr()
           meterbgid=$(generate_uuid) 
           calDate=$(date +'%s%3N') 
           calDateSeconds=$(date +'%s') 
-           # EYF here
           log "meterbg from native-calibrates-lsr: $meterbg"
           # datetime has spaces in it and must have quotes around it
           updateCalibrationCache $filtered $unfiltered $meterbg $meterbgid "$datetime" $calDateSeconds "Logger-native-calibrates-lsr"
