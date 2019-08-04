@@ -546,6 +546,34 @@ function check_sensor_change()
     log "exiting"
     exit
   fi
+
+  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" --iso-8601=seconds $UTC)&find\[eventType\]\[\$regex\]=Sensor.Stop" 2>/dev/null | grep "Sensor Stop"
+  if [ $? == 0 ]; then
+    log "sensor stopped within last 15 minutes - clearing calibration files"
+    ClearCalibrationInput
+    ClearCalibrationCache
+    touch ${LDIR}/last_sensor_change
+    state_id=0x02
+    state="Warmup" ; stateString=$state ; stateStringShort=$state
+    post_cgm_ns_pill
+
+    log "exiting"
+    exit
+  fi
+
+  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" --iso-8601=seconds $UTC)&find\[eventType\]\[\$regex\]=Sensor.Start" 2>/dev/null | grep "Sensor Start"
+  if [ $? == 0 ]; then
+    log "sensor starl within last 15 minutes - clearing calibration files"
+    ClearCalibrationInput
+    ClearCalibrationCache
+    touch ${LDIR}/last_sensor_change
+    state_id=0x02
+    state="Warmup" ; stateString=$state ; stateStringShort=$state
+    post_cgm_ns_pill
+
+    log "exiting"
+    exit
+  fi
 }
 
 function check_last_entry_values()
