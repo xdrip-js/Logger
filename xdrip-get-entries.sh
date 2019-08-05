@@ -563,7 +563,7 @@ function check_sensor_change()
 
   curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" --iso-8601=seconds $UTC)&find\[eventType\]\[\$regex\]=Sensor.Start" 2>/dev/null | grep "Sensor Start"
   if [ $? == 0 ]; then
-    log "sensor starl within last 15 minutes - clearing calibration files"
+    log "sensor start within last 15 minutes - clearing calibration files"
     ClearCalibrationInput
     ClearCalibrationCache
     touch ${LDIR}/last_sensor_change
