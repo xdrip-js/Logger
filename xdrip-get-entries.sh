@@ -553,6 +553,35 @@ function check_sensor_change()
     log "exiting"
     exit
   fi
+
+
+curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" --iso-8601=seconds $UTC)&find\[eventType\]\[\$regex\]=Sensor.Stop" 2>/dev/null | grep "Sensor Stop"
+  if [ $? == 0 ]; then
+    log "sensor stopped within last 15 minutes - clearing calibration files"
+    ClearCalibrationInput
+    ClearCalibrationCache
+    touch ${LDIR}/last_sensor_change
+    state_id=0x02
+    state="Warmup" ; stateString=$state ; stateStringShort=$state
+    post_cgm_ns_pill
+
+    log "exiting"
+    exit
+  fi
+
+  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" --iso-8601=seconds $UTC)&find\[eventType\]\[\$regex\]=Sensor.Start" 2>/dev/null | grep "Sensor Start"
+  if [ $? == 0 ]; then
+    log "sensor start within last 15 minutes - clearing calibration files"
+    ClearCalibrationInput
+    ClearCalibrationCache
+    touch ${LDIR}/last_sensor_change
+    state_id=0x02
+    state="Warmup" ; stateString=$state ; stateStringShort=$state
+    post_cgm_ns_pill
+
+    log "exiting"
+    exit
+  fi
 }
 
 function check_last_entry_values()
@@ -691,7 +720,7 @@ function check_tx_calibration()
     return
   fi
 
-  # EYF remove - not necessary anymore
+  # TODO: remove - not necessary anymore
   if [[ "$sentLoggerCalibrationToTx" == true ]]; then
     # This is the reflection of the cmd line based calibration. 
     # Do not process it twice
@@ -794,9 +823,17 @@ function addToMessages()
 
 
 
+# EYF here
+# TODO: make one of these for start/stop treatments
+
 function readyCalibrationToNS()
 {
   # takes a calibration record and puts it in json file for later sending it to NS
+  local createDate="$1"
+  local meterbg=$2
+  local enteredBy="$3"
+
+
   # arg1 = createDate in string format T ... Z
   # arg2 = meterbg
   # arg3 = enteredBy 
@@ -806,7 +843,7 @@ function readyCalibrationToNS()
 
 
   log "Setting up to send calibration to NS now if online (or later with backfill)"
-  echo "[{\"created_at\":\"$1\",\"enteredBy\":\"$3\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$2,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > $calibrationNSFile
+  echo "[{\"created_at\":\"$createDate\",\"enteredBy\":\"$enteredBy\",\"reason\":\"sensor calibration\",\"eventType\":\"BG Check\",\"glucose\":$meterbg,\"glucoseType\":\"Finger\",\"units\":\"mg/dl\"}]" > $calibrationNSFile
   cat $calibrationNSFile
 
   if [ -e $treatmentsFile ]; then
@@ -957,6 +994,9 @@ function  call_logger()
   log "Calling xdrip-js ... node logger $transmitter $xdripMessageFile $alternateBluetoothChannel"
   DEBUG=smp,transmitter,bluetooth-manager,backfill-parser
   export DEBUG
+#  echo -n "Timezone = "
+#  env | grep TZ
+
   timeout 420 node logger $transmitter $xdripMessageFile $alternateBluetoothChannel
   echo
   local error=""
@@ -1730,6 +1770,8 @@ function check_messages()
   if [ -e "$cgm_start_file" ]; then
     startJSON=$(cat $cgm_start_file)
     log "startJSON=$startJSON"
+    #TODO: add cmd line treatments to NS
+
     # wait to remove command line file after call_logger (Tx/Rx processing)
   fi
 
