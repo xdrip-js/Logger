@@ -30,10 +30,10 @@ Logger is a Bash (shell) based Dexcom g5 / g6 glucose pre-processor for OpenAPS.
 # Warning! 
 
 Logger LSR calibration is a new feature as of Feb/2018. Only those who closely monitor and check blood glucose and regularly review the Logger logfiles should use this program at this time.
-* /var/log/openaps/logger-loop.log
-* /var/log/openaps/cgm.csv
-* /root/myopenaps/monitor/logger/calibrations.csv - the current list of calibrations (unfiltered, BG check, datetime, BG Check ID)
-* /root/myopenaps/monitor/logger/calibration-linear.json - the current calibration values (slope, yIntercept). Please note that other fields in this file are for informational purposes at this time. 
+* `/var/log/openaps/logger-loop.log`
+* `/var/log/openaps/cgm.csv`
+* `/root/myopenaps/monitor/xdripjs/calibrations.csv` - the current list of calibrations (unfiltered, BG check, datetime, BG Check ID)
+* `/root/myopenaps/monitor/xdripjs/calibration-linear.json` - the current calibration values (slope, yIntercept). Please note that other fields in this file are for informational purposes at this time. 
 
 [![Join the chat at https://gitter.im/thebookins/xdrip-js](https://badges.gitter.im/thebookins/xdrip-js.svg)](https://gitter.im/thebookins/xdrip-js?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
