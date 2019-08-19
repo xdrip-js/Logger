@@ -76,8 +76,14 @@ main()
   if [ -z  "$watchdog" ] || [ "$watchdog" == "null" ]; then
     watchdog=true
   fi
-
   log "Using Bluetooth Watchdog: $watchdog"
+
+  auto_sensor_restart=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.auto_sensor_restart')
+  if [ -z  "$auto_sensor_restart" ] || [ "$auto_sensor_restart" == "null" ]; then
+    auto_sensor_restart=false
+  fi
+  log "Using Auto Sensor Restart: : $auto_sensor_restart"
+
 
   fakemeter_only_offline=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.fakemeter_only_offline')
   if [ -z  "$fakemeter_only_offline" ] || [ "$fakemeter_only_offline" == "null" ]; then
@@ -1018,7 +1024,6 @@ function  call_logger()
     if [[ -n "$startJSON" ]]; then  
         rm -f $cgm_start_file
     fi
-    touch ${LDIR}/last_bg_received
   else
     state_id=0x24
     error="No Response" 
@@ -1067,7 +1072,6 @@ function  capture_entry_values()
   sessionMinutesRemaining=$(bc <<< "($sessionMaxSeconds - ($epochdate-$sessionStartDateEpochms/1000))/60")
   if [ $(bc <<< "$sessionMinutesRemaining < 0") -eq 1 -a $(bc <<< "$sessionMinutesRemaining > ($sessionMaxSeconds * 60)") -eq 1 ]; then
     log "Expired session or invalid sessionStartDate, not processing auto-restart logic"
-    sessionMinutesRemaining=100000 # big number ensures auto-restart logic will not kick in
   fi
   log "sessionStartDate=$sessionStartDate, sessionStartDateEpochms=$sessionStartDateEpochms" 
   log "sessionMinutesRemaining=$sessionMinutesRemaining"
@@ -1075,7 +1079,11 @@ function  capture_entry_values()
     #TODO use parameter to do this only if auto-restart is true
     if [ $(bc <<< "$glucose < 400") -eq 1  -a $(bc <<< "$glucose > 40") -eq 1 ]; then
       if [ $(bc <<< "$variation < 10") -eq 1 ]; then
+        if [[ "$auto_sensor_restart" == true ]]; then
          cgm-stop; sleep 1; cgm-start -m 120; sleep 1; cgm-calibrate $glucose; sleep 1; cgm-calibrate $glucose  
+        else
+         log "Not sending restart messages - auto_sensor_restart=$auto_sensor_restart"
+        fi
       fi
     fi
   fi
@@ -1857,8 +1865,8 @@ function check_last_glucose_time_smart_sleep()
 {
   rm -f $xdripMessageFile
 
-  if [ -e ${LDIR}/last_bg_received ]; then
-    entry_timestamp=$(date -r ${LDIR}/last_bg_received +'%s')
+  if [ -e ${LDIR}/entry-watchdog ]; then
+    entry_timestamp=$(date -r ${LDIR}/entry-watchdog +'%s')
     seconds_since_last_entry=$(bc <<< "$epochdate - $entry_timestamp")
     log "check_last_glucose_time - epochdate=$epochdate,  entry_timestamp=$entry_timestamp"
     log "Time since last glucose entry in seconds = $seconds_since_last_entry seconds"
