@@ -224,19 +224,28 @@ main()
   echo
 }
 
+function validNumber()
+{
+  local num=$1
+  case ${num#[-+]} in
+    *[!0-9.]* | '') echo false ;;
+    * ) echo true ;;
+  esac
+}
+
+
 function validBG()
 {
   local bg=$1
+  local valid="false"
 
-  if [ "$bg" == "null" -o "$bg" == "" ]; then
-    echo false
-  else
-    if [ $(bc  -l <<< "$bg < 20") -eq 1 -o $(bc -l <<< "$bg > 500") -eq 1 ]; then
-      echo false
-    else
-      echo true
+  if [ "$(validNumber $bg)" == "true" ]; then
+    if [ $(bc  -l <<< "$bg >= 20") -eq 1 -a $(bc -l <<< "$bg < 500") -eq 1 ]; then
+      valid="true"
     fi
   fi
+
+  echo $valid
 }
 
 
@@ -672,7 +681,7 @@ function updateCalibrationCache()
   fi
 
 
-  if [ $(bc  -l <<< "$unfiltered < 20") -eq 1 -o $(bc -l <<< "$unfiltered > 500") -eq 1 ]; then
+  if [ "$(validBG $unfiltered)" == "false" ]; then
     log "Calibration of $meterbg not being used due to unfiltered of $unfiltered"
     return
   fi
@@ -1348,11 +1357,17 @@ function calc_variation()
   # arg2 = unfiltered
 
   variationLocal=0
-  if [ $(bc <<< "$1 > 0") -eq 1 ]; then
-    variationLocal=$(bc <<< "($1 - $2) * 100 / $1")
-    if [ $(bc <<< "$variationLocal < 0") -eq 1 ]; then
-      variationLocal=$(bc <<< "0 - $variationLocal")
-    fi 
+  # check to see if filtered and unfiltered are valid numbers
+  # so that the new g6 firmware will still work with a valid glucose
+  # and null raw numbers. This means the sensor is in session and will
+  # handle noise on its own so zero for variation is fine in this case
+  if [ "$(validNumber $1)" == "true" -a "$(validNumber $2)" == "true" ]; then
+    if [ $(bc <<< "$1 > 0") -eq 1 ]; then
+      variationLocal=$(bc <<< "($1 - $2) * 100 / $1")
+      if [ $(bc <<< "$variationLocal < 0") -eq 1 ]; then
+        variationLocal=$(bc <<< "0 - $variationLocal")
+      fi 
+    fi
   fi
 
   echo $variationLocal
@@ -1431,7 +1446,8 @@ function check_ns_calibration()
 #call after posting to NS OpenAPS for not-expired mode
 function calculate_calibrations()
 {
-  if [ "$mode" == "read-only" ]; then
+  # Do not update LSR calibration for read only mode or for invalid unfiltered value
+  if [ "$mode" == "read-only" -o "$(validNumber $unfiltered)" == "false" ]; then
     return
   fi
 
