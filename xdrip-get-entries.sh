@@ -224,6 +224,22 @@ main()
   echo
 }
 
+function validBG()
+{
+  local bg=$1
+
+  if [ "$bg" == "null" -o "$bg" == "" ]; then
+    echo false
+  else
+    if [ $(bc  -l <<< "$bg < 20") -eq 1 -o $(bc -l <<< "$bg > 500") -eq 1 ]; then
+      echo false
+    else
+      echo true
+    fi
+  fi
+}
+
+
 function check_dirs() {
 
   if [ ! -d ${LDIR} ]; then
@@ -1011,7 +1027,8 @@ function  call_logger()
     unfiltered=$(cat ${LDIR}/entry.json | jq -M '.[0].unfiltered')
     unfiltered=$(bc -l <<< "scale=0; $unfiltered / 1000")
     if [ $(bc  -l <<< "$unfiltered < 20") -eq 1 -o $(bc -l <<< "$unfiltered > 500") -eq 1 ]; then 
-      error="Invalid response - Unfiltered = $unfiltered"
+    if [ "$(validBG $unfiltered)" == "false" -a "$(validBG $glucose)" == "false" ]; then
+      error="Invalid response - Unf=$unfiltered, gluc=$glucose"
       state_id=0x25
       ls -al ${LDIR}/entry.json
       cat ${LDIR}/entry.json
