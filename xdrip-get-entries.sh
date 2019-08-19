@@ -741,7 +741,7 @@ function check_tx_calibration()
     return
   fi
 
-  # TODO: remove - not necessary anymore
+  # TODO: remove - it is likely not necessary anymore
   if [[ "$sentLoggerCalibrationToTx" == true ]]; then
     # This is the reflection of the cmd line based calibration. 
     # Do not process it twice
@@ -1092,7 +1092,6 @@ function  capture_entry_values()
   log "sessionStartDate=$sessionStartDate, sessionStartDateEpochms=$sessionStartDateEpochms" 
   log "sessionMinutesRemaining=$sessionMinutesRemaining"
   if [ $(bc <<< "$sessionMinutesRemaining < 65") -eq 1 ]; then
-    #TODO use parameter to do this only if auto-restart is true
     if [ $(bc <<< "$glucose < 400") -eq 1  -a $(bc <<< "$glucose > 40") -eq 1 ]; then
       if [ $(bc <<< "$variation < 10") -eq 1 ]; then
         if [[ "$auto_sensor_restart" == true ]]; then
