@@ -180,7 +180,7 @@ main()
   fi
 
   # necessary for not-expired mode - ok for both modes 
-  cp ${LDIR}/entry.json ${LDIR}/entry-xdrip.json
+  cp -p ${LDIR}/entry.json ${LDIR}/entry-xdrip.json
 
   process_delta # call for all modes 
   calculate_noise # necessary for all modes
@@ -196,7 +196,7 @@ main()
   fi
 
   post-nightscout-with-backfill
-  cp ${LDIR}/entry-xdrip.json $lastEntryFile
+  cp -p ${LDIR}/entry-xdrip.json $lastEntryFile
 
   if [ "$mode" == "not-expired" ]; then
     log "Calling expired tx lsr calcs (after posting) -allows mode switches / comparisons" 
@@ -598,7 +598,6 @@ function check_last_entry_values()
       lastStatus="${lastStatus#\"}"
       lastFiltered=$(cat $lastEntryFile | jq -M '.[0].filtered')
       lastUnfiltered=$(cat $lastEntryFile | jq -M '.[0].unfiltered')
-      # EYF understand why below
       if [ "$mode" != "expired" ]; then
         lastState=$(cat $lastEntryFile | jq -M '.[0].state')
         lastState="${lastState%\"}"
@@ -821,9 +820,6 @@ function addToMessages()
   echo "$resultJSON" > $msgFile
 }
 
-
-
-# EYF here
 # TODO: make one of these for start/stop treatments
 
 function readyCalibrationToNS()
@@ -1022,6 +1018,7 @@ function  call_logger()
     if [[ -n "$startJSON" ]]; then  
         rm -f $cgm_start_file
     fi
+    touch ${LDIR}/last_bg_received
   else
     state_id=0x24
     error="No Response" 
@@ -1060,15 +1057,15 @@ function  capture_entry_values()
   sessionStartDate="${sessionStartDate%\"}"
   sessionStartDate="${sessionStartDate#\"}"
   sessionStartDateEpochms=$(cat ${LDIR}/extra.json | jq -M '.[0].sessionStartDateEpoch')
-  sessionMinutesRemaining=$(bc <<< "($SECONDS_IN_10_DAYS - ($epochdate-$sessionStartDateEpochms/1000))/60")
-  # EYF here
-  # TODO make sure to use 7 days for g5 and 10 for g6
-  # check for valid and not expired sessionStartDate
+  # make sure to use 7 days for g5 and 10 for g6
+  local sessionMaxSeconds=$SECONDS_IN_10_DAYS
   if [ "$txType" == "g5" ]; then
-    :
+    sessionMaxSeconds=$SECONDS_IN_7_DAYS
   fi
 
-  if [ $(bc <<< "$sessionMinutesRemaining < 0") -eq 1 -a $(bc <<< "$sessionMinutesRemaining > ($SECONDS_IN_10_DAYS * 60)") -eq 1 ]; then
+  # check for valid and not expired sessionStartDate
+  sessionMinutesRemaining=$(bc <<< "($sessionMaxSeconds - ($epochdate-$sessionStartDateEpochms/1000))/60")
+  if [ $(bc <<< "$sessionMinutesRemaining < 0") -eq 1 -a $(bc <<< "$sessionMinutesRemaining > ($sessionMaxSeconds * 60)") -eq 1 ]; then
     log "Expired session or invalid sessionStartDate, not processing auto-restart logic"
     sessionMinutesRemaining=100000 # big number ensures auto-restart logic will not kick in
   fi
@@ -1099,7 +1096,7 @@ function  capture_entry_values()
   # get dates for use in filenames and json entries
   datetime=$(date +"%Y-%m-%d %H:%M")
   epochdate=$(date +'%s')
-  cp ${LDIR}/entry.json $lastEntryFile
+  cp -p ${LDIR}/entry.json $lastEntryFile
 }
 
 function checkif_fallback_mode()
@@ -1860,8 +1857,8 @@ function check_last_glucose_time_smart_sleep()
 {
   rm -f $xdripMessageFile
 
-  if [ -e $lastEntryFile ]; then
-    entry_timestamp=$(date -r $lastEntryFile +'%s')
+  if [ -e ${LDIR}/last_bg_received ]; then
+    entry_timestamp=$(date -r ${LDIR}/last_bg_received +'%s')
     seconds_since_last_entry=$(bc <<< "$epochdate - $entry_timestamp")
     log "check_last_glucose_time - epochdate=$epochdate,  entry_timestamp=$entry_timestamp"
     log "Time since last glucose entry in seconds = $seconds_since_last_entry seconds"
