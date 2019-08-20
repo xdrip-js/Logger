@@ -204,7 +204,7 @@ main()
   post-nightscout-with-backfill
   cp -p ${LDIR}/entry-xdrip.json $lastEntryFile
 
-  if [ "$mode" == "not-expired" ]; then
+  if [ "$mode" != "expired" ]; then
     log "Calling expired tx lsr calcs (after posting) -allows mode switches / comparisons" 
     calculate_calibrations
     apply_lsr_calibration 
@@ -1104,7 +1104,7 @@ function  capture_entry_values()
     if [ $(bc <<< "$glucose < 400") -eq 1  -a $(bc <<< "$glucose > 40") -eq 1 ]; then
       if [ $(bc <<< "$variation < 10") -eq 1 ]; then
         if [[ "$auto_sensor_restart" == true ]]; then
-         cgm-stop; sleep 1; cgm-start -m 120; sleep 1; cgm-calibrate $glucose; sleep 1; cgm-calibrate $glucose  
+         cgm-stop; sleep 5; cgm-start -m 120; sleep 5; cgm-calibrate $glucose; sleep 61; cgm-calibrate $glucose  
         else
          log "Not sending restart messages - auto_sensor_restart=$auto_sensor_restart"
         fi
@@ -1139,10 +1139,8 @@ function checkif_fallback_mode()
   fi
 
   if [ "$mode" != "expired" ]; then
-    if [[ $(bc <<< "$glucose > 9") -eq 1 && "$glucose" != "null" ]]; then 
-      :
-      # this means we got an internal tx calibrated glucose
-    else
+    # did we not get a valid internal tx calibrated glucose
+    if [ "$(validBG $glucose)" == "false" ]; then 
       # fallback to try to use unfiltered in this case
       mode="expired"
       fallback=true
@@ -1481,7 +1479,8 @@ function calculate_calibrations()
 
 function apply_lsr_calibration()
 {
-  if [ "$mode" == "read-only" ]; then
+  # Do not update LSR calibration for read only mode or for invalid unfiltered value
+  if [ "$mode" == "read-only" -o "$(validNumber $unfiltered)" == "false" ]; then
     return
   fi
 
@@ -1787,6 +1786,13 @@ function calculate_noise()
       noiseSend=2  
       noiseString="Light"
       log "setting noise to $noiseString because of tx status of $orig_state"
+  fi
+
+  if [ "$(validNumber $unfiltered)" == "false" -a "$(validBG $glucose)" == "true" ]; then
+    # New g6 firmware "8GXXXX" and valid glucose will not be given if noisy
+    # Must set to clean in this case
+    noiseSend=1
+    noiseString="Clean"
   fi
 
   tmp=$(mktemp)
