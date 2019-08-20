@@ -1,6 +1,7 @@
 #!/bin/bash
 
 SECONDS_IN_10_DAYS=864000
+SECONDS_IN_1_DAY=86400
 SECONDS_IN_7_DAYS=604800
 SECONDS_IN_30_MINUTES=1800
 
@@ -1430,7 +1431,7 @@ function check_ns_calibration()
         meterbg=$(bc <<< "($meterbg *18)/1")
       fi
       found_meterbg=true
-      # EYF nothing to do here except prepare xdrip-js message 
+      # nothing to do here except prepare xdrip-js message 
       calDate=$secThenMs
       addToMessages "[{\"date\": ${calDate}, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]" $calibrationMessageFile
     log "meterbg from nightscout: $meterbg, date=$calDate"
@@ -1602,6 +1603,11 @@ function post_cgm_ns_pill()
     status=$orig_status
     state_id=$orig_state_id
     status_id=$orig_status_id
+  fi
+
+  # logic to check if tx age > 90 days and append to state string if so ...
+  if [ $(bc -l <<< "($epochdatems - $txActivation)/($SECONDS_IN_1_DAY * 1000) > 90") -eq 1 ]; then
+    state="${state}-tx-expired"
   fi
 
    jstr="$(build_json \
