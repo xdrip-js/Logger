@@ -76,8 +76,14 @@ main()
   if [ -z  "$watchdog" ] || [ "$watchdog" == "null" ]; then
     watchdog=true
   fi
-
   log "Using Bluetooth Watchdog: $watchdog"
+
+  auto_sensor_restart=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.auto_sensor_restart')
+  if [ -z  "$auto_sensor_restart" ] || [ "$auto_sensor_restart" == "null" ]; then
+    auto_sensor_restart=false
+  fi
+  log "Using Auto Sensor Restart: : $auto_sensor_restart"
+
 
   fakemeter_only_offline=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.fakemeter_only_offline')
   if [ -z  "$fakemeter_only_offline" ] || [ "$fakemeter_only_offline" == "null" ]; then
@@ -180,7 +186,7 @@ main()
   fi
 
   # necessary for not-expired mode - ok for both modes 
-  cp ${LDIR}/entry.json ${LDIR}/entry-xdrip.json
+  cp -p ${LDIR}/entry.json ${LDIR}/entry-xdrip.json
 
   process_delta # call for all modes 
   calculate_noise # necessary for all modes
@@ -196,9 +202,9 @@ main()
   fi
 
   post-nightscout-with-backfill
-  cp ${LDIR}/entry-xdrip.json $lastEntryFile
+  cp -p ${LDIR}/entry-xdrip.json $lastEntryFile
 
-  if [ "$mode" == "not-expired" ]; then
+  if [ "$mode" != "expired" ]; then
     log "Calling expired tx lsr calcs (after posting) -allows mode switches / comparisons" 
     calculate_calibrations
     apply_lsr_calibration 
@@ -217,6 +223,31 @@ main()
   log "Completed Logger"
   echo
 }
+
+function validNumber()
+{
+  local num=$1
+  case ${num#[-+]} in
+    *[!0-9.]* | '') echo false ;;
+    * ) echo true ;;
+  esac
+}
+
+
+function validBG()
+{
+  local bg=$1
+  local valid="false"
+
+  if [ "$(validNumber $bg)" == "true" ]; then
+    if [ $(bc  -l <<< "$bg >= 20") -eq 1 -a $(bc -l <<< "$bg < 500") -eq 1 ]; then
+      valid="true"
+    fi
+  fi
+
+  echo $valid
+}
+
 
 function check_dirs() {
 
@@ -598,7 +629,6 @@ function check_last_entry_values()
       lastStatus="${lastStatus#\"}"
       lastFiltered=$(cat $lastEntryFile | jq -M '.[0].filtered')
       lastUnfiltered=$(cat $lastEntryFile | jq -M '.[0].unfiltered')
-      # EYF understand why below
       if [ "$mode" != "expired" ]; then
         lastState=$(cat $lastEntryFile | jq -M '.[0].state')
         lastState="${lastState%\"}"
@@ -651,7 +681,7 @@ function updateCalibrationCache()
   fi
 
 
-  if [ $(bc  -l <<< "$unfiltered < 20") -eq 1 -o $(bc -l <<< "$unfiltered > 500") -eq 1 ]; then
+  if [ "$(validBG $unfiltered)" == "false" ]; then
     log "Calibration of $meterbg not being used due to unfiltered of $unfiltered"
     return
   fi
@@ -720,7 +750,7 @@ function check_tx_calibration()
     return
   fi
 
-  # TODO: remove - not necessary anymore
+  # TODO: remove - it is likely not necessary anymore
   if [[ "$sentLoggerCalibrationToTx" == true ]]; then
     # This is the reflection of the cmd line based calibration. 
     # Do not process it twice
@@ -821,9 +851,6 @@ function addToMessages()
   echo "$resultJSON" > $msgFile
 }
 
-
-
-# EYF here
 # TODO: make one of these for start/stop treatments
 
 function readyCalibrationToNS()
@@ -1008,8 +1035,8 @@ function  call_logger()
     glucose=$(cat ${LDIR}/entry.json | jq -M '.[0].glucose')
     unfiltered=$(cat ${LDIR}/entry.json | jq -M '.[0].unfiltered')
     unfiltered=$(bc -l <<< "scale=0; $unfiltered / 1000")
-    if [ $(bc  -l <<< "$unfiltered < 20") -eq 1 -o $(bc -l <<< "$unfiltered > 500") -eq 1 ]; then 
-      error="Invalid response - Unfiltered = $unfiltered"
+    if [ "$(validBG $unfiltered)" == "false" -a "$(validBG $glucose)" == "false" ]; then
+      error="Invalid response - Unf=$unfiltered, gluc=$glucose"
       state_id=0x25
       ls -al ${LDIR}/entry.json
       cat ${LDIR}/entry.json
@@ -1060,25 +1087,27 @@ function  capture_entry_values()
   sessionStartDate="${sessionStartDate%\"}"
   sessionStartDate="${sessionStartDate#\"}"
   sessionStartDateEpochms=$(cat ${LDIR}/extra.json | jq -M '.[0].sessionStartDateEpoch')
-  sessionMinutesRemaining=$(bc <<< "($SECONDS_IN_10_DAYS - ($epochdate-$sessionStartDateEpochms/1000))/60")
-  # EYF here
-  # TODO make sure to use 7 days for g5 and 10 for g6
-  # check for valid and not expired sessionStartDate
+  # make sure to use 7 days for g5 and 10 for g6
+  local sessionMaxSeconds=$SECONDS_IN_10_DAYS
   if [ "$txType" == "g5" ]; then
-    :
+    sessionMaxSeconds=$SECONDS_IN_7_DAYS
   fi
 
-  if [ $(bc <<< "$sessionMinutesRemaining < 0") -eq 1 -a $(bc <<< "$sessionMinutesRemaining > ($SECONDS_IN_10_DAYS * 60)") -eq 1 ]; then
+  # check for valid and not expired sessionStartDate
+  sessionMinutesRemaining=$(bc <<< "($sessionMaxSeconds - ($epochdate-$sessionStartDateEpochms/1000))/60")
+  if [ $(bc <<< "$sessionMinutesRemaining < 0") -eq 1 -a $(bc <<< "$sessionMinutesRemaining > ($sessionMaxSeconds * 60)") -eq 1 ]; then
     log "Expired session or invalid sessionStartDate, not processing auto-restart logic"
-    sessionMinutesRemaining=100000 # big number ensures auto-restart logic will not kick in
   fi
   log "sessionStartDate=$sessionStartDate, sessionStartDateEpochms=$sessionStartDateEpochms" 
   log "sessionMinutesRemaining=$sessionMinutesRemaining"
   if [ $(bc <<< "$sessionMinutesRemaining < 65") -eq 1 ]; then
-    #TODO use parameter to do this only if auto-restart is true
     if [ $(bc <<< "$glucose < 400") -eq 1  -a $(bc <<< "$glucose > 40") -eq 1 ]; then
       if [ $(bc <<< "$variation < 10") -eq 1 ]; then
-         cgm-stop; sleep 1; cgm-start -m 120; sleep 1; cgm-calibrate $glucose; sleep 1; cgm-calibrate $glucose  
+        if [[ "$auto_sensor_restart" == true ]]; then
+         cgm-stop; sleep 5; cgm-start -m 120; sleep 5; cgm-calibrate $glucose; sleep 61; cgm-calibrate $glucose  
+        else
+         log "Not sending restart messages - auto_sensor_restart=$auto_sensor_restart"
+        fi
       fi
     fi
   fi
@@ -1099,7 +1128,7 @@ function  capture_entry_values()
   # get dates for use in filenames and json entries
   datetime=$(date +"%Y-%m-%d %H:%M")
   epochdate=$(date +'%s')
-  cp ${LDIR}/entry.json $lastEntryFile
+  cp -p ${LDIR}/entry.json $lastEntryFile
 }
 
 function checkif_fallback_mode()
@@ -1110,10 +1139,8 @@ function checkif_fallback_mode()
   fi
 
   if [ "$mode" != "expired" ]; then
-    if [[ $(bc <<< "$glucose > 9") -eq 1 && "$glucose" != "null" ]]; then 
-      :
-      # this means we got an internal tx calibrated glucose
-    else
+    # did we not get a valid internal tx calibrated glucose
+    if [ "$(validBG $glucose)" == "false" ]; then 
       # fallback to try to use unfiltered in this case
       mode="expired"
       fallback=true
@@ -1328,11 +1355,17 @@ function calc_variation()
   # arg2 = unfiltered
 
   variationLocal=0
-  if [ $(bc <<< "$1 > 0") -eq 1 ]; then
-    variationLocal=$(bc <<< "($1 - $2) * 100 / $1")
-    if [ $(bc <<< "$variationLocal < 0") -eq 1 ]; then
-      variationLocal=$(bc <<< "0 - $variationLocal")
-    fi 
+  # check to see if filtered and unfiltered are valid numbers
+  # so that the new g6 firmware will still work with a valid glucose
+  # and null raw numbers. This means the sensor is in session and will
+  # handle noise on its own so zero for variation is fine in this case
+  if [ "$(validNumber $1)" == "true" -a "$(validNumber $2)" == "true" ]; then
+    if [ $(bc <<< "$1 > 0") -eq 1 ]; then
+      variationLocal=$(bc <<< "($1 - $2) * 100 / $1")
+      if [ $(bc <<< "$variationLocal < 0") -eq 1 ]; then
+        variationLocal=$(bc <<< "0 - $variationLocal")
+      fi 
+    fi
   fi
 
   echo $variationLocal
@@ -1411,7 +1444,8 @@ function check_ns_calibration()
 #call after posting to NS OpenAPS for not-expired mode
 function calculate_calibrations()
 {
-  if [ "$mode" == "read-only" ]; then
+  # Do not update LSR calibration for read only mode or for invalid unfiltered value
+  if [ "$mode" == "read-only" -o "$(validNumber $unfiltered)" == "false" ]; then
     return
   fi
 
@@ -1445,7 +1479,8 @@ function calculate_calibrations()
 
 function apply_lsr_calibration()
 {
-  if [ "$mode" == "read-only" ]; then
+  # Do not update LSR calibration for read only mode or for invalid unfiltered value
+  if [ "$mode" == "read-only" -o "$(validNumber $unfiltered)" == "false" ]; then
     return
   fi
 
@@ -1753,6 +1788,13 @@ function calculate_noise()
       log "setting noise to $noiseString because of tx status of $orig_state"
   fi
 
+  if [ "$(validNumber $unfiltered)" == "false" -a "$(validBG $glucose)" == "true" ]; then
+    # New g6 firmware "8GXXXX" and valid glucose will not be given if noisy
+    # Must set to clean in this case
+    noiseSend=1
+    noiseString="Clean"
+  fi
+
   tmp=$(mktemp)
   jq ".[0].noise = $noiseSend" ${LDIR}/entry-xdrip.json > "$tmp" && mv "$tmp" ${LDIR}/entry-xdrip.json
 }
@@ -1860,8 +1902,8 @@ function check_last_glucose_time_smart_sleep()
 {
   rm -f $xdripMessageFile
 
-  if [ -e $lastEntryFile ]; then
-    entry_timestamp=$(date -r $lastEntryFile +'%s')
+  if [ -e ${LDIR}/entry-watchdog ]; then
+    entry_timestamp=$(date -r ${LDIR}/entry-watchdog +'%s')
     seconds_since_last_entry=$(bc <<< "$epochdate - $entry_timestamp")
     log "check_last_glucose_time - epochdate=$epochdate,  entry_timestamp=$entry_timestamp"
     log "Time since last glucose entry in seconds = $seconds_since_last_entry seconds"

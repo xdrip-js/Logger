@@ -143,10 +143,12 @@ If timing out, recheck the configuration of the transmitter id, make sure the bt
 
 Since the timer only allows communications for a few seconds every 5 minutes, isolation of any timeout issues are key.  The following are some suggestions:
 1) Turn off Logger and receiver, run Xdrip+ and see if it can connect to the tx. If Xdrip+ can connect, then it may be a rig issue. If Xdrip+ cannot connect, then it's mostly isolated to a tx issue. 
-2) Check your network log. BT PAN may be trying to do something and restarting bluetoothd. Check /var/log/openaps/network.log and any bluetooth log (if it exists) in that directory. Also, check for bluetooth errors in /var/log/syslog as well.
-3) Turn off every other possible dexcom connection and try connecting with the tx with the official Dexcom app. This will only work if you have a non-expired tx or have successfully reset it earlier.
-4) Try a different transmitter (if you have one). If this works, then the other tx has an issue, usually battery related.
-5) Try a different rig (if you have one). If this works, then the other rig or it's install/configuration is likely the culprit.
+2) Run the following command. If it fails for any reason, then the install of bluez-tools may have an issue. If bluez-tools is not installed, then bt timeouts will likely be the result. ```bt-device -l```
+3) Check your network log. BT PAN may be trying to do something and restarting bluetoothd. Check /var/log/openaps/network.log and any bluetooth log (if it exists) in that directory. Also, check for bluetooth errors in /var/log/syslog as well.
+4) Turn off every other possible dexcom connection and try connecting with the tx with the official Dexcom app. This will only work if you have a non-expired tx or have successfully reset it earlier.
+5) Try a different transmitter (if you have one). If this works, then the other tx has an issue, usually battery related.
+6) Try a different rig (if you have one). If this works, then the other rig or it's install/configuration is likely the culprit.
+7) If on an RPI, check the mode in /etc/bluetooth/main.conf. At least one user found that setting mode to Controller mode resolved the timeouts. 
 
 If you have network connectivity on the rig, but BG values are not showing up on NightScout, then run the following command which should retrieve the last BG Check Treatment posted to NightScout. Review any errors that the command returns and re-check your NIGHTSCOUT_HOST and API_SECRET environment variables.
 ``` 
