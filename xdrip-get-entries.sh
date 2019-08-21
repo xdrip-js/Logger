@@ -1160,6 +1160,11 @@ function initialize_mode()
     mode="expired"	
   fi
 
+  if [[ "$cmd_line_mode" == "not-expired" ]]; then	
+    mode="not-expired"	
+  fi
+
+
   if [[ "$cmd_line_mode" == "read-only" ]]; then
     mode="read-only"
   fi
