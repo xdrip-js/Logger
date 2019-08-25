@@ -1798,8 +1798,8 @@ function calculate_noise()
       log "setting noise to $noiseString because of tx status of $orig_state"
   fi
 
-  if [ "$(validNumber $unfiltered)" == "false" -a "$(validBG $glucose)" == "true" ]; then
-    # New g6 firmware "8GXXXX" and valid glucose will not be given if noisy
+  if [ "$(validBG $glucose)" == "true" ]; then
+    # tx will not give a valid glucose if noisy
     # Must set to clean in this case
     noiseSend=1
     noiseString="Clean"
