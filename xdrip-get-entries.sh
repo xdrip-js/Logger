@@ -1792,7 +1792,7 @@ function calculate_noise()
     noise=$(awk -v noise="$noise" 'BEGIN { printf("%.2f", noise) }' </dev/null)
   fi
 
-  if [[ $noiseSend < 2 && $orig_state != "OK" && $orig_state != *"alibration"* && $orig_state != "Warmup" ]]; then
+  if [[ $noiseSend < 2 && $orig_state != "OK" && $orig_state != *"alibration"* && $orig_state != "Warmup" && $orig_state != "Stopped" ]]; then
       noiseSend=2  
       noiseString="Light"
       log "setting noise to $noiseString because of tx status of $orig_state"
@@ -1800,9 +1800,9 @@ function calculate_noise()
 
   if [ "$(validBG $glucose)" == "true" ]; then
     # tx will not give a valid glucose if noisy
-    # Must set to clean in this case
     noiseSend=1
     noiseString="Clean"
+    log "setting noise to $noiseString because tx supplied a valid glucose of $glucose"
   fi
 
   tmp=$(mktemp)
