@@ -106,6 +106,7 @@ You can edit the following options values in the configuration file (~/myopenaps
 	{"fake_meter_id":"000000"}, Optional - meterid for fakemeter sending glucose records to pump, default is "000000"
 	{"alternate_bluetooth_channel":true or false} Optional - Default is false. If set to true then Logger uses the alternate channel to connect to the Dexcom transmitter. If set to true the receiver cannot be used. However, when set to true, either the Xdip Plus android app or the Dexcom Iphone app can be used alongside Logger. Keep in mind that there is a higher chance for bluetooth conflict when connecting to the transmitter with both channels. You may be able to avoid some reconnects by keeping the rig and the phone app physically separated by several inches.
 	{"watchdog":true or false}, Optional - Default is true. If set to true then Logger will automatically reboot the rig to resolve bluetooth issues if no glucose is seen from the transmitter in more than 14 minutes.
+	{"utc":true or false}, Optional - Default is true. If set to true then Logger will assume UTC date/time strings coming from the curls to NightScout. 
 	{"fakemeter_only_offline":true or false}, Optional - Default is false. If set to false then Logger will not attempt to call fakemeter unless the rig is offline. 
 
 ## Getting Started
