@@ -385,8 +385,8 @@ function ClearCalibrationInputOne()
     if [ $(bc <<< "$howManyLines > 1") -eq 1 ]; then
       cp $calCacheFile "${LDIR}/old-calibrations/calibrations.csv.$(date +%Y%m%d-%H%M%S)"
       tail -1 $calCacheFile > ${LDIR}/calibrations.csv.new
-      rm $calCachFile
-      mv ${LDIR}/calibrations.csv.new $calCachFile
+      rm $calCacheFile
+      mv ${LDIR}/calibrations.csv.new $calCacheFile
     fi
   fi
 }
@@ -1337,6 +1337,8 @@ function check_pump_history_calibration()
       bash -c "jq $meterjqstr $historyFile" > $METERBG_NS_RAW
       meterbg=$(bash -c "jq .amount $METERBG_NS_RAW | head -1")
       meterbgid=$(bash -c "jq .timestamp $METERBG_NS_RAW | head -1")
+      meterbgid="${meterbgid%\"}"
+      meterbgid="${meterbgid#\"}"
       # meter BG from pumphistory doesn't support mmol yet - has no units...
       # using arg3 if mmol then convert it
       if [[ "$pumpUnits" == *"mmol"* ]]; then
