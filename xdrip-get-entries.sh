@@ -77,13 +77,19 @@ main()
   if [ -z  "$watchdog" ] || [ "$watchdog" == "null" ]; then
     watchdog=true
   fi
-  log "Using Bluetooth Watchdog: $watchdog"
+  log "Parameter: Using Bluetooth Watchdog: $watchdog"
+
+  utc=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.utc')
+  if [ -z  "$utc" ] || [ "$utc" == "null" ]; then
+    utc=true
+  fi
+  log "Parameter: Using UTC: $utc"
 
   auto_sensor_restart=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.auto_sensor_restart')
   if [ -z  "$auto_sensor_restart" ] || [ "$auto_sensor_restart" == "null" ]; then
     auto_sensor_restart=false
   fi
-  log "Using Auto Sensor Restart: : $auto_sensor_restart"
+  log "Parameter: Using Auto Sensor Restart: : $auto_sensor_restart"
 
 
   fakemeter_only_offline=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.fakemeter_only_offline')
@@ -91,15 +97,15 @@ main()
     fakemeter_only_offline=false
   fi
 
-  log "Using fakemeter only while offline: $fakemeter_only_offline"
+  log "Parameter: Using fakemeter only while offline: $fakemeter_only_offline"
 
   alternateBluetoothChannel=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.alternate_bluetooth_channel')
   if [ -z  "$alternateBluetoothChannel" ] || [ "$alternateBluetoothChannel" == "null" ]; then
     alternateBluetoothChannel=false
   fi
 
-  log "Using Alternate Bluetooth Channel: $alternateBluetoothChannel"
-  log "Using transmitter: $transmitter"
+  log "Parameter: Using Alternate Bluetooth Channel: $alternateBluetoothChannel"
+  log "Parameter: Using transmitter: $transmitter"
 
 
 
@@ -108,7 +114,7 @@ main()
   rig="openaps://$(hostname)"
   glucoseType="unfiltered"
   noiseSend=4 # default heavy
-  UTC=" -u "
+  UTCString=" -u "
   lastGlucose=0
   lastGlucoseDate=0
   lastSensorInsertDate=0
@@ -400,28 +406,15 @@ function ClearCalibrationCache()
   fi
 }
 
-# check UTC to begin with and use UTC flag for any curls
+# check utc command line to begin with and use UTC flag for any curls
 function check_utc()
 {
-  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?count=1&find\[eventType\]\[\$regex\]=Check" 2>/dev/null  > ${LDIR}/testUTC.json  
-  if [ $? == 0 ]; then
-    createdAt=$(jq ".[0].created_at" ${LDIR}/testUTC.json)
-    createdAt="${createdAt%\"}"
-    createdAt="${createdAt#\"}"
-    if [ ${#createdAt} -le 4 ]; then
-      log "You must record a \"BG Check\" in Nightscout for Logger to function properly" 
-      log "If you are offline at the moment (no internet) then this warning is OK"
-      state_id=0x23
-      state="Needs BG Check" ; stateString=$state ; stateStringShort=$state
-      post_cgm_ns_pill
-    elif [[ $createdAt == *"Z"* ]]; then
-      UTC=" -u "
-      log "NS is using UTC $UTC"      
-    else
-      UTC=""
-      log "NS is not using UTC $UTC"      
-    fi
-    lastSensorInsertDate=$(date "+%s%3N" -d "$createdAt")
+  if [[ "$utc" == true ]]; then
+    UTCString=" -u "
+    log "Using UTCString $UTCString"      
+  else
+    UTC=""
+    log "Not Using UTCString"      
   fi
 }
 
@@ -488,7 +481,7 @@ function check_sensor_stop()
 
   file="${LDIR}/nightscout_sensor_stop_treatment.json"
   rm -f $file
-  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "3 hours ago" --iso-8601=seconds $UTC )&find\[eventType\]\[\$regex\]=Sensor.Stop&count=1" 2>/dev/null > $file
+  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "3 hours ago" --iso-8601=seconds $UTCString )&find\[eventType\]\[\$regex\]=Sensor.Stop&count=1" 2>/dev/null > $file
   if [ $? == 0 ]; then
     len=$(jq '. | length' $file)
     index=$(bc <<< "$len - 1")
@@ -521,7 +514,7 @@ function check_sensor_start()
 
   file="${LDIR}/nightscout_sensor_start_treatment.json"
   rm -f $file
-  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "3 hours ago" --iso-8601=seconds $UTC )&find\[eventType\]\[\$regex\]=Sensor.Start&count=1" 2>/dev/null > $file
+  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "3 hours ago" --iso-8601=seconds $UTCString )&find\[eventType\]\[\$regex\]=Sensor.Start&count=1" 2>/dev/null > $file
   if [ $? == 0 ]; then
     len=$(jq '. | length' $file)
     index=$(bc <<< "$len - 1")
@@ -573,7 +566,7 @@ function check_sensor_change()
   fi
 
 
-  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" --iso-8601=seconds $UTC )&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
+  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" --iso-8601=seconds $UTCString )&find\[eventType\]\[\$regex\]=Sensor.Change" 2>/dev/null | grep "Sensor Change"
   if [ $? == 0 ]; then
     log "sensor change within last 15 minutes - clearing calibration files"
     ClearCalibrationInput
@@ -587,7 +580,7 @@ function check_sensor_change()
     exit
   fi
 
-curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" --iso-8601=seconds $UTC)&find\[eventType\]\[\$regex\]=Sensor.Stop" 2>/dev/null | grep "Sensor Stop"
+curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" --iso-8601=seconds $UTCString)&find\[eventType\]\[\$regex\]=Sensor.Stop" 2>/dev/null | grep "Sensor Stop"
   if [ $? == 0 ]; then
     log "sensor stopped within last 15 minutes - clearing calibration files"
     ClearCalibrationInput
@@ -601,7 +594,7 @@ curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v
     exit
   fi
 
-  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" --iso-8601=seconds $UTC)&find\[eventType\]\[\$regex\]=Sensor.Start" 2>/dev/null | grep "Sensor Start"
+  curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[created_at\]\[\$gte\]=$(date -d "15 minutes ago" --iso-8601=seconds $UTCString)&find\[eventType\]\[\$regex\]=Sensor.Start" 2>/dev/null | grep "Sensor Start"
   if [ $? == 0 ]; then
     log "sensor start within last 15 minutes - clearing calibration files"
     ClearCalibrationInput
@@ -929,7 +922,7 @@ function  check_cmd_line_calibration()
           # put in backfill so that the command line calibration will be sent up to NS 
           # now (or later if offline)
           
-          createdAt=$(date $UTC -d @$calDateSeconds +'%Y-%m-%dT%H:%M:%S.%3NZ')
+          createdAt=$(date $UTCString -d @$calDateSeconds +'%Y-%m-%dT%H:%M:%S.%3NZ')
 
           if [ $(bc <<< "$lastUnfiltered > 0") -eq 1 ]; then
             updateCalibrationCache $lastFiltered $lastUnfiltered $meterbg $meterbgid "$createdAt" $calDateSeconds "Logger-cmd-line"
