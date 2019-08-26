@@ -77,19 +77,19 @@ main()
   if [ -z  "$watchdog" ] || [ "$watchdog" == "null" ]; then
     watchdog=true
   fi
-  log "Parameter: Using Bluetooth Watchdog: $watchdog"
+  log "Parameter (watchdog):  $watchdog"
 
   utc=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.utc')
   if [ -z  "$utc" ] || [ "$utc" == "null" ]; then
     utc=true
   fi
-  log "Parameter: Using UTC: $utc"
+  log "Parameter (utc): $utc"
 
   auto_sensor_restart=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.auto_sensor_restart')
   if [ -z  "$auto_sensor_restart" ] || [ "$auto_sensor_restart" == "null" ]; then
     auto_sensor_restart=false
   fi
-  log "Parameter: Using Auto Sensor Restart: : $auto_sensor_restart"
+  log "Parameter (auto_sensor_restart): $auto_sensor_restart"
 
 
   fakemeter_only_offline=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.fakemeter_only_offline')
@@ -97,17 +97,15 @@ main()
     fakemeter_only_offline=false
   fi
 
-  log "Parameter: Using fakemeter only while offline: $fakemeter_only_offline"
+  log "Parameter (fakemeter_only_offline): $fakemeter_only_offline"
 
   alternateBluetoothChannel=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.alternate_bluetooth_channel')
   if [ -z  "$alternateBluetoothChannel" ] || [ "$alternateBluetoothChannel" == "null" ]; then
     alternateBluetoothChannel=false
   fi
 
-  log "Parameter: Using Alternate Bluetooth Channel: $alternateBluetoothChannel"
-  log "Parameter: Using transmitter: $transmitter"
-
-
+  log "Parameter (alternateBluetoothChannel): $alternateBluetoothChannel"
+  log "Parameter (transmitter): $transmitter"
 
   id2=$(echo "${transmitter: -2}")
   id="Dexcom${id2}"
