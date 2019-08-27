@@ -450,6 +450,12 @@ function check_battery_status()
      /usr/local/bin/cgm-post-ns ${LDIR}/cgm-battery-status.json treatments && (echo; log "Upload to NightScout of battery status change worked") || (echo; log "Upload to NS of battery status change did not work")
      log_status_csv
 
+     if [ "$txType" == "g6" ]; then
+       if [ "$(bc <<< "$voltageb < 170)" -eq 1 ]; then
+         postAnnouncementToNS "Warning, CGM voltageb of $voltageb is low"
+       fi
+     fi
+
    fi
 }
 
