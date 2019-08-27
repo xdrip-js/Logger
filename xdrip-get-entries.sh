@@ -451,7 +451,7 @@ function check_battery_status()
      log_status_csv
 
      if [ "$txType" == "g6" ]; then
-       if [ "$(bc <<< "$voltageb < 270)" -eq 1 ]; then
+       if [ $(bc <<< "$voltageb < 270") -eq 1 ]; then
          postAnnouncementToNS "Warning, CGM voltageb of $voltageb is low"
        fi
      fi
