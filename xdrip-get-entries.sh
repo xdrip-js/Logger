@@ -201,6 +201,11 @@ main()
   if [ "$state" != "Stopped" ] || [ "$mode" == "expired" ]; then
     log "Posting glucose record to xdripAPS / OpenAPS"
     if [ -e "${LDIR}/entry-backfill2.json" ] ; then
+      local numBackfills=$(jq '. | length' ${LDIR}/entry-backfill2.json)
+      if [ $(bc <<< "$numBackfills > 6") -eq 1 ]; then
+        # more than 30 minutes of missed/backfilled glucose values
+        postAnnouncementToNS "Backfilled $numBackfillse glucose values"
+      fi
       /usr/local/bin/cgm-post-xdrip ${LDIR}/entry-backfill2.json
     fi
     /usr/local/bin/cgm-post-xdrip ${LDIR}/entry-xdrip.json
