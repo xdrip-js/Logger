@@ -1218,7 +1218,7 @@ function process_announcements()
   else
     log "process_announcements: state=$state lastState=$lastState status=$status lastStatus=$lastStatus"
     if [ "$status" != "$lastStatus" ]; then
-      postAnnouncementToNS "Tx $status"
+      postAnnouncementToNS "Tx $status $postAnnouncementToNSAdder"
     fi
 
     if [ "$state" != "$lastState" ]; then
@@ -1285,7 +1285,7 @@ function check_native_calibrates_lsr()
           log "meterbg from native-calibrates-lsr: $meterbg"
           # datetime has spaces in it and must have quotes around it
           updateCalibrationCache $filtered $unfiltered $meterbg $meterbgid "$datetime" $calDateSeconds "Logger-native-calibrates-lsr"
-          postAnnouncementToNS "native-calibrated-lsr $meterbg"
+          postAnnouncementToNSAdder="native-calibrated-lsr $meterbg"
           touch $file 
           sentLoggerCalibrationToTx=true
           found_meterbg=true
@@ -1856,6 +1856,8 @@ function  post-nightscout-with-backfill()
     # don't post glucose to NS
     #return
   #fi
+
+  
   if [ -e "${LDIR}/entry-backfill2.json" ] ; then
     /usr/local/bin/cgm-post-ns ${LDIR}/entry-backfill2.json && (echo; log "Upload backfill2 to NightScout worked ... removing ${LDIR}/entry-backfill2.json"; rm -f ${LDIR}/entry-backfill2.json) || (echo; log "Upload backfill to NS did not work ... keeping for upload when network is restored ... Auth to NS may have failed; ensure you are using hashed API_SECRET in ~/.bash_profile";)
   fi
