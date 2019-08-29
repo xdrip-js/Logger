@@ -204,7 +204,7 @@ main()
       local numBackfills=$(jq '. | length' ${LDIR}/entry-backfill2.json)
       if [ $(bc <<< "$numBackfills > 6") -eq 1 ]; then
         # more than 30 minutes of missed/backfilled glucose values
-        postAnnouncementToNS "Backfilled $numBackfillse glucose values"
+        postAnnouncementToNSAdder="Backfilled $numBackfills glucose values"
       fi
       /usr/local/bin/cgm-post-xdrip ${LDIR}/entry-backfill2.json
     fi
@@ -1285,7 +1285,7 @@ function check_native_calibrates_lsr()
           log "meterbg from native-calibrates-lsr: $meterbg"
           # datetime has spaces in it and must have quotes around it
           updateCalibrationCache $filtered $unfiltered $meterbg $meterbgid "$datetime" $calDateSeconds "Logger-native-calibrates-lsr"
-          postAnnouncementToNSAdder="native-calibrated-lsr $meterbg"
+          postAnnouncementToNS "native-calibrated-lsr $meterbg"
           touch $file 
           sentLoggerCalibrationToTx=true
           found_meterbg=true
