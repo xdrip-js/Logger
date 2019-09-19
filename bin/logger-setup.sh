@@ -68,6 +68,8 @@ link_install ${root_dir}/bin/g5-post-xdrip.sh g5-post-xdrip
 link_install ${root_dir}/bin/g5-post-xdrip.sh cgm-post-xdrip
 link_install ${root_dir}/bin/g5-transmitter.sh g5-transmitter
 link_install ${root_dir}/bin/g5-transmitter.sh cgm-transmitter
+link_install ${root_dir}/bin/g5-debug.sh cgm-debug
+link_install ${root_dir}/bin/g5-debug.sh logger-debug
 
 link_install ${root_dir}/xdrip-get-entries.sh Logger
 
