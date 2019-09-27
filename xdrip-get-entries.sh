@@ -1597,7 +1597,7 @@ function post_cgm_ns_pill()
    if [[ $state_id != 0x25 ]]; then
      txActivation=`date +'%s%3N' -d "$transmitterStartDate"`
      # logic to check if tx age > 90 days and append to state string if so ...
-     if [ "$(validBG $glucose)" == "false" -a "$(validBG "$unfiltered)" == "false" ]; then
+     if [ "$(validBG $glucose)" == "false" -a "$(validBG $unfiltered)" == "false" ]; then
        if [ $(bc -l <<< "($epochdatems - $txActivation)/($SECONDS_IN_1_DAY * 1000) > 90") -eq 1 ]; then
        state="${state}-tx-expired"
        fi
