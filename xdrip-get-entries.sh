@@ -1341,13 +1341,13 @@ function check_pump_history_calibration()
         log "converted pump history meterbg from mmol value to $meterbg"
       fi
       echo
+      calDate=$(date --date="$meterbgid" +"%s%3N")
       if [[ -n "$meterbg" && "$meterbg" != "" ]]; then  
         log "meterbg from pumphistory: $meterbg"
         found_meterbg=true
+        addToMessages "[{\"date\": ${calDate}, \"type\": \"CalibrateSensor\",\"glucose\": $meterbg}]" $calibrationMessageFile
       fi
-      calDate=$(date --date="$meterbgid" +"%s%3N")
       # no need to send to NS because OpenAPS does this for us
-      #calDate=$(date +'%s%3N') # SOLVED: use pump history date
     fi
   fi
 }
