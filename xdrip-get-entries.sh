@@ -575,7 +575,7 @@ function check_sensor_change()
     ClearCalibrationCache
     touch ${LDIR}/last_sensor_change
     state_id=0x02
-    state="Warmup" ; stateString=$state ; stateStringShort=$state
+    state="Paused" ; stateString=$state ; stateStringShort=$state
     post_cgm_ns_pill
 
     log "exiting"
@@ -589,7 +589,7 @@ curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v
     ClearCalibrationCache
     touch ${LDIR}/last_sensor_change
     state_id=0x02
-    state="Warmup" ; stateString=$state ; stateStringShort=$state
+    state="Paused" ; stateString=$state ; stateStringShort=$state
     post_cgm_ns_pill
 
     log "exiting"
@@ -603,7 +603,7 @@ curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v
     ClearCalibrationCache
     touch ${LDIR}/last_sensor_change
     state_id=0x02
-    state="Warmup" ; stateString=$state ; stateStringShort=$state
+    state="Starting" ; stateString=$state ; stateStringShort=$state
     post_cgm_ns_pill
 
     log "exiting"
