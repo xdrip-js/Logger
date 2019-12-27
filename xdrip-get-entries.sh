@@ -1946,7 +1946,7 @@ function bt_watchdog()
 {
   logfiledir=/var/log/openaps
   logfilename=logger-reset-log.txt
-  minutes=14
+  minutes=19
   xdrip_errors=`find ${LDIR} -mmin -$minutes -type f -name entry-watchdog; find $logfiledir -mmin -$minutes -type f -name $logfilename`
   if [ -z "$xdrip_errors" ]
   then
