@@ -56,6 +56,8 @@ link_install ${root_dir}/bin/g5-insert.sh  g5-insert
 link_install ${root_dir}/bin/g5-insert.sh  cgm-insert
 link_install ${root_dir}/bin/g5-reset.sh  g5-reset
 link_install ${root_dir}/bin/g5-reset.sh  cgm-reset
+link_install ${root_dir}/bin/g5-version.sh  g5-version
+link_install ${root_dir}/bin/g5-version.sh  cgm-version
 link_install ${root_dir}/bin/g5-restart.sh  cgm-restart
 link_install ${root_dir}/bin/g5-restart.sh  g5-restart
 link_install ${root_dir}/bin/g5-calc-calibration.sh g5-calc-calibration
