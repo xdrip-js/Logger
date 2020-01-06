@@ -7,7 +7,7 @@
   "scripts": {
     "test": "make test",
     "setup": "./bin/logger-setup.sh",
-    "global-install": "./bin/upgrade-node.sh && npm install && ./bin/logger-setup.sh"
+    "global-install": "rm -rf ./node-modules/xdrip-js && ./bin/upgrade-node.sh && npm install && ./bin/logger-setup.sh"
   },
   "dependencies": {
     "xdrip-js": "xdrip-js/xdrip-js#v2.1.5"
