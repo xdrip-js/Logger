@@ -1837,8 +1837,6 @@ function check_messages()
       ClearCalibrationInput
       ClearCalibrationCache
     fi
-    ClearCalibrationInput
-    ClearCalibrationCache
     #TODO: add cmd line treatments to NS
 
     # wait to remove command line file after call_logger (Tx/Rx processing)
