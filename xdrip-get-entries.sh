@@ -503,7 +503,6 @@ function check_sensor_stop()
           echo "Already Processed Sensor Stop Message from Nightscout at $createdAt" >> ${LDIR}/nightscout-treatments.log
           # Always clear LSR cache for any g6 start / stop
           if [ "$txType" == "g6" ]; then
-            sessionMaxSeconds=$SECONDS_IN_7_DAYS
             ClearCalibrationInput
             ClearCalibrationCache
           fi
@@ -548,7 +547,6 @@ function check_sensor_start()
           echo "Already Processed Sensor Start Message from Nightscout at $createdAt" >> ${LDIR}/nightscout-treatments.log
           # Always clear LSR cache for any g6 start / stop
           if [ "$txType" == "g6" ]; then
-            sessionMaxSeconds=$SECONDS_IN_7_DAYS
             ClearCalibrationInput
             ClearCalibrationCache
           fi
@@ -1824,7 +1822,6 @@ function check_messages()
     log "stopJSON=$stopJSON"
     # Always clear LSR cache for any g6 start / stop
     if [ "$txType" == "g6" ]; then
-      sessionMaxSeconds=$SECONDS_IN_7_DAYS
       ClearCalibrationInput
       ClearCalibrationCache
     fi
@@ -1837,7 +1834,6 @@ function check_messages()
     log "startJSON=$startJSON"
     # Always clear LSR cache for any g6 start / stop
     if [ "$txType" == "g6" ]; then
-      sessionMaxSeconds=$SECONDS_IN_7_DAYS
       ClearCalibrationInput
       ClearCalibrationCache
     fi
