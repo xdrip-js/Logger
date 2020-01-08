@@ -402,10 +402,9 @@ function ClearCalibrationInputOne()
 
 function ClearCalibrationCache()
 {
-  local cache="$calibrationFile"
-  if [ -e ${LDIR}/$cache ]; then
-    cp ${LDIR}/$cache "${LDIR}/old-calibrations/${cache}.$(date +%Y%m%d-%H%M%S)" 
-    rm ${LDIR}/$cache 
+  if [ -e $calibrationFile ]; then
+    cp $calibrationFile "${LDIR}/old-calibrations/calibration-linear.$(date +%Y%m%d-%H%M%S)" 
+    rm $calibrationFile 
   fi
 }
 
@@ -1588,9 +1587,8 @@ function post_cgm_ns_pill()
 {
    # json required conversion to decimal values
 
-   local cache="$calibrationFile"
-   if [ -e $cache ]; then
-     lastCalibrationDate=$(stat -c "%Y000" ${cache})
+   if [ -e $calibrationFile ]; then
+     lastCalibrationDate=$(stat -c "%Y000" ${calibrationFile})
    fi
 
    # Dont send tx activation date to NS CGM pill if state is invalid
