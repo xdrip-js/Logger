@@ -501,6 +501,9 @@ function check_sensor_stop()
           echo "stopJSON = $stopJSON"
           # below done so that next time the egrep returns positive for this specific message and the log reads right
           echo "Already Processed Sensor Stop Message from Nightscout at $createdAt" >> ${LDIR}/nightscout-treatments.log
+          # Always clear LSR cache for any start / stop
+          ClearCalibrationInput
+          ClearCalibrationCache
         fi
       fi
     fi
@@ -540,8 +543,9 @@ function check_sensor_start()
           echo "startJSON = $startJSON"
           # below done so that next time the egrep returns positive for this specific message and the log reads right
           echo "Already Processed Sensor Start Message from Nightscout at $createdAt" >> ${LDIR}/nightscout-treatments.log
-          # do not clear in this case because in session sensors could be just doing a quick start 
-          # clearing only happens for sensor insert
+          # Always clear LSR cache for any start / stop
+          ClearCalibrationInput
+          ClearCalibrationCache
   
           #update xdripjs.json with new sensor code
           if [ "$sensorSerialCode" != "null" -a "$sensorSerialCode" != "" ]; then  
@@ -1812,6 +1816,9 @@ function check_messages()
   if [ -e "$cgm_stop_file" ]; then
     stopJSON=$(cat $cgm_stop_file)
     log "stopJSON=$stopJSON"
+    # Always clear LSR cache for any start / stop
+    ClearCalibrationInput
+    ClearCalibrationCache
     # wait to remove command line file after call_logger (Tx/Rx processing)
   fi
 
@@ -1819,6 +1826,9 @@ function check_messages()
   if [ -e "$cgm_start_file" ]; then
     startJSON=$(cat $cgm_start_file)
     log "startJSON=$startJSON"
+    # Always clear LSR cache for any start / stop
+    ClearCalibrationInput
+    ClearCalibrationCache
     #TODO: add cmd line treatments to NS
 
     # wait to remove command line file after call_logger (Tx/Rx processing)
