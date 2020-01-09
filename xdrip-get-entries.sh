@@ -470,7 +470,7 @@ function check_send_battery_status()
        touch $file 
        battery_date=$(date +'%s%3N')
        batteryJSON="[{\"date\": ${battery_date}, \"type\": \"BatteryStatus\"}]"
-       batteryJSON="[{\"date\": ${battery_date}, \"type\": \"VersionRequest\"}]"
+       versionJSON="[{\"date\": ${battery_date}, \"type\": \"VersionRequest\"}]"
        log "Sending Message to Transmitter to request battery and version status"
    fi
  }
