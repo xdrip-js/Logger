@@ -1088,6 +1088,14 @@ function  capture_entry_values()
   state_id=$(cat ${LDIR}/extra.json | jq -M '.[0].state_id')
   status_id=$(cat ${LDIR}/extra.json | jq -M '.[0].status_id')
   transmitterStartDate=$(cat ${LDIR}/extra.json | jq -M '.[0].transmitterStartDate')
+
+  if [ -e "${LDIR}/tx-version.json" ]; then
+    tx_version=$(cat ${LDIR}/tx-version.json | jq -M '.firmwareVersion')
+    tx_version="${tx_version%\"}"
+    tx_version="${tx_version#\"}"
+    log "tx_version=$tx_version" 
+  fi
+
   transmitterStartDate="${transmitterStartDate%\"}"
   transmitterStartDate="${transmitterStartDate#\"}"
   log "transmitterStartDate=$transmitterStartDate" 
