@@ -1,6 +1,6 @@
 #!/bin/bash
 
-MESSAGE="${HOME}/myopenaps/monitor/xdripjs/cgm-reset.json"
+MESSAGE="${HOME}/myopenaps/monitor/xdripjs/cgm-version.json"
 epochdate=$(date +'%s%3N')
 
 echo "Requesting the Dexcom Transmitter version number"

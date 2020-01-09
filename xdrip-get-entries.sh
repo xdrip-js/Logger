@@ -470,7 +470,8 @@ function check_send_battery_status()
        touch $file 
        battery_date=$(date +'%s%3N')
        batteryJSON="[{\"date\": ${battery_date}, \"type\": \"BatteryStatus\"}]"
-       log "Sending Message to Transmitter to request battery status"
+       batteryJSON="[{\"date\": ${battery_date}, \"type\": \"VersionRequest\"}]"
+       log "Sending Message to Transmitter to request battery and version status"
    fi
  }
 
@@ -977,12 +978,17 @@ function initialize_messages()
   startJSON=""
   batteryJSON=""
   resetJSON=""
+  versionJSON=""
 }
 
 function compile_messages()
 {
   if [ "${resetJSON}" != "" ]; then
     addToMessages "$resetJSON" $xdripMessageFile
+  fi
+
+  if [ "${versionJSON}" != "" ]; then
+    addToMessages "$versionJSON" $xdripMessageFile
   fi
 
   if [ "${stopJSON}" != "" ]; then
@@ -1846,6 +1852,13 @@ function check_messages()
   if [ -e "$file" ]; then
     resetJSON=$(cat $file)
     log "resetJSON=$resetJSON"
+    rm -f $file
+  fi
+
+  file="${LDIR}/cgm-version.json"
+  if [ -e "$file" ]; then
+    resetJSON=$(cat $file)
+    log "versionJSON=$versionJSON"
     rm -f $file
   fi
 }
