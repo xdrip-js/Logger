@@ -229,6 +229,21 @@ transmitter.on('batteryStatus', data => {
   });
 });
 
+transmitter.on('version', data => {
+  const util = require('util')
+  console.log('got version message inside logger msg: ' + JSON.stringify(data));
+  console.log(util.inspect(data, false, null))
+
+  var fs = require('fs');
+  const version = JSON.stringify(data);
+  fs.writeFile("/root/myopenaps/monitor/xdripjs/tx-version.json", version, function(err) {
+  if(err) {
+      console.log("Error while writing tx-version.json");
+      console.log(err);
+      }
+  });
+});
+
 transmitter.on('disconnect', process.exit);
 
 transmitter.on('messageProcessed', data => {

@@ -402,10 +402,9 @@ function ClearCalibrationInputOne()
 
 function ClearCalibrationCache()
 {
-  local cache="$calibrationFile"
-  if [ -e ${LDIR}/$cache ]; then
-    cp ${LDIR}/$cache "${LDIR}/old-calibrations/${cache}.$(date +%Y%m%d-%H%M%S)" 
-    rm ${LDIR}/$cache 
+  if [ -e $calibrationFile ]; then
+    cp $calibrationFile "${LDIR}/old-calibrations/calibration-linear.$(date +%Y%m%d-%H%M%S)" 
+    rm $calibrationFile 
   fi
 }
 
@@ -471,7 +470,8 @@ function check_send_battery_status()
        touch $file 
        battery_date=$(date +'%s%3N')
        batteryJSON="[{\"date\": ${battery_date}, \"type\": \"BatteryStatus\"}]"
-       log "Sending Message to Transmitter to request battery status"
+       versionJSON="[{\"date\": ${battery_date}, \"type\": \"VersionRequest\"}]"
+       log "Sending Message to Transmitter to request battery and version status"
    fi
  }
 
@@ -502,6 +502,11 @@ function check_sensor_stop()
           echo "stopJSON = $stopJSON"
           # below done so that next time the egrep returns positive for this specific message and the log reads right
           echo "Already Processed Sensor Stop Message from Nightscout at $createdAt" >> ${LDIR}/nightscout-treatments.log
+          # Always clear LSR cache for any new firmware g6 start / stop
+          if [ "$(newFirmware $tx_version)" == "true" ]; then
+            ClearCalibrationInput
+            ClearCalibrationCache
+          fi
         fi
       fi
     fi
@@ -541,8 +546,11 @@ function check_sensor_start()
           echo "startJSON = $startJSON"
           # below done so that next time the egrep returns positive for this specific message and the log reads right
           echo "Already Processed Sensor Start Message from Nightscout at $createdAt" >> ${LDIR}/nightscout-treatments.log
-          # do not clear in this case because in session sensors could be just doing a quick start 
-          # clearing only happens for sensor insert
+          # Always clear LSR cache for any new firmware g6 start / stop
+          if [ "$(newFirmware $tx_version)" == "true" ]; then
+            ClearCalibrationInput
+            ClearCalibrationCache
+          fi
   
           #update xdripjs.json with new sensor code
           if [ "$sensorSerialCode" != "null" -a "$sensorSerialCode" != "" ]; then  
@@ -970,12 +978,17 @@ function initialize_messages()
   startJSON=""
   batteryJSON=""
   resetJSON=""
+  versionJSON=""
 }
 
 function compile_messages()
 {
   if [ "${resetJSON}" != "" ]; then
     addToMessages "$resetJSON" $xdripMessageFile
+  fi
+
+  if [ "${versionJSON}" != "" ]; then
+    addToMessages "$versionJSON" $xdripMessageFile
   fi
 
   if [ "${stopJSON}" != "" ]; then
@@ -1058,6 +1071,20 @@ function  call_logger()
   fi
 }
 
+function newFirmware()
+{
+  local version=$1
+  case $version in
+    1.6.5.27 | 2.*)
+      echo true 
+      ;;
+    *)
+      echo false 
+      ;;
+  esac
+}
+
+
 function  capture_entry_values()
 {
   # capture values for use and for log to csv file 
@@ -1075,6 +1102,18 @@ function  capture_entry_values()
   state_id=$(cat ${LDIR}/extra.json | jq -M '.[0].state_id')
   status_id=$(cat ${LDIR}/extra.json | jq -M '.[0].status_id')
   transmitterStartDate=$(cat ${LDIR}/extra.json | jq -M '.[0].transmitterStartDate')
+
+  if [ -e "${LDIR}/tx-version.json" ]; then
+    tx_version=$(cat ${LDIR}/tx-version.json | jq -M '.firmwareVersion')
+    tx_version="${tx_version%\"}"
+    tx_version="${tx_version#\"}"
+    if [ "$(newFirmware $tx_version)" == "true" ]; then
+      echo "Dexcom tx version is $tx_version (new firmware)"
+    else
+      echo "Dexcom tx version is $tx_version (not new firmware)"
+    fi
+  fi
+
   transmitterStartDate="${transmitterStartDate%\"}"
   transmitterStartDate="${transmitterStartDate#\"}"
   log "transmitterStartDate=$transmitterStartDate" 
@@ -1588,9 +1627,8 @@ function post_cgm_ns_pill()
 {
    # json required conversion to decimal values
 
-   local cache="$calibrationFile"
-   if [ -e $cache ]; then
-     lastCalibrationDate=$(stat -c "%Y000" ${cache})
+   if [ -e $calibrationFile ]; then
+     lastCalibrationDate=$(stat -c "%Y000" ${calibrationFile})
    fi
 
    # Dont send tx activation date to NS CGM pill if state is invalid
@@ -1814,6 +1852,11 @@ function check_messages()
   if [ -e "$cgm_stop_file" ]; then
     stopJSON=$(cat $cgm_stop_file)
     log "stopJSON=$stopJSON"
+    # Always clear LSR cache for any new firmware g6 start / stop
+    if [ "$(newFirmware $tx_version)" == "true" ]; then
+      ClearCalibrationInput
+      ClearCalibrationCache
+    fi
     # wait to remove command line file after call_logger (Tx/Rx processing)
   fi
 
@@ -1821,6 +1864,11 @@ function check_messages()
   if [ -e "$cgm_start_file" ]; then
     startJSON=$(cat $cgm_start_file)
     log "startJSON=$startJSON"
+    # Always clear LSR cache for any new firmware g6 start / stop
+    if [ "$(newFirmware $tx_version)" == "true" ]; then
+      ClearCalibrationInput
+      ClearCalibrationCache
+    fi
     #TODO: add cmd line treatments to NS
 
     # wait to remove command line file after call_logger (Tx/Rx processing)
@@ -1830,6 +1878,13 @@ function check_messages()
   if [ -e "$file" ]; then
     resetJSON=$(cat $file)
     log "resetJSON=$resetJSON"
+    rm -f $file
+  fi
+
+  file="${LDIR}/cgm-version.json"
+  if [ -e "$file" ]; then
+    resetJSON=$(cat $file)
+    log "versionJSON=$versionJSON"
     rm -f $file
   fi
 }
