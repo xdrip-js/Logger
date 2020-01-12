@@ -1071,6 +1071,20 @@ function  call_logger()
   fi
 }
 
+function newFirmware()
+{
+  local version=$1
+  case $version in
+    1.6.5.27 | 2.*)
+      echo true 
+      ;;
+    *)
+      echo false 
+      ;;
+  esac
+}
+
+
 function  capture_entry_values()
 {
   # capture values for use and for log to csv file 
@@ -1093,7 +1107,11 @@ function  capture_entry_values()
     tx_version=$(cat ${LDIR}/tx-version.json | jq -M '.firmwareVersion')
     tx_version="${tx_version%\"}"
     tx_version="${tx_version#\"}"
-    log "tx_version=$tx_version" 
+    if [ "$(newFirmware $tx_version)" == "true" ]; then
+      echo "tx $tx_version is new firmware"
+    else
+      echo "tx $tx_version is not new firmware"
+    fi
   fi
 
   transmitterStartDate="${transmitterStartDate%\"}"
