@@ -2,8 +2,19 @@ const Transmitter = require('xdrip-js');
 const util = require('util')
 
 const id = process.argv[2];
+var messages =  '[]';
 // examples mesages are: {date: Date.now(), type: "CalibrateSensor", glucose} or {date: Date.now(), type: "StopSensor"} or {date: Date.now(), type: "StartSensor"}
-const messages =  JSON.parse(process.argv[3] || '[]');
+var fs2 = require('fs');
+fs2.readFile(process.argv[3], function (err, data) {
+      // var json = [];
+      if (data && data.length > 0) {
+        console.log('messages passed to logger: ' + data);
+        messages = JSON.parse(data);
+        const util = require('util')
+    }
+});
+
+//const messages =  JSON.parse(process.argv[3] || '[]');
 // arg 4 is "true" if using alternate transmitter bluetooth channel
 const arg4 = process.argv[4];
 var alternateBluetooth = false;
@@ -124,16 +135,35 @@ function SensorStateString(state) {
 
 const transmitter = new Transmitter(id, () => messages, alternateBluetooth); 
 
+transmitter.on('calibrationData', (data) => {
+  const util = require('util')
+  console.log(util.inspect(data, false, null))
+
+  var fs = require('fs');
+  const calibrationData = JSON.stringify(data);
+  fs.writeFile("/root/myopenaps/monitor/xdripjs/tx-calibration-data.json", calibrationData, function(err) {
+  if(err) {
+      console.log("Error while writing tx-calibration-data.json");
+      console.log(err);
+      }
+    process.exit();
+  });
+
+});
+
 transmitter.on('glucose', glucose => {
   //console.log('got glucose: ' + glucose.glucose);
   var d= new Date(glucose.readDate);
+  var dsession= new Date(glucose.sessionStartDate);
 
   console.log(util.inspect(glucose, false, null))
   var fs = require('fs');
   const extra = [{
       'state_id': glucose.state, 
       'status_id': glucose.status, 
-      'transmitterStartDate': glucose.transmitterStartDate 
+      'transmitterStartDate': glucose.transmitterStartDate, 
+      'sessionStartDate': glucose.sessionStartDate,
+      'sessionStartDateEpoch': dsession.getTime()
     }];
     const extraData = JSON.stringify(extra);
   const entry = [{
@@ -165,14 +195,13 @@ transmitter.on('glucose', glucose => {
             console.log("Error while writing entry.json");
             console.log(err);
             }
-        process.exit();
+       // process.exit();
         });
     });
 });
 
 transmitter.on('sawTransmitter', data => {
   const util = require('util')
-  console.log('got sawTransmitter message inside logger msg: ' + JSON.stringify(data));
   console.log(util.inspect(data, false, null))
 
   var fs = require('fs');
@@ -200,11 +229,26 @@ transmitter.on('batteryStatus', data => {
   });
 });
 
+transmitter.on('version', data => {
+  const util = require('util')
+  console.log('got version message inside logger msg: ' + JSON.stringify(data));
+  console.log(util.inspect(data, false, null))
+
+  var fs = require('fs');
+  const version = JSON.stringify(data);
+  fs.writeFile("/root/myopenaps/monitor/xdripjs/tx-version.json", version, function(err) {
+  if(err) {
+      console.log("Error while writing tx-version.json");
+      console.log(err);
+      }
+  });
+});
+
 transmitter.on('disconnect', process.exit);
 
 transmitter.on('messageProcessed', data => {
-  console.log('got message inside logger msg: ' + JSON.stringify(data));
-  console.log(util.inspect(data, false, null))
+  console.log('logger message received: ' + JSON.stringify(data));
+//  console.log(util.inspect(data, false, null))
 });
 
 transmitter.on('backfillData', backfills => {

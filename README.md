@@ -30,10 +30,10 @@ Logger is a Bash (shell) based Dexcom g5 / g6 glucose pre-processor for OpenAPS.
 # Warning! 
 
 Logger LSR calibration is a new feature as of Feb/2018. Only those who closely monitor and check blood glucose and regularly review the Logger logfiles should use this program at this time.
-* /var/log/openaps/logger-loop.log
-* /var/log/openaps/cgm.csv
-* /root/myopenaps/monitor/logger/calibrations.csv - the current list of calibrations (unfiltered, BG check, datetime, BG Check ID)
-* /root/myopenaps/monitor/logger/calibration-linear.json - the current calibration values (slope, yIntercept). Please note that other fields in this file are for informational purposes at this time. 
+* `/var/log/openaps/logger-loop.log`
+* `/var/log/openaps/cgm.csv`
+* `/root/myopenaps/monitor/xdripjs/calibrations.csv` - the current list of calibrations (unfiltered, BG check, datetime, BG Check ID)
+* `/root/myopenaps/monitor/xdripjs/calibration-linear.json` - the current calibration values (slope, yIntercept). Please note that other fields in this file are for informational purposes at this time. 
 
 [![Join the chat at https://gitter.im/thebookins/xdrip-js](https://badges.gitter.im/thebookins/xdrip-js.svg)](https://gitter.im/thebookins/xdrip-js?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
@@ -100,11 +100,13 @@ You can edit the following options values in the configuration file (~/myopenaps
 
 	{"transmitter_id":"8XXXXX"}, Required - 6 character tx serial number (i.e. 403BX6).  Should be set using cgm-transmitter cmd.
 	{"sensor_code":"1234"}, Optional - Sensor code used for G6 only. Start a transmitter using this to use the G6 no-calibration mode. If set to a non-empty string, calibrations are not sent to the transmitter. To set a new sensor code you must set it using the cgm-start cmd or NS.
-	{"mode":"not-expired"}, Optional - if you specify "expired" then mode is hard-coded to expired tx mode and it uses local LSR and single-point algorithms to calculate BG always.  If empty, or set to "not-expired", then native Dexcom algorithms will be used (i.e., BG is calculated by transmitter itself), if available, otherwise the local algorithms will be used. If you specify "native-calibrates-lsr" then it will use the Dexcom algorithms, unless not available, and it will also calibrate the local LSR algorithm based on the values of the Dexcom algorithm, every 6 hours. "native-calibrates-lsr" is most useful for G6 without manual calibrations. If you specify "read-only" then the behavior is the same as "not-expired" with the exception that all start/stop/calibrations must be done by the receiver. The default is "native-calibrates-lsr".
+	{"mode":"native-calibrates-lsr"}, Optional - if you specify "read-only" then Logger still sends BG values to OpenAPS, but all start/stop/calibrations must be done by the receiver, the Dexcom App, or XdripPlus. The default is "native-calibrates-lsr" then it will use the Dexcom algorithms, unless not available, and it will also calibrate the local LSR algorithm based on the values of the Dexcom algorithm, every 6 hours. "native-calibrates-lsr" is useful to allow expired sessions and extended sensors to automatically use recent calibration data. 
+
 	{"pump_units":"mg/dl"}, Optional - pumpUnits default is "mg/dl"
 	{"fake_meter_id":"000000"}, Optional - meterid for fakemeter sending glucose records to pump, default is "000000"
 	{"alternate_bluetooth_channel":true or false} Optional - Default is false. If set to true then Logger uses the alternate channel to connect to the Dexcom transmitter. If set to true the receiver cannot be used. However, when set to true, either the Xdip Plus android app or the Dexcom Iphone app can be used alongside Logger. Keep in mind that there is a higher chance for bluetooth conflict when connecting to the transmitter with both channels. You may be able to avoid some reconnects by keeping the rig and the phone app physically separated by several inches.
 	{"watchdog":true or false}, Optional - Default is true. If set to true then Logger will automatically reboot the rig to resolve bluetooth issues if no glucose is seen from the transmitter in more than 14 minutes.
+	{"utc":true or false}, Optional - Default is true. If set to true then Logger will assume UTC date/time strings coming from the curls to NightScout. 
 	{"fakemeter_only_offline":true or false}, Optional - Default is false. If set to false then Logger will not attempt to call fakemeter unless the rig is offline. 
 
 ## Getting Started
@@ -142,10 +144,12 @@ If timing out, recheck the configuration of the transmitter id, make sure the bt
 
 Since the timer only allows communications for a few seconds every 5 minutes, isolation of any timeout issues are key.  The following are some suggestions:
 1) Turn off Logger and receiver, run Xdrip+ and see if it can connect to the tx. If Xdrip+ can connect, then it may be a rig issue. If Xdrip+ cannot connect, then it's mostly isolated to a tx issue. 
-2) Check your network log. BT PAN may be trying to do something and restarting bluetoothd. Check /var/log/openaps/network.log and any bluetooth log (if it exists) in that directory. Also, check for bluetooth errors in /var/log/syslog as well.
-3) Turn off every other possible dexcom connection and try connecting with the tx with the official Dexcom app. This will only work if you have a non-expired tx or have successfully reset it earlier.
-4) Try a different transmitter (if you have one). If this works, then the other tx has an issue, usually battery related.
-5) Try a different rig (if you have one). If this works, then the other rig or it's install/configuration is likely the culprit.
+2) Run the following command. If it fails for any reason, then the install of bluez-tools may have an issue. If bluez-tools is not installed, then bt timeouts will likely be the result. ```bt-device -l```
+3) Check your network log. BT PAN may be trying to do something and restarting bluetoothd. Check /var/log/openaps/network.log and any bluetooth log (if it exists) in that directory. Also, check for bluetooth errors in /var/log/syslog as well.
+4) Turn off every other possible dexcom connection and try connecting with the tx with the official Dexcom app. This will only work if you have a non-expired tx or have successfully reset it earlier.
+5) Try a different transmitter (if you have one). If this works, then the other tx has an issue, usually battery related.
+6) Try a different rig (if you have one). If this works, then the other rig or it's install/configuration is likely the culprit.
+7) If on an RPI, check the mode in /etc/bluetooth/main.conf. At least one user found that setting mode to Controller mode resolved the timeouts. 
 
 If you have network connectivity on the rig, but BG values are not showing up on NightScout, then run the following command which should retrieve the last BG Check Treatment posted to NightScout. Review any errors that the command returns and re-check your NIGHTSCOUT_HOST and API_SECRET environment variables.
 ``` 

@@ -56,6 +56,10 @@ link_install ${root_dir}/bin/g5-insert.sh  g5-insert
 link_install ${root_dir}/bin/g5-insert.sh  cgm-insert
 link_install ${root_dir}/bin/g5-reset.sh  g5-reset
 link_install ${root_dir}/bin/g5-reset.sh  cgm-reset
+link_install ${root_dir}/bin/g5-version.sh  g5-version
+link_install ${root_dir}/bin/g5-version.sh  cgm-version
+link_install ${root_dir}/bin/g5-restart.sh  cgm-restart
+link_install ${root_dir}/bin/g5-restart.sh  g5-restart
 link_install ${root_dir}/bin/g5-calc-calibration.sh g5-calc-calibration
 link_install ${root_dir}/bin/g5-calc-calibration.sh cgm-calc-calibration
 link_install ${root_dir}/bin/g5-calc-noise.sh g5-calc-noise
@@ -66,17 +70,8 @@ link_install ${root_dir}/bin/g5-post-xdrip.sh g5-post-xdrip
 link_install ${root_dir}/bin/g5-post-xdrip.sh cgm-post-xdrip
 link_install ${root_dir}/bin/g5-transmitter.sh g5-transmitter
 link_install ${root_dir}/bin/g5-transmitter.sh cgm-transmitter
+link_install ${root_dir}/bin/g5-debug.sh cgm-debug
+link_install ${root_dir}/bin/g5-debug.sh logger-debug
 
 link_install ${root_dir}/xdrip-get-entries.sh Logger
-
-if [ -e "/usr/local/go/bin/go" ]; then
-  file="g5-calc-noise-go"
-  build_go_exe ${file}
-  link_install ${root_dir}/cmd/${file}/${file} ${file}
-
-  # go-based version of calc-calibration is still a work in progress
-#  build_go_exe "g5-calc-calibration-go"
-fi
-
-
 
