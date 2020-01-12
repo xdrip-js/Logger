@@ -502,7 +502,7 @@ function check_sensor_stop()
           echo "stopJSON = $stopJSON"
           # below done so that next time the egrep returns positive for this specific message and the log reads right
           echo "Already Processed Sensor Stop Message from Nightscout at $createdAt" >> ${LDIR}/nightscout-treatments.log
-          # Always clear LSR cache for any g6 start / stop
+          # Always clear LSR cache for any new firmware g6 start / stop
           if [ "$(newFirmware $tx_version)" == "true" ]; then
             ClearCalibrationInput
             ClearCalibrationCache
@@ -546,7 +546,7 @@ function check_sensor_start()
           echo "startJSON = $startJSON"
           # below done so that next time the egrep returns positive for this specific message and the log reads right
           echo "Already Processed Sensor Start Message from Nightscout at $createdAt" >> ${LDIR}/nightscout-treatments.log
-          # Always clear LSR cache for any g6 start / stop
+          # Always clear LSR cache for any new firmware g6 start / stop
           if [ "$(newFirmware $tx_version)" == "true" ]; then
             ClearCalibrationInput
             ClearCalibrationCache
@@ -1852,7 +1852,7 @@ function check_messages()
   if [ -e "$cgm_stop_file" ]; then
     stopJSON=$(cat $cgm_stop_file)
     log "stopJSON=$stopJSON"
-    # Always clear LSR cache for any g6 start / stop
+    # Always clear LSR cache for any new firmware g6 start / stop
     if [ "$(newFirmware $tx_version)" == "true" ]; then
       ClearCalibrationInput
       ClearCalibrationCache
@@ -1864,7 +1864,7 @@ function check_messages()
   if [ -e "$cgm_start_file" ]; then
     startJSON=$(cat $cgm_start_file)
     log "startJSON=$startJSON"
-    # Always clear LSR cache for any g6 start / stop
+    # Always clear LSR cache for any new firmware g6 start / stop
     if [ "$(newFirmware $tx_version)" == "true" ]; then
       ClearCalibrationInput
       ClearCalibrationCache
