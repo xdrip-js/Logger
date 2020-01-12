@@ -1108,9 +1108,9 @@ function  capture_entry_values()
     tx_version="${tx_version%\"}"
     tx_version="${tx_version#\"}"
     if [ "$(newFirmware $tx_version)" == "true" ]; then
-      echo "tx $tx_version is new firmware"
+      echo "Dexcom tx version is $tx_version (new firmware)"
     else
-      echo "tx $tx_version is not new firmware"
+      echo "Dexcom tx version is $tx_version (not new firmware)"
     fi
   fi
 
