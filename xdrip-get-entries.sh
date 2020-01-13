@@ -1883,7 +1883,7 @@ function check_messages()
 
   file="${LDIR}/cgm-version.json"
   if [ -e "$file" ]; then
-    resetJSON=$(cat $file)
+    versionJSON=$(cat $file)
     log "versionJSON=$versionJSON"
     rm -f $file
   fi
