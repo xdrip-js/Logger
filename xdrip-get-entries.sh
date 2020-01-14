@@ -1139,9 +1139,9 @@ function  capture_entry_values()
     if [ $(bc <<< "$glucose < 400") -eq 1  -a $(bc <<< "$glucose > 40") -eq 1 ]; then
       if [ $(bc <<< "$variation < 10") -eq 1 ]; then
         if [[ "$auto_sensor_restart" == true ]]; then
-         cgm-stop; sleep 5; cgm-start -m 120; sleep 5; cgm-calibrate $glucose; sleep 61; cgm-calibrate $glucose  
-        else
-         log "Not sending restart messages - auto_sensor_restart=$auto_sensor_restart"
+         cgm-stop; sleep 2; cgm-start -m 120
+         touch ${LDIR}/lsr-calibrates-native-next-cycle
+         touch ${LDIR}/lsr-calibrates-native-2nd-cycle
         fi
       fi
     fi
