@@ -195,6 +195,7 @@ main()
 
   process_delta # call for all modes 
   calculate_noise # necessary for all modes
+  process_if_lsr_calibrates_native
 
   fake_meter
 
@@ -1139,8 +1140,7 @@ function  capture_entry_values()
     if [ $(bc <<< "$glucose < 400") -eq 1  -a $(bc <<< "$glucose > 40") -eq 1 ]; then
       if [ $(bc <<< "$variation < 10") -eq 1 ]; then
         if [[ "$auto_sensor_restart" == true ]]; then
-         cgm-stop; sleep 2; cgm-start -m 120
-         touch ${LDIR}/lsr-calibrates-native-next-cycle
+         cgm-stop; sleep 2; cgm-start -m 120; sleep 2; cgm-calibrate $glucose
          touch ${LDIR}/lsr-calibrates-native-2nd-cycle
         fi
       fi
@@ -1166,19 +1166,18 @@ function  capture_entry_values()
   cp -p ${LDIR}/entry.json $lastEntryFile
 }
 
-function checkif_lsr_calibrates_native()
+function process_if_lsr_calibrates_native()
 {
-  local file1="${LDIR}/lsr-calibrates-native-next-cycle"
-  local file2="${LDIR}/lsr-calibrates-native-2nd-cycle"
+  local file="${LDIR}/lsr-calibrates-native-2nd-cycle"
   if [[ "$auto_sensor_restart" == true ]]; then
-    if [[ -e $file1 ]]; then
-      rm $file1
-      # calibrate tx based on LSR
-    elif [[ -e $file2 ]]; then
-      rm $file2
-      # calibrate tx based on LSR
+      if [ $(bc <<< "$variation < 10") -eq 1 ]; then
+        # send calibrate for 2nd cycle to tx based on LSR
+        if [ "$(validBG $calibratedBG)" == "true" ]; then
+          rm $file
+          cgm-calibrate $calibratedBG
+        fi
+      fi
     fi
-  fi
 }
 
 function checkif_fallback_mode()
