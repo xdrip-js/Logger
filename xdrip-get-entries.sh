@@ -1166,6 +1166,21 @@ function  capture_entry_values()
   cp -p ${LDIR}/entry.json $lastEntryFile
 }
 
+function checkif_lsr_calibrates_native()
+{
+  local file1="${LDIR}/lsr-calibrates-native-next-cycle"
+  local file2="${LDIR}/lsr-calibrates-native-2nd-cycle"
+  if [[ "$auto_sensor_restart" == true ]]; then
+    if [[ -e $file1 ]]; then
+      rm $file1
+      # calibrate tx based on LSR
+    elif [[ -e $file2 ]]; then
+      rm $file2
+      # calibrate tx based on LSR
+    fi
+  fi
+}
+
 function checkif_fallback_mode()
 {
   fallback=false
