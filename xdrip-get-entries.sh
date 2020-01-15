@@ -1,5 +1,13 @@
 #!/bin/bash
 
+common_funcs="/root/src/Logger/bin/logger-common-funcs.sh"
+if [ ! -e $common_funcs ]; then
+  echo "ERROR: Failed to run logger-common-funcs.sh. Is Logger correctly installed?"
+  exit 1
+fi
+source $common_funcs
+
+
 SECONDS_IN_10_DAYS=864000
 SECONDS_IN_1_DAY=86400
 SECONDS_IN_7_DAYS=604800
