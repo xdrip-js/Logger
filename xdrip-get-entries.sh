@@ -14,7 +14,6 @@ SECONDS_IN_7_DAYS=604800
 SECONDS_IN_30_MINUTES=1800
 
 CONF_DIR="${HOME}/myopenaps"
-LDIR="${HOME}/myopenaps/monitor/xdripjs"
 OLD_LDIR="${HOME}/myopenaps/monitor/logger"
 treatmentsFile="${LDIR}/treatments-backfill.json"
 lastEntryFile="${LDIR}/last-entry.json"
@@ -1080,20 +1079,6 @@ function  call_logger()
   fi
 }
 
-function newFirmware()
-{
-  local version=$1
-  case $version in
-    1.6.5.27 | 2.*)
-      echo true 
-      ;;
-    *)
-      echo false 
-      ;;
-  esac
-}
-
-
 function  capture_entry_values()
 {
   # capture values for use and for log to csv file 
@@ -1150,6 +1135,8 @@ function  capture_entry_values()
         if [[ "$auto_sensor_restart" == true ]]; then
          cgm-stop; sleep 2; cgm-start -m 120; sleep 2; cgm-calibrate $glucose
          touch ${LDIR}/lsr-calibrates-native-next-cycle
+         # disable native-calibrates LSR for 24 hours
+         touch -d "-24 hours ago" ${LDIR}/native-calibrates-lsr
         fi
       fi
     fi
