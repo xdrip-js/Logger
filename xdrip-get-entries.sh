@@ -1141,7 +1141,7 @@ function  capture_entry_values()
       if [ $(bc <<< "$variation < 10") -eq 1 ]; then
         if [[ "$auto_sensor_restart" == true ]]; then
          cgm-stop; sleep 2; cgm-start -m 120; sleep 2; cgm-calibrate $glucose
-         touch ${LDIR}/lsr-calibrates-native-2nd-cycle
+         touch ${LDIR}/lsr-calibrates-native-next-cycle
         fi
       fi
     fi
@@ -1168,11 +1168,11 @@ function  capture_entry_values()
 
 function process_if_lsr_calibrates_native()
 {
-  local file="${LDIR}/lsr-calibrates-native-2nd-cycle"
+  local file="${LDIR}/lsr-calibrates-native-next-cycle"
   if [ -e $file ]; then
     if [[ "$auto_sensor_restart" == true ]]; then
       if [ $(bc <<< "$variation < 10") -eq 1 ]; then
-        # send calibrate for 2nd cycle to tx based on LSR
+        # send calibrate to be processed next cycle to tx based on LSR
         if [ "$(validBG $calibratedBG)" == "true" ]; then
           rm $file
           # check to make sure we have more than 2 LSR records
