@@ -1169,15 +1169,20 @@ function  capture_entry_values()
 function process_if_lsr_calibrates_native()
 {
   local file="${LDIR}/lsr-calibrates-native-2nd-cycle"
-  if [[ "$auto_sensor_restart" == true ]]; then
+  if [ -e $file ]; then
+    if [[ "$auto_sensor_restart" == true ]]; then
       if [ $(bc <<< "$variation < 10") -eq 1 ]; then
         # send calibrate for 2nd cycle to tx based on LSR
         if [ "$(validBG $calibratedBG)" == "true" ]; then
           rm $file
-          cgm-calibrate $calibratedBG
+          # check to make sure we have more than 2 LSR records
+          if [ $(bc <<< "$calRecords > 2") -eq 1 ]; then
+            cgm-calibrate $calibratedBG
+          fi
         fi
       fi
     fi
+  fi
 }
 
 function checkif_fallback_mode()
