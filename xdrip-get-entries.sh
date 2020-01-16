@@ -1135,8 +1135,9 @@ function  capture_entry_values()
         if [[ "$auto_sensor_restart" == true ]]; then
          cgm-stop; sleep 2; cgm-start -m 120; sleep 2; cgm-calibrate $glucose
          touch ${LDIR}/lsr-calibrates-native-next-cycle
-         # disable native-calibrates LSR for 24 hours
-         touch -d "-24 hours ago" ${LDIR}/native-calibrates-lsr
+         # Touch the file 18 hours in the future in order to 
+         # disable native-calibrates LSR for exactly 24 hours from now 
+         touch -d "-18 hours ago" ${LDIR}/native-calibrates-lsr
         fi
       fi
     fi
