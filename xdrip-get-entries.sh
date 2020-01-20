@@ -134,7 +134,7 @@ main()
   epochdatems=$(date +'%s%3N')
   dateString=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
 
-
+  getTxVersion # reads the json file that stores the latest known tx firmware version
   initialize_mode # call now and after getting status from tx
   initialize_messages
   check_environment
@@ -382,7 +382,7 @@ function check_environment
      exit
   fi
 
-  type bt-device 2> /dev/null || echo "Error: bt-device is not found. Use sudo apt-get install bluez-tools"
+  type bt-device 2> /dev/null || log "Error: bt-device is not found. Use sudo apt-get install bluez-tools"
 
 }
 
@@ -504,10 +504,10 @@ function check_sensor_stop()
         touch ${LDIR}/nightscout-treatments.log
         if ! cat ${LDIR}/nightscout-treatments.log | egrep "$createdAt"; then
           stop_date=$(date "+%s%3N" -d "$createdAt")
-          echo "Processing sensor stop retrieved from Nightscout - stopdate = $createdAt"
+          log "Processing sensor stop retrieved from Nightscout - stopdate = $createdAt"
           # comment out below line for testing sensor stop without actually sending tx message
           stopJSON="[{\"date\":\"${stop_date}\",\"type\":\"StopSensor\"}]"
-          echo "stopJSON = $stopJSON"
+          log "stopJSON = $stopJSON"
           # below done so that next time the egrep returns positive for this specific message and the log reads right
           echo "Already Processed Sensor Stop Message from Nightscout at $createdAt" >> ${LDIR}/nightscout-treatments.log
           # Always clear LSR cache for any new firmware g6 start / stop
@@ -546,18 +546,21 @@ function check_sensor_start()
           sensorSerialCode="${sensorSerialCode#\"}"
 
           start_date=$(date "+%s%3N" -d "$createdAt")
-          echo "Processing sensor start retrieved from Nightscout - startdate = $createdAt, sensorCode = $sensorSerialCode"
+          log "Processing sensor start retrieved from Nightscout - startdate = $createdAt, sensorCode = $sensorSerialCode"
           # comment out below line for testing sensor start without actually sending tx message
           # always send sensorSerialCode even if it is blank - doesn't matter for g5, but needed
           # for g6
           startJSON="[{\"date\":\"${start_date}\",\"type\":\"StartSensor\",\"sensorSerialCode\":\"${sensorSerialCode}\"}]"
-          echo "startJSON = $startJSON"
+          log "startJSON = $startJSON"
           # below done so that next time the egrep returns positive for this specific message and the log reads right
           echo "Already Processed Sensor Start Message from Nightscout at $createdAt" >> ${LDIR}/nightscout-treatments.log
           # Always clear LSR cache for any new firmware g6 start / stop
           if [ "$(newFirmware $tx_version)" == "true" ]; then
+            log "clearing calibration due to Sensor Start and tx version $tx_version"
             ClearCalibrationInput
             ClearCalibrationCache
+          else
+            log "Not clearing calibration due to Sensor Start, tx version $tx_version"
           fi
   
           #update xdripjs.json with new sensor code
@@ -1022,7 +1025,7 @@ function compile_messages()
   messages=""
   if [ -e $xdripMessageFile ]; then
     messages=$(cat $xdripMessageFile)
-    echo "messages=$messages"
+    log "messages=$messages"
   fi
  
   if [ "$messages" == "" ]; then
@@ -1079,6 +1082,19 @@ function  call_logger()
   fi
 }
 
+# reads the json file that stores the latest known tx firmware version
+function getTxVersion()
+{
+  if [ -e "${LDIR}/tx-version.json" ]; then
+    tx_version=$(txVersion)
+    if [ "$(newFirmware $tx_version)" == "true" ]; then
+      log "Dexcom tx version is $tx_version (new firmware)"
+    else
+      log "Dexcom tx version is $tx_version (not new firmware)"
+    fi
+  fi
+}
+
 function  capture_entry_values()
 {
   # capture values for use and for log to csv file 
@@ -1097,16 +1113,8 @@ function  capture_entry_values()
   status_id=$(cat ${LDIR}/extra.json | jq -M '.[0].status_id')
   transmitterStartDate=$(cat ${LDIR}/extra.json | jq -M '.[0].transmitterStartDate')
 
-  if [ -e "${LDIR}/tx-version.json" ]; then
-    tx_version=$(cat ${LDIR}/tx-version.json | jq -M '.firmwareVersion')
-    tx_version="${tx_version%\"}"
-    tx_version="${tx_version#\"}"
-    if [ "$(newFirmware $tx_version)" == "true" ]; then
-      echo "Dexcom tx version is $tx_version (new firmware)"
-    else
-      echo "Dexcom tx version is $tx_version (not new firmware)"
-    fi
-  fi
+  # reads the json file that stores the latest known tx firmware version
+  getTxVersion
 
   transmitterStartDate="${transmitterStartDate%\"}"
   transmitterStartDate="${transmitterStartDate#\"}"
@@ -1194,7 +1202,7 @@ function checkif_fallback_mode()
       # fallback to try to use unfiltered in this case
       mode="expired"
       fallback=true
-      echo "Due to tx calibrated glucose of $glucose, Logger will temporarily fallback to mode=$mode"
+      log "Due to tx calibrated glucose of $glucose, Logger will temporarily fallback to mode=$mode"
     fi
   fi
 }
@@ -1217,7 +1225,7 @@ function initialize_mode()
   if [[ "$cmd_line_mode" == "read-only" ]]; then
     mode="read-only"
   fi
-  echo "Logger mode=$mode"
+  log "Logger mode=$mode"
 }
 
 function  initialize_calibrate_bg()

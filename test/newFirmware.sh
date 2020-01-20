@@ -12,19 +12,6 @@ source $common_funcs
 #KNOWN_G6_REV2_FIRMWARES = ("2.18.2.67", "2.18.2.88");
 #KNOWN_TIME_TRAVEL_TESTED = ("1.6.5.25");
 
-#function newFirmware()
-#{
-#  local version=$1
-#  case $version in
-#    1.6.5.27 | 2.*)
-##      echo true 
-#      ;;
-#    *)
-#      echo false 
-#      ;;
-#  esac
-#}
-
 function testVersion()
 {
   if [ "$(newFirmware $version)" == "true" ]; then
