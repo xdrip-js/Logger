@@ -285,6 +285,6 @@ transmitter.on('backfillData', backfills => {
   if(err) {
       console.log("Error while writing entry-backfill2.json");
       console.log(err);
-      })
+      });
   });
 });
