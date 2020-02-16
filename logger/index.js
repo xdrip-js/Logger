@@ -281,10 +281,11 @@ transmitter.on('backfillData', backfills => {
       }
       json = json.concat(newEntries);
       console.log("full backfill entries to upload: " + JSON.stringify(json));
-      fs.writeFile('/root/myopenaps/monitor/xdripjs/entry-backfill2.json', JSON.stringify(json), function(err) {
-  if(err) {
-      console.log("Error while writing entry-backfill2.json");
-      console.log(err);
-      })
+      fs.writeFile("/root/myopenaps/monitor/xdripjs/entry-backfill2.json", JSON.stringify(json), function(err) {
+      if(err) {
+          console.log("Error while writing tx-version.json");
+          console.log(err);
+          }
+      });
   });
 });
