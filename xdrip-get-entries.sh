@@ -126,7 +126,7 @@ main()
   variation=0
   messages=""
   ns_url="${NIGHTSCOUT_HOST}"
-  METERBG_NS_RAW="meterbg_ns_raw.json"
+  METERBG_NS_RAW="${LDIR}/meterbg_ns_raw.json"
   battery_check="No" # default - however it will be changed to Yes every 12 hours
   sensitivty=0
 
