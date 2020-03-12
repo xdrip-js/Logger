@@ -1582,7 +1582,9 @@ function apply_lsr_calibration()
 
   if [ "$yIntercept" != "" -a "$slope" != "" ]; then
     calibratedBG=$(bc -l <<< "($unfiltered - $yIntercept)/$slope")
-    calibratedBG=$(round $calibratedBG) # truncate
+    calibratedBG=$(round $calibratedBG) # round to decimal mg/dl
+    # Logger does everything in mg/dl. Input in mmol are converted to mg/dl and all 
+    # calculations / output are in mg/dl. NS can change it back to mmol based on user preferences.
     log "After calibration calibratedBG =$calibratedBG, slope=$slope, yIntercept=$yIntercept, filtered=$filtered, unfiltered=$unfiltered"
   else
     calibratedBG=0
