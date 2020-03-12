@@ -1582,7 +1582,8 @@ function apply_lsr_calibration()
 
   if [ "$yIntercept" != "" -a "$slope" != "" ]; then
     calibratedBG=$(bc -l <<< "($unfiltered - $yIntercept)/$slope")
-    calibratedBG=$(bc <<< "($calibratedBG / 1)") # truncate
+#    calibratedBG=$(bc <<< "($calibratedBG / 1)") # truncate
+    calibratedBG=$(bcr $calibratedBG) # truncate
     log "After calibration calibratedBG =$calibratedBG, slope=$slope, yIntercept=$yIntercept, filtered=$filtered, unfiltered=$unfiltered"
   else
     calibratedBG=0
@@ -2042,5 +2043,11 @@ function bt_watchdog()
     fi
   fi
 }
+
+function bcr()
+{
+  echo "$1" | awk '{printf("%d\n",$1 + 0.5)}'
+}
+
 
 main "$@"
