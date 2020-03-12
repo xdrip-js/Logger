@@ -126,7 +126,7 @@ main()
   variation=0
   messages=""
   ns_url="${NIGHTSCOUT_HOST}"
-  METERBG_NS_RAW="meterbg_ns_raw.json"
+  METERBG_NS_RAW="${LDIR}/meterbg_ns_raw.json"
   battery_check="No" # default - however it will be changed to Yes every 12 hours
   sensitivty=0
 
@@ -1582,7 +1582,9 @@ function apply_lsr_calibration()
 
   if [ "$yIntercept" != "" -a "$slope" != "" ]; then
     calibratedBG=$(bc -l <<< "($unfiltered - $yIntercept)/$slope")
-    calibratedBG=$(bc <<< "($calibratedBG / 1)") # truncate
+    calibratedBG=$(round $calibratedBG) # round to nearest whole number in mg/dl
+    # Logger does everything in mg/dl. Input in mmol are converted to mg/dl and all 
+    # calculations / output are in mg/dl. NS can change it back to mmol based on user preferences.
     log "After calibration calibratedBG =$calibratedBG, slope=$slope, yIntercept=$yIntercept, filtered=$filtered, unfiltered=$unfiltered"
   else
     calibratedBG=0
@@ -2042,5 +2044,11 @@ function bt_watchdog()
     fi
   fi
 }
+
+function round()
+{
+  echo "$1" | awk '{printf("%d\n",$1 + 0.5)}'
+}
+
 
 main "$@"
