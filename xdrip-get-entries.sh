@@ -2002,7 +2002,8 @@ function check_last_glucose_time_smart_sleep()
     if [ $(bc <<< "$sleep_time > 0") -eq 1 -a $(bc <<< "$sleep_time < 180") -eq 1 ]; then
       log "Waiting $sleep_time seconds because glucose records only happen every 5 minutes"
       wait_with_echo $sleep_time
-    elif [ $(bc <<< "$sleep_time < -60") -eq 1 ]; then
+    elif [ $(bc <<< "$sleep_time < -60") -eq 1 -a $(bc <<< "$sleep_time > -3660") -eq 1 ]; then
+      # Don't backfill more than 1 hour back to avoid timeouts
       # FIXME: maybe this sholud go in a seperate function not related to sleep
       backfill_start=${lastGlucoseDate}
       [[ $backfill_start == 0 ]] && backfill_start=$(date "+%s%3N" -d @"$entry_timestamp")
