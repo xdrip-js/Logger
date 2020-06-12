@@ -108,7 +108,7 @@ main()
 
   alternateBluetoothChannel=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.alternate_bluetooth_channel')
   if [ -z  "$alternateBluetoothChannel" ] || [ "$alternateBluetoothChannel" == "null" ]; then
-    alternateBluetoothChannel=false
+    alternateBluetoothChannel=true
   fi
 
   log "Parameter (alternateBluetoothChannel): $alternateBluetoothChannel"
