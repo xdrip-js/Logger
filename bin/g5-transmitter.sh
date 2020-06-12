@@ -10,7 +10,7 @@ function usage
 
 function  generate_config
 {
-  echo "{\"transmitter_id\":\"${txId}\",\"sensor_code\":\"\",\"mode\":\"not-expired\",\"pump_units\":\"mg/dl\",\"fake_meter_id\":\"000000\"}" | jq . > $config
+  echo "{\"transmitter_id\":\"${txId}\",\"sensor_code\":\"\",\"mode\":\"not-expired\",\"pump_units\":\"mg/dl\",\"fake_meter_id\":\"000000\",\"alternate_bluetooth_channel\":true}" | jq . > $config
 }
 
 numArgs=$#
