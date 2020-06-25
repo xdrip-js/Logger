@@ -137,6 +137,19 @@ After calibration(s), you should see BG values in Nightscout and in the log.
 
 ## Troubleshooting 
 
+If during installation you get stuck after running this command ```sudo npm run global-install``` at a point starting ```fetchMetadata``` it suggests you have an issue connecting to the git reposistory. E.g.:
+```
+> Logger@1.2.4 global-install /root/src/Logger
+> rm -rf ./node-modules/xdrip-js && ./bin/upgrade-node.sh && npm install && ./bin/logger-setup.sh
+
+Node version already at v8 - good to go
+[  ................] / fetchMetadata: sill install loadAllDepsIntoIdealTree
+```
+To fix this, run the following ```git config --global url."https://".insteadOf git://``` which points the downloader to the https:// instance and run ```sudo npm run global-install``` again and carry on from that point.
+
+If this doesn't work, delete the Logger folder and all it's contents ```rm -rf /root/src/Logger``` and then re-run the installation from the start.
+
+
 If both unfiltered and filtered values are showing up as 0 in the Logger logfile, then you may be able to solve the problem by doing a ```cgm-reset```. Note: This will reset the session and you will lose any transmitter stored calibrations so this technique is probably best used when unfiltered is 0 upon new sensor insertion. 
 
 If timing out, recheck the configuration of the transmitter id, make sure the bt-device command is available, ensure there are no conflicting bluetooth connections on the same channel (i.e. Dexcom App, Receiver, or XDrip+).
