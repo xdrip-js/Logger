@@ -135,12 +135,13 @@ Calibrate by using one of the two methods (Nightscout Treatment BG Check and put
 
 After calibration(s), you should see BG values in Nightscout and in the log.
 
-## Troubleshooting 
+# Troubleshooting 
 ## G5 Tx unfiltered / filtered values showing 0
 
 If both unfiltered and filtered values are showing up as 0 in the Logger logfile, then you may be able to solve the problem by doing a ```cgm-reset```. Note: This will reset the session and you will lose any transmitter stored calibrations so this technique is probably best used when unfiltered is 0 upon new sensor insertion. 
 
-# Tx Communication Timing Out Issues
+## Tx Communication Timing Out Issues
+
 If timing out, recheck the configuration of the transmitter id, make sure the bt-device command is available, ensure there are no conflicting bluetooth connections on the same channel (i.e. Dexcom App, Receiver, or XDrip+).
 
 
@@ -157,10 +158,10 @@ If you have network connectivity on the rig, but BG values are not showing up on
 ``` 
 curl --compressed -m 30 -H "API-SECRET: ${API_SECRET}" "${NIGHTSCOUT_HOST}/api/v1/treatments.json?find\[eventType\]\[\$regex\]=Check&count=1"
 ```
-# Checking Sensor Noise Levels
+## Checking Sensor Noise Levels
 To check recent reported BG noise levels, run the command line utility ```cgm-noise```
 
-# Install issues
+## Install issues
 If during installation you get stuck after running this command ```sudo npm run global-install``` at a point starting ```fetchMetadata``` it suggests you have an issue connecting to the git reposistory. E.g.:
 ```
 > Logger@1.2.4 global-install /root/src/Logger
