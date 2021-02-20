@@ -108,6 +108,7 @@ You can edit the following options values in the configuration file (~/myopenaps
 	{"watchdog":true or false}, Optional - Default is true. If set to true then Logger will automatically reboot the rig to resolve bluetooth issues if no glucose is seen from the transmitter in more than 14 minutes.
 	{"utc":true or false}, Optional - Default is true. If set to true then Logger will assume UTC date/time strings coming from the curls to NightScout. 
 	{"fakemeter_only_offline":true or false}, Optional - Default is false. If set to false then Logger will not attempt to call fakemeter unless the rig is offline. 
+	{"note_not_announcement":true or false}, Optional - Default is false. If set to true then Logger will post an Announcement as a Note. 
 
 ## Getting Started
 First, make sure you've checked the Prerequisites above and completed the Installation steps. Afterwords, perform the following steps:

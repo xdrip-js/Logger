@@ -1267,7 +1267,14 @@ function postAnnouncementToNS()
 {
   local announcement=$1
 
-  echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"Announcement\",\"notes\":\"$announcement\"}]" > ${LDIR}/status-change.json
+  note_not_announcement=$(cat ${CONF_DIR}/xdripjs.json | jq -M -r '.note_not_announcement')
+  if [ "$note_not_announcement" == true ]; then
+      eventtype="Note"
+  else
+      eventtype="Announcement"
+  fi
+
+  echo "[{\"enteredBy\":\"Logger\",\"eventType\":\"$eventtype\",\"notes\":\"$announcement\"}]" > ${LDIR}/status-change.json
   /usr/local/bin/cgm-post-ns ${LDIR}/status-change.json treatments && (echo; log "Upload to NightScout of Announcment worked - $announcement") || (echo; log "Upload of Announcement to NS did not work - $announcement")
 }
 
